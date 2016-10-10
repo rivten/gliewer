@@ -74,3 +74,19 @@ float Tan(float X)
 
 	return(Result);
 }
+
+int Sign(float X)
+{
+	if(X < 0)
+	{
+		return(-1);
+	}
+	else if(X > 0)
+	{
+		return(1);
+	}
+	else
+	{
+		return(0);
+	}
+}

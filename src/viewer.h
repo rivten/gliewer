@@ -4,6 +4,7 @@ struct camera
 {
 	v3 Pos;
 	v3 Target;
+	v3 Right;
 	float FoV;
 	float Aspect;
 	float NearPlane;
@@ -16,6 +17,10 @@ struct game_state
 	shader BasicShader;
 	camera Camera;
 	float Time;
+
+	s32 MouseXInitial;
+	s32 MouseYInitial;
+	bool MouseDragging;
 };
 
 #include "viewer.cpp"
