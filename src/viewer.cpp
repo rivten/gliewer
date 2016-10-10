@@ -1,5 +1,17 @@
 #pragma once
 
+void Clear(v4 ClearColor)
+{
+	glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void SetUniform(shader Shader, mat4 Matrix, const char* VariableName)
+{
+	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
+	glUniformMatrix4fv(Location, 1, GL_FALSE, Matrix.Data_); 
+}
+
 void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input* Input, game_offscreen_buffer* Screenbuffer)
 {
 	Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
@@ -7,7 +19,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	if(!Memory->IsInitialized)
 	{
 		State->Mesh = LoadOBJ("../models/teapot.obj");
-		State->BasicShader = shader("../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl");
+		State->BasicShader = LoadShader("../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl");
 		State->Time = 0.0f;
 
 		// NOTE(hugo) : This must be the last command of the initialization of memory
@@ -18,8 +30,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	State->Time += Input->dtForFrame;
 
-	glClearColor(0.4f, 0.6f, 0.2f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	Clear(V4(0.4f, 0.6f, 0.2f, 1.0f));
 
 #if 0
 	v3 Vertices[] = 
@@ -100,17 +111,12 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	mat4 ProjectionMatrix = Perspective(Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 0.5f, 30.0f);
 
 	mat4 MVPMatrix = ProjectionMatrix * ViewMatrix * State->Mesh.ModelMatrix;
+	mat4 NormalMatrix = Transpose(Inverse(ViewMatrix * State->Mesh.ModelMatrix));
 
 	UseShader(State->BasicShader);
-	GLuint MVPMatrixLocation = glGetUniformLocation(State->BasicShader.Program, "MVPMatrix");
-	glUniformMatrix4fv(MVPMatrixLocation, 1, GL_FALSE, MVPMatrix.Data_); 
-
-	mat4 NormalMatrix = Transpose(Inverse(ViewMatrix * State->Mesh.ModelMatrix));
-	GLuint NormalMatrixLocation = glGetUniformLocation(State->BasicShader.Program, "NormalMatrix");
-	glUniformMatrix4fv(NormalMatrixLocation, 1, GL_FALSE, NormalMatrix.Data_); 
-
-	GLuint ViewMatrixLocation = glGetUniformLocation(State->BasicShader.Program, "ViewMatrix");
-	glUniformMatrix4fv(ViewMatrixLocation, 1, GL_FALSE, ViewMatrix.Data_); 
+	SetUniform(State->BasicShader, MVPMatrix, "MVPMatrix");
+	SetUniform(State->BasicShader, NormalMatrix, "NormalMatrix");
+	SetUniform(State->BasicShader, ViewMatrix, "ViewMatrix");
 
 	DrawTrianglesMesh(&State->Mesh);
 

@@ -5,17 +5,14 @@
 #include <sstream>
 #include <string>
 
-// TODO(hugo) : Un-objectify this (get rid of constructor entirely)
 struct shader
 {
 	GLuint Program;
-	shader() : Program(0) {};
-	shader(const GLchar* vertexPath, const GLchar* fragmentPath);
-    shader(const GLchar* vertexPath, const GLchar* geometryPath, const GLchar* fragmentPath);
 };
 
-shader::shader(const GLchar* vertexPath, const GLchar* fragmentPath)
+shader LoadShader(const GLchar* vertexPath, const GLchar* fragmentPath)
 {
+	shader Result = {};
 	std::string vertexCode;
 	std::string fragmentCode;
 	std::ifstream vShaderFile;
@@ -68,23 +65,27 @@ shader::shader(const GLchar* vertexPath, const GLchar* fragmentPath)
 		//std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
 	}
 
-	Program = glCreateProgram();
-	glAttachShader(Program, vertex);
-	glAttachShader(Program, fragment);
-	glLinkProgram(Program);
-	glGetProgramiv(Program, GL_LINK_STATUS, &success);
+	Result.Program = glCreateProgram();
+	glAttachShader(Result.Program, vertex);
+	glAttachShader(Result.Program, fragment);
+	glLinkProgram(Result.Program);
+	glGetProgramiv(Result.Program, GL_LINK_STATUS, &success);
 	if (!success)
 	{
-		glGetProgramInfoLog(Program, 512, 0, infoLog);
+		glGetProgramInfoLog(Result.Program, 512, 0, infoLog);
 		//std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
 	}
 
 	glDeleteShader(vertex);
 	glDeleteShader(fragment);
+
+	return(Result);
 }
 
-shader::shader(const GLchar* vertexPath, const GLchar* geometryPath, const GLchar* fragmentPath)
+shader LoadShader(const GLchar* vertexPath, const GLchar* geometryPath, const GLchar* fragmentPath)
 {
+	shader Result = {};
+
 	std::string vertexCode;
 	std::string geometryCode;
 	std::string fragmentCode;
@@ -157,21 +158,23 @@ shader::shader(const GLchar* vertexPath, const GLchar* geometryPath, const GLcha
 		//std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
 	}
 
-	Program = glCreateProgram();
-	glAttachShader(Program, vertex);
-	glAttachShader(Program, geometry);
-	glAttachShader(Program, fragment);
-	glLinkProgram(Program);
-	glGetProgramiv(Program, GL_LINK_STATUS, &success);
+	Result.Program = glCreateProgram();
+	glAttachShader(Result.Program, vertex);
+	glAttachShader(Result.Program, geometry);
+	glAttachShader(Result.Program, fragment);
+	glLinkProgram(Result.Program);
+	glGetProgramiv(Result.Program, GL_LINK_STATUS, &success);
 	if (!success)
 	{
-		glGetProgramInfoLog(Program, 512, 0, infoLog);
+		glGetProgramInfoLog(Result.Program, 512, 0, infoLog);
 		//std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
 	}
 
 	glDeleteShader(vertex);
 	glDeleteShader(geometry);
 	glDeleteShader(fragment);
+
+	return(Result);
 }
 
 inline void UseShader(shader Shader)
