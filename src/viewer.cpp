@@ -45,8 +45,6 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		Memory->IsInitialized = true;
 	}
 
-	glEnable(GL_DEPTH_TEST);
-
 	State->Time += Input->dtForFrame;
 
 	Clear(V4(0.4f, 0.6f, 0.2f, 1.0f));

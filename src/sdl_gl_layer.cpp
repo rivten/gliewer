@@ -157,6 +157,17 @@ void SDLProcessKeyboardState(game_input* Input)
 int main(int argc, char** argv)
 {
     SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO);
+	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+
+	SDL_GL_SetSwapInterval(0);
 
     SDL_Window* Window = SDL_CreateWindow("3d viewer @ rivten", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
             GlobalWindowWidth, GlobalWindowHeight, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
@@ -166,25 +177,18 @@ int main(int argc, char** argv)
         return(1);
     }
 
-	// NOTE(hugo) : Disabling SDL_GL_ACCELERATED_VISUAL seems to get rid of flickering. Why ?
-    //SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetSwapInterval(0);
 
-    SDL_GLContext GLContext = SDL_GL_CreateContext(Window);
-
-	ImGuiInit(Window);
+	SDL_GLContext GLContext = SDL_GL_CreateContext(Window);
 
     // NOTE(hugo) : Initializating glew
     glewExperimental = GL_TRUE;
     GLenum GlewInitResult = glewInit();
     if(GlewInitResult == GLEW_OK)
     { 
+		ImGuiInit(Window);
+		glEnable(GL_MULTISAMPLE);
+		glEnable(GL_DEPTH_TEST);
+
         GlobalRunning = true;
 
         u32 MonitorRefreshHz = 60;
