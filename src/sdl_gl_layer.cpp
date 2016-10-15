@@ -140,11 +140,7 @@ void SDLProcessKeyboardState(game_input* Input)
 {
     int KeyCount;
     const u8* KeyboardState = SDL_GetKeyboardState(&KeyCount);
-    // TODO(hugo) : Evaluate performance of this compared to a C copy using sprintf or an equivalent
-    for(s32 KeyIndex = 0; KeyIndex < KeyCount; ++KeyIndex)
-    {
-        Input->KeyboardButtons[KeyIndex] = KeyboardState[KeyIndex];
-    }
+	memcpy(Input->KeyboardButtons, KeyboardState, KeyCount);
 }
 
 int main(int argc, char** argv)
