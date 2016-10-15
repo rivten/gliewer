@@ -1,5 +1,7 @@
 #pragma once
 
+#include <imgui_demo.cpp>
+
 void Clear(v4 ClearColor)
 {
 	glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
@@ -92,4 +94,5 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	DrawTrianglesMesh(&State->Mesh);
 
+	ImGui::ShowTestWindow();
 }

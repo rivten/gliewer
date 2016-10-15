@@ -423,6 +423,7 @@ enum scancode
                                  for array bounds */
 };
 
+// TODO(hugo) : Get textinput event and MouseWheel (mostly for ImGui)
 struct game_input
 {
     game_button_state MouseButtons[5];

@@ -6,6 +6,8 @@
 #include <GL\glew.h>
 #include <stdio.h>
 
+#include "imgui_layer.h"
+
 #include "math/vector.h"
 #include "math/functions.h"
 #include "math/matrix.h"
@@ -169,6 +171,8 @@ int main(int argc, char** argv)
 
     SDL_GLContext GLContext = SDL_GL_CreateContext(Window);
 
+	ImGuiInit(Window);
+
     // NOTE(hugo) : Initializating glew
     glewExperimental = GL_TRUE;
     GLenum GlewInitResult = glewInit();
@@ -307,7 +311,10 @@ int main(int argc, char** argv)
                 Buffer.Height = Screen->h;
                 Buffer.Pitch = Screen->pitch;
 
+				ImGuiNewFrame(Window, Input);
+
                 GameUpdateAndRender(&Thread, &GameMemory, NewInput, &Buffer);
+				ImGui::Render();
                 SDL_GL_SwapWindow(Window);
 
                 // TODO(hugo) : Sound in SDL !!
@@ -352,6 +359,7 @@ int main(int argc, char** argv)
         return(1);
     }
 
+	ImGuiShutdown();
     SDL_GL_DeleteContext(GLContext);
     SDL_DestroyWindow(Window);
     SDL_Quit();

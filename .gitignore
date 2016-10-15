@@ -1,4 +1,5 @@
 models/
 project/
 shaders/
+dep/
 .svn/
