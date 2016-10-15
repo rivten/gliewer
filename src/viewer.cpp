@@ -94,5 +94,18 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	DrawTrianglesMesh(&State->Mesh);
 
-	ImGui::ShowTestWindow();
+	if(ImGui::BeginMainMenuBar())
+	{
+		if(ImGui::BeginMenu("Menu"))
+		{
+			ImGui::MenuItem("(dummy menu)", NULL, false, true);
+			ImGui::EndMenu();
+		}
+		if(ImGui::BeginMenu("About"))
+		{
+            ImGui::MenuItem("Main menu bar", NULL, false, true);
+			ImGui::EndMenu();
+		}
+        ImGui::EndMainMenuBar();
+	}
 }
