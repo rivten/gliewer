@@ -292,6 +292,7 @@ void ImGuiNewFrame(SDL_Window* window, game_input* Input)
 	// TODO(hugo) : Get TextInput and KeyModifiers (Shift, Ctrl, Alt, Super)
 
     io.MouseWheel = (float)Input->MouseZ;
+	Input->MouseZ = 0;
 
     // Hide OS mouse cursor if ImGui is drawing it
     SDL_ShowCursor(io.MouseDrawCursor ? 0 : 1);

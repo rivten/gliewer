@@ -58,7 +58,7 @@ static void SDLProcessDigitalButton(game_button_state* OldButtonState, game_butt
     SDLProcessDigitalButton(OldButtonState, NewButtonState, IsDown);
 }
 
-static void SDLProcessPendingMessages(game_controller_input* KeyboardController)
+static void SDLProcessPendingMessages(game_input* Input)
 {
     SDL_Event Event;
     // TODO(hugo) : Peep or Poll ? 
@@ -80,55 +80,66 @@ static void SDLProcessPendingMessages(game_controller_input* KeyboardController)
                     {
                         if(Keycode == SDLK_z)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->MoveUp, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].MoveUp, IsDown);
                         }
                         else if(Keycode == SDLK_q)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->MoveLeft, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].MoveLeft, IsDown);
                         }
                         else if(Keycode == SDLK_s)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->MoveDown, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].MoveDown, IsDown);
                         }
                         else if(Keycode == SDLK_d)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->MoveRight, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].MoveRight, IsDown);
                         }
                         else if(Keycode == SDLK_a)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->LeftShoulder, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].LeftShoulder, IsDown);
                         }
                         else if(Keycode == SDLK_e)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->RightShoulder, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].RightShoulder, IsDown);
                         }
                         else if(Keycode == SDLK_UP)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->ActionUp, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].ActionUp, IsDown);
                         }
                         else if(Keycode == SDLK_LEFT)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->ActionLeft, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].ActionLeft, IsDown);
                         }
                         else if(Keycode == SDLK_DOWN)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->ActionDown, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].ActionDown, IsDown);
                         }
                         else if(Keycode == SDLK_RIGHT)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->ActionRight, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].ActionRight, IsDown);
                         }
                         else if(Keycode == SDLK_ESCAPE)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->Back, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].Back, IsDown);
                         }
                         else if(Keycode == SDLK_SPACE)
                         {
-                            SDLProcessKeyboardMessage(&KeyboardController->Start, IsDown);
+                            SDLProcessKeyboardMessage(&Input->Controllers[0].Start, IsDown);
                         }
                     }
                 } break;
 
+            case SDL_MOUSEWHEEL:
+				{
+					if(Event.wheel.y > 0)
+					{
+						Input->MouseZ += 1;
+					}
+					else if(Event.wheel.y < 0)
+					{
+						Input->MouseZ += -1;
+					}
+				};
             default:
                 {
                 } break;
@@ -216,7 +227,7 @@ int main(int argc, char** argv)
                         OldKeyboardController->Buttons[ButtonIndex].EndedDown;
                 }
 
-                SDLProcessPendingMessages(NewKeyboardController);
+                SDLProcessPendingMessages(NewInput);
 
                 SDLProcessKeyboardState(NewInput);
 
