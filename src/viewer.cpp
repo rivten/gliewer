@@ -49,6 +49,11 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	Clear(V4(0.4f, 0.6f, 0.2f, 1.0f));
 
+	// TODO(hugo) : Smooth MouseWheel camera movement
+	float DeltaMovement = 0.5f;
+	v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
+	State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
+
 	if(Input->MouseButtons[0].EndedDown)
 	{
 		if(!State->MouseDragging)

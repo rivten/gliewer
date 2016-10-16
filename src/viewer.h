@@ -1,5 +1,22 @@
 #pragma once
 
+/*
+ * TODO(hugo)
+ *   - shadow mapping
+ *   - proper OBJ loading
+ *   - mesh code cleanup
+ *   - profiling
+ *   - bloom
+ *   - ambient occlusion (SSAO ?)
+ *   - culling
+ *   - cubemaps
+ *   - instancing
+ *   - gamma correction
+ *   - normal mapping
+ *   - post-processing
+ *   - deferred shading
+ */
+
 struct camera
 {
 	v3 Pos;

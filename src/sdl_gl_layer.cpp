@@ -131,14 +131,7 @@ static void SDLProcessPendingMessages(game_input* Input)
 
             case SDL_MOUSEWHEEL:
 				{
-					if(Event.wheel.y > 0)
-					{
-						Input->MouseZ += 1;
-					}
-					else if(Event.wheel.y < 0)
-					{
-						Input->MouseZ += -1;
-					}
+					Input->MouseZ = Event.wheel.y;
 				};
             default:
                 {
@@ -358,6 +351,8 @@ int main(int argc, char** argv)
 				// TODO(hugo) : Formalize how I handle ScreenBuffer with the game architecture
                 //SDL_UpdateWindowSurface(Window);
 
+				// TODO(hugo) : Properly cleanup Input::MouseZ value
+				NewInput->MouseZ = 0;
                 game_input* Temp = NewInput;
                 NewInput = OldInput;
                 OldInput = Temp;
