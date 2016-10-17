@@ -2,13 +2,14 @@
 
 /*
  * TODO(hugo)
+ *   - texture support
  *   - shadow mapping
- *   - proper OBJ loading
  *   - mesh code cleanup
+ *   - display triangles on the mesh
+ *   - ambient occlusion (SSAO ?)
+ *   - proper OBJ loading
  *   - profiling
  *   - bloom
- *   - ambient occlusion (SSAO ?)
- *   - culling
  *   - cubemaps
  *   - instancing
  *   - gamma correction
