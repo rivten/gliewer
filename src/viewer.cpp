@@ -14,16 +14,45 @@ void SetUniform(shader Shader, mat4 Matrix, const char* VariableName)
 	glUniformMatrix4fv(Location, 1, GL_FALSE, Matrix.Data_); 
 }
 
+void SetUniform(shader Shader, v2 V, const char* VariableName)
+{
+	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
+	glUniform2f(Location, V.x, V.y); 
+}
+
+void SetUniform(shader Shader, v3 V, const char* VariableName)
+{
+	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
+	glUniform3f(Location, V.x, V.y, V.z); 
+}
+
+void SetUniform(shader Shader, v4 V, const char* VariableName)
+{
+	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
+	glUniform4f(Location, V.x, V.y, V.z, V.w); 
+}
+
 void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input* Input, game_offscreen_buffer* Screenbuffer)
 {
 	Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
 	game_state* State = (game_state*)Memory->PermanentStorage;
 	if(!Memory->IsInitialized)
 	{
-		State->Mesh = LoadOBJ("../models/teapot.obj");
-		State->Mesh.ModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
+		State->ObjectMesh = LoadOBJ("../models/teapot.obj");
+		State->ObjectMesh.ModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
+
+		State->CubeMesh = LoadOBJ("../models/cube.obj");
+		State->CubeMesh.ModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
 
 		State->BasicShader = LoadShader("../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl");
+		State->LightingShader = LoadShader("../src/shaders/lighting_v.glsl", "../src/shaders/lighting_f.glsl");
+
+		// TODO(hugo) : Maybe I should need to split a mesh and its Model Matrix 
+		// (here several lights would need the same mesh (vertex infos) 
+		// but could be placed at different positions (different model matrix))
+		State->Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(0.0f, 0.0f, 1.0f, 0.0f)};
+		State->CubeMesh.ModelMatrix = Translation(State->Light.Pos) * State->CubeMesh.ModelMatrix;
+
 		State->Time = 0.0f;
 
 		State->Camera = {};
@@ -87,15 +116,26 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	mat4 ViewMatrix = LookAt(NextCamera.Pos, NextCamera.Target, NextCameraUp);
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
 
-	mat4 MVPMatrix = ProjectionMatrix * ViewMatrix * State->Mesh.ModelMatrix;
-	mat4 NormalMatrix = Transpose(Inverse(ViewMatrix * State->Mesh.ModelMatrix));
+	// NOTE(hugo) : Drawing Object Mesh
+	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectMesh.ModelMatrix;
+	mat4 NormalObjectMatrix = Transpose(Inverse(ViewMatrix * State->ObjectMesh.ModelMatrix));
 
+	UseShader(State->LightingShader);
+	SetUniform(State->LightingShader, MVPObjectMatrix, "MVPMatrix");
+	SetUniform(State->LightingShader, NormalObjectMatrix, "NormalMatrix");
+	SetUniform(State->LightingShader, ViewMatrix, "ViewMatrix");
+	SetUniform(State->LightingShader, State->Light.Pos, "LightPos");
+	SetUniform(State->LightingShader, State->Light.Color, "LightColor");
+
+	DrawTrianglesMesh(&State->ObjectMesh);
+	
+	// NOTE(hugo) : Drawing Light Mesh
+	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * State->Light.Mesh->ModelMatrix;
+	mat4 NormalLightMatrix = Transpose(Inverse(ViewMatrix * State->Light.Mesh->ModelMatrix));
 	UseShader(State->BasicShader);
-	SetUniform(State->BasicShader, MVPMatrix, "MVPMatrix");
-	SetUniform(State->BasicShader, NormalMatrix, "NormalMatrix");
-	SetUniform(State->BasicShader, ViewMatrix, "ViewMatrix");
-
-	DrawTrianglesMesh(&State->Mesh);
+	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
+	DrawTrianglesMesh(State->Light.Mesh);
+	
 
 	if(ImGui::BeginMainMenuBar())
 	{

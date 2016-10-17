@@ -2,6 +2,7 @@
 
 /*
  * TODO(hugo)
+ *   - check lighting code which seems pretty weird (depends on PoV when it should not)
  *   - texture support
  *   - shadow mapping
  *   - mesh code cleanup
@@ -29,10 +30,20 @@ struct camera
 	float FarPlane;
 };
 
+struct light
+{
+	mesh* Mesh;
+	v3 Pos;
+	v4 Color;
+};
+
 struct game_state
 {
-	mesh Mesh;
+	mesh ObjectMesh;
+	mesh CubeMesh;
+	light Light;
 	shader BasicShader;
+	shader LightingShader;
 	camera Camera;
 	float Time;
 
