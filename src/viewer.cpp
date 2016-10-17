@@ -124,6 +124,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	SetUniform(State->LightingShader, MVPObjectMatrix, "MVPMatrix");
 	SetUniform(State->LightingShader, NormalObjectMatrix, "NormalMatrix");
 	SetUniform(State->LightingShader, ViewMatrix, "ViewMatrix");
+	SetUniform(State->LightingShader, State->ObjectMesh.ModelMatrix, "ModelObjectMatrix");
+
 	SetUniform(State->LightingShader, State->Light.Pos, "LightPos");
 	SetUniform(State->LightingShader, State->Light.Color, "LightColor");
 
