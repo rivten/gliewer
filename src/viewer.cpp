@@ -14,6 +14,18 @@ void SetUniform(shader Shader, mat4 Matrix, const char* VariableName)
 	glUniformMatrix4fv(Location, 1, GL_FALSE, Matrix.Data_); 
 }
 
+void SetUniform(shader Shader, u32 UnsignedInteger, const char* VariableName)
+{
+	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
+	glUniform1i(Location, UnsignedInteger); 
+}
+
+void SetUniform(shader Shader, float Value, const char* VariableName)
+{
+	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
+	glUniform1f(Location, Value); 
+}
+
 void SetUniform(shader Shader, v2 V, const char* VariableName)
 {
 	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
@@ -69,6 +81,10 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->MouseXInitial = 0;
 		State->MouseYInitial = 0;
 		State->MouseDragging = false;
+
+		State->BlinnPhongShininess = 32;
+		State->CookTorranceF0 = 0.5f;
+		State->CookTorranceM = 0.5f;
 
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
@@ -128,8 +144,14 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	SetUniform(State->LightingShader, State->ObjectModelMatrix, "ModelObjectMatrix");
 	SetUniform(State->LightingShader, State->ObjectColor, "ObjectColor");
 
+	SetUniform(State->LightingShader, State->Camera.Pos, "CameraPos");
 	SetUniform(State->LightingShader, State->Light.Pos, "LightPos");
 	SetUniform(State->LightingShader, State->Light.Color, "LightColor");
+
+	SetUniform(State->LightingShader, State->BlinnPhongShininess, "BlinnPhongShininess");
+	SetUniform(State->LightingShader, State->CookTorranceF0, "CTF0");
+	SetUniform(State->LightingShader, State->CookTorranceM, "CTM");
+
 
 	DrawTrianglesMesh(&State->ObjectMesh);
 	
@@ -152,6 +174,10 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
 	DrawTrianglesMesh(State->Light.Mesh);
+
+	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
+	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
+	ImGui::SliderFloat("Cook-Torrance M", (float*)&State->CookTorranceM, 0.0f, 1.0f);
 
 	if(ImGui::BeginMainMenuBar())
 	{

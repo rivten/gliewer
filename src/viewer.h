@@ -57,6 +57,10 @@ struct game_state
 	s32 MouseXInitial;
 	s32 MouseYInitial;
 	bool MouseDragging;
+
+	u32 BlinnPhongShininess;
+	float CookTorranceF0;
+	float CookTorranceM;
 };
 
 #include "viewer.cpp"
