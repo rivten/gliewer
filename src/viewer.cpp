@@ -72,6 +72,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
 	}
+	State->Camera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
 
 	State->Time += Input->dtForFrame;
 
@@ -146,8 +147,6 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 	DrawTrianglesMesh(State->Light.Mesh);
-
-	
 
 	if(ImGui::BeginMainMenuBar())
 	{

@@ -13,8 +13,8 @@
 #include "math/matrix.h"
 
 global_variable bool GlobalRunning = false;
-global_variable const int GlobalWindowWidth = 512;
-global_variable const int GlobalWindowHeight = 512;
+global_variable int GlobalWindowWidth = 800;
+global_variable int GlobalWindowHeight = 600;
 
 #include "shader.h"
 #include "mesh.h"
@@ -163,7 +163,7 @@ int main(int argc, char** argv)
 	SDL_GL_SetSwapInterval(0);
 
     SDL_Window* Window = SDL_CreateWindow("3d viewer @ rivten", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-            GlobalWindowWidth, GlobalWindowHeight, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
+            GlobalWindowWidth, GlobalWindowHeight, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
     if(!Window)
     {
@@ -318,6 +318,13 @@ int main(int argc, char** argv)
                 Buffer.Width = Screen->w;
                 Buffer.Height = Screen->h;
                 Buffer.Pitch = Screen->pitch;
+
+				// TODO(hugo) : Make this resolution-independant ?
+				glViewport(0, 0, Screen->w, Screen->h);
+
+				// TODO(hugo) : Formalize this !
+				GlobalWindowWidth = Screen->w;
+				GlobalWindowHeight = Screen->h;
 
 				ImGuiNewFrame(Window, Input);
 
