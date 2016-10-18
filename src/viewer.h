@@ -2,7 +2,6 @@
 
 /*
  * TODO(hugo)
- *   - resizable screen
  *   - different type of camera (FPS camera)
  *   - texture support
  *   - shadow mapping
