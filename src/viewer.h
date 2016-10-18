@@ -2,10 +2,13 @@
 
 /*
  * TODO(hugo)
- *   - check lighting code which seems pretty weird (depends on PoV when it should not)
+ *   - resizable screen
+ *   - different type of camera (FPS camera)
  *   - texture support
  *   - shadow mapping
  *   - mesh code cleanup
+ *   - GL code cleanup (separate layer)
+ *   - SDL code cleanup (cleaner layer, e.g. use of DLL for the main "game", etc...)
  *   - display triangles on the mesh
  *   - ambient occlusion (SSAO ?)
  *   - proper OBJ loading
@@ -35,12 +38,16 @@ struct light
 	mesh* Mesh;
 	v3 Pos;
 	v4 Color;
+	mat4 ModelMatrix;
 };
 
 struct game_state
 {
 	mesh ObjectMesh;
+	mat4 ObjectModelMatrix;
+
 	mesh CubeMesh;
+
 	light Light;
 	shader BasicShader;
 	shader LightingShader;

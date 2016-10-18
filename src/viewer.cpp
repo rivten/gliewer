@@ -39,10 +39,9 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	if(!Memory->IsInitialized)
 	{
 		State->ObjectMesh = LoadOBJ("../models/teapot.obj");
-		State->ObjectMesh.ModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
+		State->ObjectModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
 
 		State->CubeMesh = LoadOBJ("../models/cube.obj");
-		State->CubeMesh.ModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
 
 		State->BasicShader = LoadShader("../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl");
 		State->LightingShader = LoadShader("../src/shaders/lighting_v.glsl", "../src/shaders/lighting_f.glsl");
@@ -50,8 +49,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		// TODO(hugo) : Maybe I should need to split a mesh and its Model Matrix 
 		// (here several lights would need the same mesh (vertex infos) 
 		// but could be placed at different positions (different model matrix))
-		State->Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(0.0f, 0.0f, 1.0f, 0.0f)};
-		State->CubeMesh.ModelMatrix = Translation(State->Light.Pos) * State->CubeMesh.ModelMatrix;
+		State->Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(0.0f, 0.0f, 1.0f, 0.0f), Scaling(V3(0.2f, 0.2f, 0.2f))};
+		State->Light.ModelMatrix = Translation(State->Light.Pos) * State->Light.ModelMatrix;
 
 		State->Time = 0.0f;
 
@@ -117,26 +116,37 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
 
 	// NOTE(hugo) : Drawing Object Mesh
-	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectMesh.ModelMatrix;
-	mat4 NormalObjectMatrix = Transpose(Inverse(ViewMatrix * State->ObjectMesh.ModelMatrix));
+	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectModelMatrix;
+	mat4 NormalObjectMatrix = Transpose(Inverse(ViewMatrix * State->ObjectModelMatrix));
 
 	UseShader(State->LightingShader);
 	SetUniform(State->LightingShader, MVPObjectMatrix, "MVPMatrix");
 	SetUniform(State->LightingShader, NormalObjectMatrix, "NormalMatrix");
 	SetUniform(State->LightingShader, ViewMatrix, "ViewMatrix");
-	SetUniform(State->LightingShader, State->ObjectMesh.ModelMatrix, "ModelObjectMatrix");
+	SetUniform(State->LightingShader, State->ObjectModelMatrix, "ModelObjectMatrix");
 
 	SetUniform(State->LightingShader, State->Light.Pos, "LightPos");
 	SetUniform(State->LightingShader, State->Light.Color, "LightColor");
 
 	DrawTrianglesMesh(&State->ObjectMesh);
 	
+	// NOTE(hugo) : Drawing ground based on the cube mesh
+#if 1
+	mat4 GroundModelMatrix = Translation(V3(0.0f, -2.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
+	mat4 MVPGroundMatrix = ProjectionMatrix * ViewMatrix * GroundModelMatrix;
+	mat4 NormalGroundMatrix = Transpose(Inverse(ViewMatrix * GroundModelMatrix));
+	SetUniform(State->LightingShader, MVPGroundMatrix, "MVPMatrix");
+	SetUniform(State->LightingShader, NormalGroundMatrix, "NormalMatrix");
+	SetUniform(State->LightingShader, GroundModelMatrix, "ModelObjectMatrix");
+	DrawTrianglesMesh(&State->CubeMesh);
+#endif
+
 	// NOTE(hugo) : Drawing Light Mesh
-	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * State->Light.Mesh->ModelMatrix;
-	mat4 NormalLightMatrix = Transpose(Inverse(ViewMatrix * State->Light.Mesh->ModelMatrix));
+	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * State->Light.ModelMatrix;
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 	DrawTrianglesMesh(State->Light.Mesh);
+
 	
 
 	if(ImGui::BeginMainMenuBar())

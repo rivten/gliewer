@@ -60,8 +60,6 @@ struct mesh
     // NOTE(hugo) : Mesh Data
 	std::vector<vertex> Vertices;
 	std::vector<triangle> Faces;
-
-	mat4 ModelMatrix;
 };
 
 
@@ -449,8 +447,6 @@ mesh LoadOBJ(const std::string filename)
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)(6 * sizeof(float)));
 
 	glBindVertexArray(0);
-
-	Result.ModelMatrix = Identity4();
 
     return(Result);
 }
