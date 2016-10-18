@@ -40,6 +40,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	{
 		State->ObjectMesh = LoadOBJ("../models/teapot.obj");
 		State->ObjectModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
+		State->ObjectColor = V4(0.6f, 0.1f, 0.0f, 1.0f);
 
 		State->CubeMesh = LoadOBJ("../models/cube.obj");
 
@@ -49,7 +50,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		// TODO(hugo) : Maybe I should need to split a mesh and its Model Matrix 
 		// (here several lights would need the same mesh (vertex infos) 
 		// but could be placed at different positions (different model matrix))
-		State->Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(0.0f, 0.0f, 1.0f, 0.0f), Scaling(V3(0.2f, 0.2f, 0.2f))};
+		State->Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), Scaling(V3(0.2f, 0.2f, 0.2f))};
 		State->Light.ModelMatrix = Translation(State->Light.Pos) * State->Light.ModelMatrix;
 
 		State->Time = 0.0f;
@@ -83,7 +84,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
 	State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
 
-	if(Input->MouseButtons[0].EndedDown)
+	if(Input->MouseButtons[1].EndedDown)
 	{
 		if(!State->MouseDragging)
 		{
@@ -106,7 +107,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		NextCameraUp = Cross(NextCamera.Right, LookingDir);
 	}
 
-	if(State->MouseDragging && !(Input->MouseButtons[0].EndedDown))
+	if(State->MouseDragging && !(Input->MouseButtons[1].EndedDown))
 	{
 		State->Camera.Pos = NextCamera.Pos;
 		State->Camera.Right = NextCamera.Right;
@@ -125,6 +126,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	SetUniform(State->LightingShader, NormalObjectMatrix, "NormalMatrix");
 	SetUniform(State->LightingShader, ViewMatrix, "ViewMatrix");
 	SetUniform(State->LightingShader, State->ObjectModelMatrix, "ModelObjectMatrix");
+	SetUniform(State->LightingShader, State->ObjectColor, "ObjectColor");
 
 	SetUniform(State->LightingShader, State->Light.Pos, "LightPos");
 	SetUniform(State->LightingShader, State->Light.Color, "LightColor");
@@ -136,9 +138,11 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	mat4 GroundModelMatrix = Translation(V3(0.0f, -2.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
 	mat4 MVPGroundMatrix = ProjectionMatrix * ViewMatrix * GroundModelMatrix;
 	mat4 NormalGroundMatrix = Transpose(Inverse(ViewMatrix * GroundModelMatrix));
+	v4 GroundColor = V4(0.5f, 0.5f, 0.5f, 1.0f);
 	SetUniform(State->LightingShader, MVPGroundMatrix, "MVPMatrix");
 	SetUniform(State->LightingShader, NormalGroundMatrix, "NormalMatrix");
 	SetUniform(State->LightingShader, GroundModelMatrix, "ModelObjectMatrix");
+	SetUniform(State->LightingShader, GroundColor, "ObjectColor");
 	DrawTrianglesMesh(&State->CubeMesh);
 #endif
 
@@ -146,6 +150,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * State->Light.ModelMatrix;
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
+	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
 	DrawTrianglesMesh(State->Light.Mesh);
 
 	if(ImGui::BeginMainMenuBar())

@@ -44,6 +44,7 @@ struct game_state
 {
 	mesh ObjectMesh;
 	mat4 ObjectModelMatrix;
+	v4 ObjectColor;
 
 	mesh CubeMesh;
 
