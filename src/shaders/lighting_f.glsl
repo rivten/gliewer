@@ -71,7 +71,7 @@ vec4 BlinnPhongBRDF(vec4 ObjectColor, vec4 LightColor, vec4 SpecularColor, vec3 
 void main()
 {
 	vec3 FragmentPos = vec3(ViewMatrix * FragmentPositionInWorldSpace);
-	vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos, 1.0f) - FragmentPos));
+	vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos, 1.0f)) - FragmentPos);
 	vec3 ViewDir = normalize(-FragmentPos);
 	vec3 HalfDir = normalize(ViewDir + LightDir);
 
