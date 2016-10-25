@@ -2,6 +2,17 @@
 
 #include <imgui_demo.cpp>
 
+static GLfloat QuadVertices[] = { 
+	// Positions   // TexCoords
+	-1.0f,  1.0f,  0.0f, 1.0f,
+	-1.0f, -1.0f,  0.0f, 0.0f,
+	 1.0f, -1.0f,  1.0f, 0.0f,
+
+	-1.0f,  1.0f,  0.0f, 1.0f,
+	 1.0f, -1.0f,  1.0f, 0.0f,
+	 1.0f,  1.0f,  1.0f, 1.0f
+};	
+
 void Clear(v4 ClearColor)
 {
 	glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
@@ -58,6 +69,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 		State->BasicShader = LoadShader("../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl");
 		State->LightingShader = LoadShader("../src/shaders/lighting_v.glsl", "../src/shaders/lighting_f.glsl");
+		State->DepthDebugQuadShader = LoadShader("../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl");
 
 		// TODO(hugo) : Maybe I should need to split a mesh and its Model Matrix 
 		// (here several lights would need the same mesh (vertex infos) 
@@ -86,6 +98,38 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->CookTorranceF0 = 0.5f;
 		State->CookTorranceM = 0.5f;
 
+		glGenFramebuffers(1, &State->FBO);
+
+		glGenTextures(1, &State->Texture);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, State->FBO);
+
+		glBindTexture(GL_TEXTURE_2D, State->Texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, GlobalWindowWidth, GlobalWindowHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, State->Texture, 0);
+
+		glGenRenderbuffers(1, &State->RBO);
+		glBindRenderbuffer(GL_RENDERBUFFER, State->RBO);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, GlobalWindowWidth, GlobalWindowHeight);
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, State->RBO);
+
+		Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		glGenVertexArrays(1, &State->QuadVAO);
+		glGenBuffers(1, &State->QuadVBO);
+		glBindVertexArray(State->QuadVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, State->QuadVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(QuadVertices), &QuadVertices, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)0);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)(2 * sizeof(GLfloat)));
+		glBindVertexArray(0);
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
 	}
@@ -100,7 +144,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
 	State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
 
-	if(Input->MouseButtons[1].EndedDown)
+	if(Input->MouseButtons[0].EndedDown)
 	{
 		if(!State->MouseDragging)
 		{
@@ -123,7 +167,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		NextCameraUp = Cross(NextCamera.Right, LookingDir);
 	}
 
-	if(State->MouseDragging && !(Input->MouseButtons[1].EndedDown))
+	if(State->MouseDragging && !(Input->MouseButtons[0].EndedDown))
 	{
 		State->Camera.Pos = NextCamera.Pos;
 		State->Camera.Right = NextCamera.Right;
@@ -133,6 +177,10 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	mat4 ViewMatrix = LookAt(NextCamera.Pos, NextCamera.Target, NextCameraUp);
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
 
+	glBindFramebuffer(GL_FRAMEBUFFER, State->FBO);
+	Clear(V4(1.0f, 0.0f, 0.5f, 1.0f));
+	glEnable(GL_DEPTH_TEST);
+	// NOTE(hugo): RENDERING
 	// NOTE(hugo) : Drawing Object Mesh
 	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectModelMatrix;
 	mat4 NormalObjectMatrix = Transpose(Inverse(ViewMatrix * State->ObjectModelMatrix));
@@ -174,6 +222,17 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
 	DrawTrianglesMesh(State->Light.Mesh);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	UseShader(State->DepthDebugQuadShader);
+	glBindVertexArray(State->QuadVAO);
+	glDisable(GL_DEPTH_TEST);
+	glBindTexture(GL_TEXTURE_2D, State->Texture);
+	glDrawArrays(GL_LINES, 0, 6);
+	glBindVertexArray(0);
 
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
