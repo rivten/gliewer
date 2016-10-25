@@ -70,6 +70,9 @@ struct game_state
 	GLuint RBO;
 	GLuint QuadVAO;
 	GLuint QuadVBO;
+
+	GLuint DepthMapFBO;
+	GLuint DepthMapTexture;
 };
 
 #include "viewer.cpp"

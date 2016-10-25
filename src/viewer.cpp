@@ -2,6 +2,9 @@
 
 #include <imgui_demo.cpp>
 
+static int GlobalShadowWidth = 1024;
+static int GlobalShadowHeight = 1024;
+
 static GLfloat QuadVertices[] = { 
 	// Positions   // TexCoords
 	-1.0f,  1.0f,  0.0f, 1.0f,
@@ -55,6 +58,54 @@ void SetUniform(shader Shader, v4 V, const char* VariableName)
 	glUniform4f(Location, V.x, V.y, V.z, V.w); 
 }
 
+void RenderScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix)
+{
+	mat4 ViewMatrix = LookAt(CameraPos, CameraTarget, CameraUp);
+
+	// NOTE(hugo) : Drawing Object Mesh
+	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectModelMatrix;
+	mat4 NormalObjectMatrix = Transpose(Inverse(ViewMatrix * State->ObjectModelMatrix));
+
+	UseShader(State->LightingShader);
+	SetUniform(State->LightingShader, MVPObjectMatrix, "MVPMatrix");
+	SetUniform(State->LightingShader, NormalObjectMatrix, "NormalMatrix");
+	SetUniform(State->LightingShader, ViewMatrix, "ViewMatrix");
+	SetUniform(State->LightingShader, State->ObjectModelMatrix, "ModelObjectMatrix");
+	SetUniform(State->LightingShader, State->ObjectColor, "ObjectColor");
+
+	SetUniform(State->LightingShader, CameraPos, "CameraPos");
+	SetUniform(State->LightingShader, State->Light.Pos, "LightPos");
+	SetUniform(State->LightingShader, State->Light.Color, "LightColor");
+
+	SetUniform(State->LightingShader, State->BlinnPhongShininess, "BlinnPhongShininess");
+	SetUniform(State->LightingShader, State->CookTorranceF0, "CTF0");
+	SetUniform(State->LightingShader, State->CookTorranceM, "CTM");
+
+
+	DrawTrianglesMesh(&State->ObjectMesh);
+	
+	// NOTE(hugo) : Drawing ground based on the cube mesh
+#if 1
+	mat4 GroundModelMatrix = Translation(V3(0.0f, -2.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
+	mat4 MVPGroundMatrix = ProjectionMatrix * ViewMatrix * GroundModelMatrix;
+	mat4 NormalGroundMatrix = Transpose(Inverse(ViewMatrix * GroundModelMatrix));
+	v4 GroundColor = V4(0.5f, 0.5f, 0.5f, 1.0f);
+	SetUniform(State->LightingShader, MVPGroundMatrix, "MVPMatrix");
+	SetUniform(State->LightingShader, NormalGroundMatrix, "NormalMatrix");
+	SetUniform(State->LightingShader, GroundModelMatrix, "ModelObjectMatrix");
+	SetUniform(State->LightingShader, GroundColor, "ObjectColor");
+	DrawTrianglesMesh(&State->CubeMesh);
+#endif
+
+	// NOTE(hugo) : Drawing Light Mesh
+	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * State->Light.ModelMatrix;
+	UseShader(State->BasicShader);
+	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
+	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
+	DrawTrianglesMesh(State->Light.Mesh);
+
+}
+
 void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input* Input, game_offscreen_buffer* Screenbuffer)
 {
 	Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
@@ -98,6 +149,9 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->CookTorranceF0 = 0.5f;
 		State->CookTorranceM = 0.5f;
 
+		// NOTE(hugo) : Generating framebuffer, texture and renderbuffer
+		// to render the whole scene on a quad in a 2nd pass
+		// {
 		glGenFramebuffers(1, &State->FBO);
 
 		glGenTextures(1, &State->Texture);
@@ -119,7 +173,10 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 		Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		// }
 
+		// NOTE(hugo) : Initializing Quad data 
+		// {
 		glGenVertexArrays(1, &State->QuadVAO);
 		glGenBuffers(1, &State->QuadVBO);
 		glBindVertexArray(State->QuadVAO);
@@ -130,6 +187,28 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)(2 * sizeof(GLfloat)));
 		glBindVertexArray(0);
+		// }
+
+		// NOTE(hugo) : Creating Framebuffer and texture for Shadow mapping
+		// {
+		glGenFramebuffers(1, &State->DepthMapFBO);
+		glGenTextures(1, &State->DepthMapTexture);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, State->DepthMapFBO);
+		glBindTexture(GL_TEXTURE_2D, State->DepthMapTexture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GlobalShadowWidth, GlobalShadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, State->DepthMapTexture, 0);
+		glDrawBuffer(GL_NONE);
+		glReadBuffer(GL_NONE);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		// }
+
+
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
 	}
@@ -174,56 +253,18 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->MouseDragging = false;
 	}
 
-	mat4 ViewMatrix = LookAt(NextCamera.Pos, NextCamera.Target, NextCameraUp);
-	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
+	State->Light.Pos.y = Sin(State->Time);
 
+#if 0
+	// NOTE(hugo) : Rendering on quads
+	// {
+	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
 	glBindFramebuffer(GL_FRAMEBUFFER, State->FBO);
 	Clear(V4(1.0f, 0.0f, 0.5f, 1.0f));
 	glEnable(GL_DEPTH_TEST);
-	// NOTE(hugo): RENDERING
-	// NOTE(hugo) : Drawing Object Mesh
-	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectModelMatrix;
-	mat4 NormalObjectMatrix = Transpose(Inverse(ViewMatrix * State->ObjectModelMatrix));
-
-	UseShader(State->LightingShader);
-	SetUniform(State->LightingShader, MVPObjectMatrix, "MVPMatrix");
-	SetUniform(State->LightingShader, NormalObjectMatrix, "NormalMatrix");
-	SetUniform(State->LightingShader, ViewMatrix, "ViewMatrix");
-	SetUniform(State->LightingShader, State->ObjectModelMatrix, "ModelObjectMatrix");
-	SetUniform(State->LightingShader, State->ObjectColor, "ObjectColor");
-
-	SetUniform(State->LightingShader, State->Camera.Pos, "CameraPos");
-	SetUniform(State->LightingShader, State->Light.Pos, "LightPos");
-	SetUniform(State->LightingShader, State->Light.Color, "LightColor");
-
-	SetUniform(State->LightingShader, State->BlinnPhongShininess, "BlinnPhongShininess");
-	SetUniform(State->LightingShader, State->CookTorranceF0, "CTF0");
-	SetUniform(State->LightingShader, State->CookTorranceM, "CTM");
-
-
-	DrawTrianglesMesh(&State->ObjectMesh);
-	
-	// NOTE(hugo) : Drawing ground based on the cube mesh
-#if 1
-	mat4 GroundModelMatrix = Translation(V3(0.0f, -2.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
-	mat4 MVPGroundMatrix = ProjectionMatrix * ViewMatrix * GroundModelMatrix;
-	mat4 NormalGroundMatrix = Transpose(Inverse(ViewMatrix * GroundModelMatrix));
-	v4 GroundColor = V4(0.5f, 0.5f, 0.5f, 1.0f);
-	SetUniform(State->LightingShader, MVPGroundMatrix, "MVPMatrix");
-	SetUniform(State->LightingShader, NormalGroundMatrix, "NormalMatrix");
-	SetUniform(State->LightingShader, GroundModelMatrix, "ModelObjectMatrix");
-	SetUniform(State->LightingShader, GroundColor, "ObjectColor");
-	DrawTrianglesMesh(&State->CubeMesh);
-#endif
-
-	// NOTE(hugo) : Drawing Light Mesh
-	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * State->Light.ModelMatrix;
-	UseShader(State->BasicShader);
-	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
-	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
-	DrawTrianglesMesh(State->Light.Mesh);
-
+	RenderScene(State, NextCamera, NextCameraUp, ProjectionMatrix);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
@@ -233,6 +274,26 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	glBindTexture(GL_TEXTURE_2D, State->Texture);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
+	// }
+#else
+	mat4 ProjectionMatrix = Orthographic(5.0f, 5.0f, 3.0f, 5.0f);
+	glViewport(0, 0, GlobalShadowWidth, GlobalShadowHeight);
+	glBindFramebuffer(GL_FRAMEBUFFER, State->DepthMapFBO);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	RenderScene(State, State->Light.Pos, V3(0.0f, 0.0f, 0.0f), V3(0.0f, 1.0f, 0.0f), ProjectionMatrix);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glViewport(0, 0, GlobalWindowWidth, GlobalWindowHeight);
+	glClearColor(1.0f, 0.0f, 0.5f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	UseShader(State->DepthDebugQuadShader);
+	glBindVertexArray(State->QuadVAO);
+	//glDisable(GL_DEPTH_TEST);
+	glBindTexture(GL_TEXTURE_2D, State->DepthMapTexture);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+#endif
 
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
