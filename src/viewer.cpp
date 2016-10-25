@@ -231,7 +231,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	glBindVertexArray(State->QuadVAO);
 	glDisable(GL_DEPTH_TEST);
 	glBindTexture(GL_TEXTURE_2D, State->Texture);
-	glDrawArrays(GL_LINES, 0, 6);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
 
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
