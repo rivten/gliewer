@@ -2,8 +2,8 @@
 
 #include <imgui_demo.cpp>
 
-static int GlobalShadowWidth = 1024;
-static int GlobalShadowHeight = 1024;
+static int GlobalShadowWidth = 2 * 1024;
+static int GlobalShadowHeight = 2 * 1024;
 
 static GLfloat QuadVertices[] = { 
 	// Positions   // TexCoords
@@ -252,8 +252,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GlobalShadowWidth, GlobalShadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, State->DepthMapTexture, 0);
 		glDrawBuffer(GL_NONE);
@@ -336,7 +336,9 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	glClear(GL_DEPTH_BUFFER_BIT);
 	// TODO(hugo) : This uses a function that does too much 
 	// processing for an easy rendering
+	glCullFace(GL_FRONT);
 	RenderLightedScene(State, State->Light.Pos, V3(0.0f, 0.0f, 0.0f), V3(0.0f, 1.0f, 0.0f), LightProjectionMatrix);
+	glCullFace(GL_BACK);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glViewport(0, 0, GlobalWindowWidth, GlobalWindowHeight);

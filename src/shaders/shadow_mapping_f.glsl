@@ -20,12 +20,24 @@ float ShadowFactor(vec4 FragmentPositionInLightSpace)
 {
 	vec3 ProjectedCoordinates = FragmentPositionInLightSpace.xyz / FragmentPositionInLightSpace.w;
 	ProjectedCoordinates = 0.5f * ProjectedCoordinates + 0.5f;
-	float DepthMapValue = texture(ShadowMap, ProjectedCoordinates.xy).r;
 	float FragmentDepth = ProjectedCoordinates.z;
 
 	float ShadowMappingBias = 0.01;
+	float Result = 0.0f;
+	vec2 TexelSize = 1.0f / textureSize(ShadowMap, 0);
 
-	float Result = ((FragmentDepth - ShadowMappingBias) > DepthMapValue) ? 1.0f : 0.0f;
+	int PCFSize = 9;
+	int K = PCFSize / 2;
+
+	for(int X = -K; X <= K; ++X)
+	{
+		for(int Y = -K; Y <= K; ++Y)
+		{
+			float PCFDepthValue = texture(ShadowMap, ProjectedCoordinates.xy + vec2(X, Y) * TexelSize).r;
+			Result += ((FragmentDepth - ShadowMappingBias) > PCFDepthValue) ? 1.0f : 0.0f;
+		}
+	}
+	Result /= float(PCFSize * PCFSize);
 
 	return(Result);
 }
