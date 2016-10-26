@@ -322,6 +322,25 @@ mat4 Perspective(float FoV, float Aspect, float NearPlane, float FarPlane)
 	return(Result);
 }
 
+mat4 Orthographic(float Width, float Height, float NearPlane, float FarPlane)
+{
+	mat4 Result = {};
+
+	Assert(Width != 0.0f && Height != 0.0f);
+
+	float FrustrumDepth = FarPlane - NearPlane;
+	float OneOverDepth = 1.0 / FrustrumDepth;
+
+	// NOTE(hugo) : Here we assert that Aspect = Width / Height
+	SetValue(&Result, 0, 0, 2 / Width);
+	SetValue(&Result, 1, 1, 2 / Height);
+	SetValue(&Result, 2, 2, - 2 * OneOverDepth);
+	SetValue(&Result, 2, 3, - (FarPlane + NearPlane) * OneOverDepth);
+	SetValue(&Result, 3, 3, 1);
+	 
+	return(Result);
+}
+
 mat4 LookAt(v3 Eye, v3 Target, v3 WorldUp)
 {
 	mat4 Result = {};

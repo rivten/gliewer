@@ -49,8 +49,12 @@ struct game_state
 	mesh CubeMesh;
 
 	light Light;
+
 	shader BasicShader;
 	shader LightingShader;
+	shader DepthDebugQuadShader;
+	shader ShadowMappingShader;
+
 	camera Camera;
 	float Time;
 
@@ -61,6 +65,16 @@ struct game_state
 	u32 BlinnPhongShininess;
 	float CookTorranceF0;
 	float CookTorranceM;
+
+	GLuint FBO;
+	GLuint Texture;
+
+	GLuint RBO;
+	GLuint QuadVAO;
+	GLuint QuadVBO;
+
+	GLuint DepthMapFBO;
+	GLuint DepthMapTexture;
 };
 
 #include "viewer.cpp"
