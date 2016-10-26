@@ -265,6 +265,12 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
 	}
+	// TODO(hugo) : I should not enable the depth test each frame. This is a hack that fixes some issues on Linux (Ubuntu 16.04).
+	// For more information, go to http://stackoverflow.com/questions/24990637/opengl-radeon-driver-seems-to-mess-with-depth-testing
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+	glDepthMask(GL_TRUE);
+
 	State->Camera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
 
 	State->Time += Input->dtForFrame;
