@@ -3,4 +3,5 @@ project/
 dep/
 .svn/
 src/imgui.ini
+build/
 *.ctm

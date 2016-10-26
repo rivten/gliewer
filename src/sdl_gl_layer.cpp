@@ -1,9 +1,9 @@
 #include "platform.h"
 
 // NOTE(hugo): The includes below are for the SDL/GL layer only
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #define GLEW_STATIC
-#include <GL\glew.h>
+#include <GL/glew.h>
 #include <stdio.h>
 
 #include "imgui_layer.h"
@@ -157,8 +157,8 @@ int main(int argc, char** argv)
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+	//SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+	//SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
 	SDL_GL_SetSwapInterval(0);
 
@@ -167,6 +167,8 @@ int main(int argc, char** argv)
 
     if(!Window)
     {
+		const char* Error = SDL_GetError();
+		SDL_Log("Window could not be created : %s", Error);
         return(1);
     }
 
@@ -179,12 +181,19 @@ int main(int argc, char** argv)
     if(GlewInitResult == GLEW_OK)
     { 
 		ImGuiInit(Window);
-		glEnable(GL_MULTISAMPLE);
-		glEnable(GL_DEPTH_TEST);
+		//glEnable(GL_MULTISAMPLE);
 
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LEQUAL);
+		glDisable(GL_DEPTH_TEST);
+
+#if 0
 		glEnable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
+		glCullFace(GL_FRONT);
 		glFrontFace(GL_CCW);
+		glDisable(GL_CULL_FACE);
+#endif
+
 
         GlobalRunning = true;
 
@@ -339,7 +348,7 @@ int main(int argc, char** argv)
                 float SecondsElapsedForFrame = WorkSecondsElapsed;
 #if RIVTEN_SLOW
                 char WindowTitleBuffer[128];
-                sprintf_s(WindowTitleBuffer, sizeof(WindowTitleBuffer), "3D viewer @ rivten - %dms - mouse pos (%d, %d)", (int)(SecondsElapsedForFrame * 1000.0f), Input[1].MouseX, Input[1].MouseY);
+                snprintf(WindowTitleBuffer, sizeof(WindowTitleBuffer), "3d viewer @ rivten - %dms - mouse pos (%d, %d)", (int)(SecondsElapsedForFrame * 1000.0f), Input[1].MouseX, Input[1].MouseY);
                 SDL_SetWindowTitle(Window, WindowTitleBuffer);
 #endif
                 if(SecondsElapsedForFrame < TargetSecondsPerFrame)

@@ -1,5 +1,9 @@
 #include <cstdint>
 
+#ifdef __unix__
+#include <sys/types.h>
+#endif
+
 typedef int8_t s8;
 typedef int16_t s16;
 typedef int32_t s32;

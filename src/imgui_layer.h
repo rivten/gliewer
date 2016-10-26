@@ -1,6 +1,6 @@
 #pragma once
 
-#include <SDL_syswm.h>
+#include <SDL2/SDL_syswm.h>
 #include <imgui.cpp>
 #include <imgui_draw.cpp>
 
@@ -113,12 +113,12 @@ void ImGuiRenderDrawLists(ImDrawData* draw_data)
     glScissor(last_scissor_box[0], last_scissor_box[1], (GLsizei)last_scissor_box[2], (GLsizei)last_scissor_box[3]);
 }
 
-static const char* ImGuiGetClipboardText()
+static const char* ImGuiGetClipboardText(void* user_data)
 {
     return SDL_GetClipboardText();
 }
 
-static void ImGuiSetClipboardText(const char* text)
+static void ImGuiSetClipboardText(void* user_data, const char* text)
 {
     SDL_SetClipboardText(text);
 }
