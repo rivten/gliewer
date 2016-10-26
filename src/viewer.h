@@ -53,6 +53,8 @@ struct game_state
 	shader BasicShader;
 	shader LightingShader;
 	shader DepthDebugQuadShader;
+	shader ShadowMappingShader;
+
 	camera Camera;
 	float Time;
 
