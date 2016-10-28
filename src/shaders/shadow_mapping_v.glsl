@@ -14,8 +14,14 @@ uniform mat4 LightSpaceMatrix;
 
 void main()
 {
-	gl_Position = MVPMatrix * vec4(Position, 1.0);
+	float Step = 4.5f;
+	vec3 Offset = gl_InstanceID * Step * vec3(1.0f, 0.0f, 0.0f);
+	vec4 ObjectPos = vec4(Position + Offset, 1.0f);
+
+	// TODO(hugo) : What should really be done would be to add the offset to
+	// the vertex in _world space_ (and not in _object space_ like I'm doing right now
+	gl_Position = MVPMatrix * ObjectPos;
 	VertexNormal = normalize(vec3(NormalMatrix * vec4(Normal, 1.0)));
-	FragmentPositionInWorldSpace = ModelObjectMatrix * vec4(Position, 1.0);
-	FragmentPositionInLightSpace = LightSpaceMatrix * ModelObjectMatrix * vec4(Position, 1.0);
+	FragmentPositionInWorldSpace = ModelObjectMatrix * ObjectPos;
+	FragmentPositionInLightSpace = LightSpaceMatrix * ModelObjectMatrix * ObjectPos;
 }

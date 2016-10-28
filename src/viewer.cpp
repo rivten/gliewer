@@ -4,6 +4,7 @@
 
 static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
+static int GlobalTeapotInstanceCount = 10;
 
 static GLfloat QuadVertices[] = { 
 	// Positions   // TexCoords
@@ -30,7 +31,7 @@ void SetViewport(int Width, int Height)
 GLuint GetUniformLocation(shader Shader, const char* VariableName)
 {
 	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
-	Assert(Location != -1);
+	//Assert(Location != -1);
 	return(Location);
 }
 
@@ -148,8 +149,8 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, State->CookTorranceM, "CTM");
 
 
-	DrawTrianglesMesh(&State->ObjectMesh);
-	
+	DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
+
 	// NOTE(hugo) : Drawing ground based on the cube mesh
 	mat4 GroundModelMatrix = Translation(V3(0.0f, -1.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
 	mat4 MVPGroundMatrix = ProjectionMatrix * ViewMatrix * GroundModelMatrix;
@@ -159,14 +160,14 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, NormalGroundMatrix, "NormalMatrix");
 	SetUniform(State->ShadowMappingShader, GroundModelMatrix, "ModelObjectMatrix");
 	SetUniform(State->ShadowMappingShader, GroundColor, "ObjectColor");
-	DrawTrianglesMesh(&State->CubeMesh);
+	DrawTriangleMesh(&State->CubeMesh);
 
 	// NOTE(hugo) : Drawing Light Mesh
 	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * State->Light.ModelMatrix;
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
-	DrawTrianglesMesh(State->Light.Mesh);
+	DrawTriangleMesh(State->Light.Mesh);
 
 }
 
@@ -177,12 +178,12 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPObjectMatrix, "MVPMatrix");
-	DrawTrianglesMesh(&State->ObjectMesh);
+	DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
 
 	mat4 GroundModelMatrix = Translation(V3(0.0f, -1.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
 	mat4 MVPGroundMatrix = ProjectionMatrix * ViewMatrix * GroundModelMatrix;
 	SetUniform(State->BasicShader, MVPGroundMatrix, "MVPMatrix");
-	DrawTrianglesMesh(&State->CubeMesh);
+	DrawTriangleMesh(&State->CubeMesh);
 }
 
 void RenderLightedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix)
@@ -207,7 +208,7 @@ void RenderLightedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Cam
 	SetUniform(State->LightingShader, State->CookTorranceM, "CTM");
 
 
-	DrawTrianglesMesh(&State->ObjectMesh);
+	DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
 	
 	// NOTE(hugo) : Drawing ground based on the cube mesh
 	mat4 GroundModelMatrix = Translation(V3(0.0f, -1.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
@@ -218,14 +219,14 @@ void RenderLightedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Cam
 	SetUniform(State->LightingShader, NormalGroundMatrix, "NormalMatrix");
 	SetUniform(State->LightingShader, GroundModelMatrix, "ModelObjectMatrix");
 	SetUniform(State->LightingShader, GroundColor, "ObjectColor");
-	DrawTrianglesMesh(&State->CubeMesh);
+	DrawTriangleMesh(&State->CubeMesh);
 
 	// NOTE(hugo) : Drawing Light Mesh
 	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * State->Light.ModelMatrix;
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
-	DrawTrianglesMesh(State->Light.Mesh);
+	DrawTriangleMesh(State->Light.Mesh);
 
 }
 

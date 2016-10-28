@@ -175,10 +175,17 @@ mesh LoadOFF(const std::string& filename)
 	return(Result);
 }
 
-void DrawTrianglesMesh(mesh* Mesh)
+void DrawTriangleMesh(mesh* Mesh)
 {
 	glBindVertexArray(Mesh->VAO);
 	glDrawElements(GL_TRIANGLES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+}
+
+void DrawTriangleMeshInstances(mesh* Mesh, int InstanceCount)
+{
+	glBindVertexArray(Mesh->VAO);
+	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0, InstanceCount);
 	glBindVertexArray(0);
 }
 
