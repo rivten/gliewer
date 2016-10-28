@@ -149,7 +149,9 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, State->CookTorranceM, "CTM");
 
 
-	DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
+	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
+
+
 
 	// NOTE(hugo) : Drawing ground based on the cube mesh
 	mat4 GroundModelMatrix = Translation(V3(0.0f, -1.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
@@ -168,6 +170,10 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
 	DrawTriangleMesh(State->Light.Mesh);
+
+	SetUniform(State->BasicShader, MVPObjectMatrix, "MVPMatrix");
+	SetUniform(State->BasicShader, V4(0.0f, 1.0f, 1.0f, 1.0f), "ObjectColor");
+	DrawWiredTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
 
 }
 

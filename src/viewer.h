@@ -8,16 +8,13 @@
  *   - mesh code cleanup
  *   - GL code cleanup (separate layer)
  *   - SDL code cleanup (cleaner layer, e.g. use of DLL for the main "game", etc...)
- *   - display triangles on the mesh
  *   - ambient occlusion (SSAO ?)
  *   - proper OBJ loading
  *   - profiling
  *   - bloom
  *   - cubemaps
- *   - instancing
  *   - gamma correction
  *   - normal mapping
- *   - post-processing
  *   - deferred shading
  */
 

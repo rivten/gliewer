@@ -182,10 +182,24 @@ void DrawTriangleMesh(mesh* Mesh)
 	glBindVertexArray(0);
 }
 
+void DrawWiredTriangleMesh(mesh* Mesh)
+{
+	glBindVertexArray(Mesh->VAO);
+	glDrawElements(GL_LINES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+}
+
 void DrawTriangleMeshInstances(mesh* Mesh, int InstanceCount)
 {
 	glBindVertexArray(Mesh->VAO);
 	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0, InstanceCount);
+	glBindVertexArray(0);
+}
+
+void DrawWiredTriangleMeshInstances(mesh* Mesh, int InstanceCount)
+{
+	glBindVertexArray(Mesh->VAO);
+	glDrawElementsInstanced(GL_LINES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0, InstanceCount);
 	glBindVertexArray(0);
 }
 
