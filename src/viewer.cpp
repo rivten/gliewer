@@ -32,7 +32,8 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, State->CookTorranceM, "CTM");
 
 
-	DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
+	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
+	DrawTriangleMesh(&State->ObjectMesh);
 
 
 	// NOTE(hugo) : Drawing ground based on the cube mesh
@@ -68,7 +69,8 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPObjectMatrix, "MVPMatrix");
-	DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
+	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
+	DrawTriangleMesh(&State->ObjectMesh);
 
 	mat4 GroundModelMatrix = Translation(V3(0.0f, -1.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
 	mat4 MVPGroundMatrix = ProjectionMatrix * ViewMatrix * GroundModelMatrix;
@@ -98,7 +100,8 @@ void RenderLightedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Cam
 	SetUniform(State->LightingShader, State->CookTorranceM, "CTM");
 
 
-	DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
+	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
+	DrawTriangleMesh(&State->ObjectMesh);
 	
 	// NOTE(hugo) : Drawing ground based on the cube mesh
 	mat4 GroundModelMatrix = Translation(V3(0.0f, -1.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
@@ -126,8 +129,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	game_state* State = (game_state*)Memory->PermanentStorage;
 	if(!Memory->IsInitialized)
 	{
-		State->ObjectMesh = LoadOBJ("../models/teapot.obj");
-		State->ObjectModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
+		State->ObjectMesh = LoadOBJ("../models/house/house_clean.obj");
+		State->ObjectModelMatrix = Scaling(V3(0.1f, 0.1f, 0.1f));
 		State->ObjectColor = V4(0.6f, 0.1f, 0.0f, 1.0f);
 
 		State->CubeMesh = LoadOBJ("../models/cube.obj");

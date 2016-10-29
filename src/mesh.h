@@ -76,7 +76,12 @@ void ComputeNormal(mesh* Mesh)
 
 		// TODO(hugo) : investigate with the angle to see if I do not get a "negative" normal vector
 		// TODO(hugo) : need to normalize N after computation ?
-		v3 N = Normalized(Cross(v2 - v1, v0 - v1));
+		v3 CrossProduct = Cross(v2 - v1, v0 - v1);
+		v3 N = V3(0.0f, 0.0f, 0.0f);
+		if(LengthSqr(CrossProduct) != 0.0f)
+		{
+			v3 N = Normalized(CrossProduct);
+		}
 
 		for (int i = 0; i < 3; ++i)
 		{
@@ -85,7 +90,10 @@ void ComputeNormal(mesh* Mesh)
 	}
 	for (int VertexIndex = 0; VertexIndex < Mesh->Vertices.size(); ++VertexIndex)
 	{
-		Normalize(&Mesh->Vertices[VertexIndex].Normal);
+		if(LengthSqr(Mesh->Vertices[VertexIndex].Normal) != 0.0f)
+		{
+			Normalize(&Mesh->Vertices[VertexIndex].Normal);
+		}
 	}
 }
 
@@ -295,6 +303,7 @@ mesh LoadOBJ(const std::string filename)
     if(!File.is_open())
     {
         // TODO(hugo)
+		SDL_Log("Error, OBJ file not found");
         return(Result);
     }
 
