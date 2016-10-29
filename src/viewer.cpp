@@ -6,123 +6,6 @@ static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
 
-static GLfloat QuadVertices[] = { 
-	// Positions   // TexCoords
-	-1.0f,  1.0f,  0.0f, 1.0f,
-	-1.0f, -1.0f,  0.0f, 0.0f,
-	 1.0f, -1.0f,  1.0f, 0.0f,
-
-	-1.0f,  1.0f,  0.0f, 1.0f,
-	 1.0f, -1.0f,  1.0f, 0.0f,
-	 1.0f,  1.0f,  1.0f, 1.0f
-};	
-
-void Clear(v4 ClearColor)
-{
-	glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-void SetViewport(int Width, int Height)
-{
-	glViewport(0, 0, Width, Height);
-}
-
-GLuint GetUniformLocation(shader Shader, const char* VariableName)
-{
-	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
-	//Assert(Location != -1);
-	return(Location);
-}
-
-void SetUniform(shader Shader, mat4 Matrix, const char* VariableName)
-{
-	GLuint Location = GetUniformLocation(Shader, VariableName);
-	glUniformMatrix4fv(Location, 1, GL_FALSE, Matrix.Data_); 
-}
-
-void SetUniform(shader Shader, u32 UnsignedInteger, const char* VariableName)
-{
-	GLuint Location = GetUniformLocation(Shader, VariableName);
-	glUniform1i(Location, UnsignedInteger); 
-}
-
-void SetUniform(shader Shader, float Value, const char* VariableName)
-{
-	GLuint Location = GetUniformLocation(Shader, VariableName);
-	glUniform1f(Location, Value); 
-}
-
-void SetUniform(shader Shader, v2 V, const char* VariableName)
-{
-	GLuint Location = GetUniformLocation(Shader, VariableName);
-	glUniform2f(Location, V.x, V.y); 
-}
-
-void SetUniform(shader Shader, v3 V, const char* VariableName)
-{
-	GLuint Location = GetUniformLocation(Shader, VariableName);
-	glUniform3f(Location, V.x, V.y, V.z); 
-}
-
-void SetUniform(shader Shader, v4 V, const char* VariableName)
-{
-	GLuint Location = GetUniformLocation(Shader, VariableName);
-	glUniform4f(Location, V.x, V.y, V.z, V.w); 
-}
-
-gl_screen_framebuffer CreateScreenFramebuffer(void)
-{
-	gl_screen_framebuffer Result = {};
-	glGenFramebuffers(1, &Result.FBO);
-
-	glGenTextures(1, &Result.Texture);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, Result.FBO);
-
-	glBindTexture(GL_TEXTURE_2D, Result.Texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, GlobalWindowWidth, GlobalWindowHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.Texture, 0);
-
-	glGenRenderbuffers(1, &Result.RBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, Result.RBO);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, GlobalWindowWidth, GlobalWindowHeight);
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, Result.RBO);
-
-	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	return(Result);
-}
-
-gl_depth_framebuffer CreateDepthFramebuffer(void)
-{
-	gl_depth_framebuffer Result = {};
-	glGenFramebuffers(1, &Result.FBO);
-	glGenTextures(1, &Result.Texture);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, Result.FBO);
-	glBindTexture(GL_TEXTURE_2D, Result.Texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, GlobalShadowWidth, GlobalShadowHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Result.Texture, 0);
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
-	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	return(Result);
-
-}
-
 void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightSpaceMatrix)
 {
 	mat4 ViewMatrix = LookAt(CameraPos, CameraTarget, CameraUp);
@@ -149,8 +32,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, State->CookTorranceM, "CTM");
 
 
-	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
-
+	DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
 
 
 	// NOTE(hugo) : Drawing ground based on the cube mesh
@@ -171,9 +53,11 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
 	DrawTriangleMesh(State->Light.Mesh);
 
+#if 0
 	SetUniform(State->BasicShader, MVPObjectMatrix, "MVPMatrix");
 	SetUniform(State->BasicShader, V4(0.0f, 1.0f, 1.0f, 1.0f), "ObjectColor");
 	DrawWiredTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
+#endif
 
 }
 
@@ -280,7 +164,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->CookTorranceF0 = 0.5f;
 		State->CookTorranceM = 0.5f;
 
-		State->ScreenFramebuffer = CreateScreenFramebuffer();
+		State->ScreenFramebuffer = CreateScreenFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {
@@ -296,7 +180,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		glBindVertexArray(0);
 		// }
 
-		State->DepthFramebuffer = CreateDepthFramebuffer();
+		State->DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
 
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
@@ -311,7 +195,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	State->Time += Input->dtForFrame;
 
-	Clear(V4(0.4f, 0.6f, 0.2f, 1.0f));
+	ClearColorAndDepth(V4(0.4f, 0.6f, 0.2f, 1.0f));
 
 	// TODO(hugo) : Smooth MouseWheel camera movement
 	float DeltaMovement = 0.5f;
@@ -356,7 +240,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	// {
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
 	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
-	Clear(V4(1.0f, 0.0f, 0.5f, 1.0f));
+	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
 	glEnable(GL_DEPTH_TEST);
 	RenderLightedScene(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -385,18 +269,20 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
-	Clear(V4(1.0f, 0.0f, 0.5f, 1.0f));
+	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
 
 	mat4 LightLookAt = LookAt(State->Light.Pos, V3(0.0f, 0.0f, 0.0f), V3(0.0f, 1.0f, 0.0f));
 	mat4 LightSpaceMatrix = LightProjectionMatrix * LightLookAt;
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
 	RenderShadowedScene(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightSpaceMatrix);
 
+#if 0
 	UseShader(State->DepthDebugQuadShader);
 	glBindVertexArray(State->QuadVAO);
 	glBindTexture(GL_TEXTURE_2D, State->DepthFramebuffer.Texture);
-	//glDrawArrays(GL_TRIANGLES, 0, 6);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
+#endif
 	// }
 
 #endif

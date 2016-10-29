@@ -19,6 +19,7 @@ global_variable int GlobalWindowHeight = 600;
 #include "shader.h"
 #include "mesh.h"
 
+#include "gl_layer.h"
 #include "viewer.h"
 
 static void SDLProcessKeyboardMessage(game_button_state* NewButtonState, bool IsDown)

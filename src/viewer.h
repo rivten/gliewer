@@ -4,9 +4,7 @@
  * TODO(hugo)
  *   - different type of camera (FPS camera)
  *   - texture support
- *   - shadow mapping code cleanup
  *   - mesh code cleanup
- *   - GL code cleanup (separate layer)
  *   - SDL code cleanup (cleaner layer, e.g. use of DLL for the main "game", etc...)
  *   - ambient occlusion (SSAO ?)
  *   - proper OBJ loading
@@ -36,20 +34,6 @@ struct light
 	v4 Color;
 	mat4 ModelMatrix;
 };
-
-struct gl_depth_framebuffer
-{
-	u32 FBO;
-	u32 Texture;
-};
-
-struct gl_screen_framebuffer
-{
-	u32 FBO;
-	u32 Texture;
-	u32 RBO;
-};
-
 
 struct game_state
 {
