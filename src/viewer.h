@@ -32,7 +32,7 @@ struct light
 	mesh* Mesh;
 	v3 Pos;
 	v4 Color;
-	mat4 ModelMatrix;
+	v3 Target;
 };
 
 struct game_state

@@ -80,7 +80,7 @@ void ComputeNormal(mesh* Mesh)
 		v3 N = V3(0.0f, 0.0f, 0.0f);
 		if(LengthSqr(CrossProduct) != 0.0f)
 		{
-			v3 N = Normalized(CrossProduct);
+			N = Normalized(CrossProduct);
 		}
 
 		for (int i = 0; i < 3; ++i)

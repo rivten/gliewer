@@ -6,6 +6,13 @@ static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
 
+mat4 GetLightModelMatrix(light Light)
+{
+		mat4 ModelMatrix = Translation(Light.Pos) * Scaling(V3(0.2f, 0.2f, 0.2f));
+
+		return(ModelMatrix);
+}
+
 void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightSpaceMatrix)
 {
 	mat4 ViewMatrix = LookAt(CameraPos, CameraTarget, CameraUp);
@@ -48,7 +55,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	DrawTriangleMesh(&State->CubeMesh);
 
 	// NOTE(hugo) : Drawing Light Mesh
-	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * State->Light.ModelMatrix;
+	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Light);
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
@@ -115,7 +122,7 @@ void RenderLightedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Cam
 	DrawTriangleMesh(&State->CubeMesh);
 
 	// NOTE(hugo) : Drawing Light Mesh
-	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * State->Light.ModelMatrix;
+	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Light);
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
@@ -129,8 +136,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	game_state* State = (game_state*)Memory->PermanentStorage;
 	if(!Memory->IsInitialized)
 	{
-		State->ObjectMesh = LoadOBJ("../models/house/house_clean.obj");
-		State->ObjectModelMatrix = Scaling(V3(0.1f, 0.1f, 0.1f));
+		State->ObjectMesh = LoadOBJ("../models/teapot.obj");
+		State->ObjectModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
 		State->ObjectColor = V4(0.6f, 0.1f, 0.0f, 1.0f);
 
 		State->CubeMesh = LoadOBJ("../models/cube.obj");
@@ -140,11 +147,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->DepthDebugQuadShader = LoadShader("../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl");
 		State->ShadowMappingShader = LoadShader("../src/shaders/shadow_mapping_v.glsl", "../src/shaders/shadow_mapping_f.glsl");
 
-		// TODO(hugo) : Maybe I should need to split a mesh and its Model Matrix 
-		// (here several lights would need the same mesh (vertex infos) 
-		// but could be placed at different positions (different model matrix))
-		State->Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), Scaling(V3(0.2f, 0.2f, 0.2f))};
-		State->Light.ModelMatrix = Translation(State->Light.Pos) * State->Light.ModelMatrix;
+		State->Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 0.0f, 0.0f)};
 
 		State->Time = 0.0f;
 
@@ -236,7 +239,6 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	}
 
 	State->Light.Pos.y = Sin(State->Time) + 2.0f;
-	State->Light.ModelMatrix = Translation(State->Light.Pos) * Scaling(V3(0.2f, 0.2f, 0.2f));
 
 #if 0
 	// NOTE(hugo) : Rendering on quads
@@ -267,14 +269,14 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	glBindFramebuffer(GL_FRAMEBUFFER, State->DepthFramebuffer.FBO);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glCullFace(GL_FRONT);
-	RenderSimpleScene(State, State->Light.Pos, V3(0.0f, 0.0f, 0.0f), V3(0.0f, 1.0f, 0.0f), LightProjectionMatrix);
+	RenderSimpleScene(State, State->Light.Pos, State->Light.Target, V3(0.0f, 1.0f, 0.0f), LightProjectionMatrix);
 	glCullFace(GL_BACK);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
 	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
 
-	mat4 LightLookAt = LookAt(State->Light.Pos, V3(0.0f, 0.0f, 0.0f), V3(0.0f, 1.0f, 0.0f));
+	mat4 LightLookAt = LookAt(State->Light.Pos, State->Light.Target, V3(0.0f, 1.0f, 0.0f));
 	mat4 LightSpaceMatrix = LightProjectionMatrix * LightLookAt;
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
 	RenderShadowedScene(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightSpaceMatrix);
