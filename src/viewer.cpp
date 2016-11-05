@@ -32,8 +32,24 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, State->ObjectColor, "ObjectColor");
 	SetUniform(State->ShadowMappingShader, LightSpaceMatrix, "LightSpaceMatrix");
 
-	SetUniform(State->ShadowMappingShader, State->Light.Pos, "LightPos");
-	SetUniform(State->ShadowMappingShader, State->Light.Color, "LightColor");
+	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
+	{
+		char Buffer[80];
+		char StringNum[2];
+		sprintf(StringNum, "%i", LightIndex);
+		strcpy(Buffer, "LightPos[");
+		strcat(Buffer, StringNum);
+		strcat(Buffer, "]");
+
+		SetUniform(State->ShadowMappingShader, State->Lights[LightIndex].Pos, Buffer);
+
+		memset(Buffer, 0, ArrayCount(Buffer));
+		strcpy(Buffer, "LightColor[");
+		strcat(Buffer, StringNum);
+		strcat(Buffer, "]");
+
+		SetUniform(State->ShadowMappingShader, State->Lights[LightIndex].Color, Buffer);
+	}
 
 	SetUniform(State->ShadowMappingShader, State->CookTorranceF0, "CTF0");
 	SetUniform(State->ShadowMappingShader, State->CookTorranceM, "CTM");
@@ -55,11 +71,11 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	DrawTriangleMesh(&State->CubeMesh);
 
 	// NOTE(hugo) : Drawing Light Mesh
-	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Light);
+	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Lights[0]);
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
-	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
-	DrawTriangleMesh(State->Light.Mesh);
+	SetUniform(State->BasicShader, State->Lights[0].Color, "ObjectColor");
+	DrawTriangleMesh(State->Lights[0].Mesh);
 
 #if 0
 	SetUniform(State->BasicShader, MVPObjectMatrix, "MVPMatrix");
@@ -100,8 +116,8 @@ void RenderLightedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Cam
 	SetUniform(State->LightingShader, State->ObjectModelMatrix, "ModelObjectMatrix");
 	SetUniform(State->LightingShader, State->ObjectColor, "ObjectColor");
 
-	SetUniform(State->LightingShader, State->Light.Pos, "LightPos");
-	SetUniform(State->LightingShader, State->Light.Color, "LightColor");
+	SetUniform(State->LightingShader, State->Lights[0].Pos, "LightPos");
+	SetUniform(State->LightingShader, State->Lights[0].Color, "LightColor");
 
 	SetUniform(State->LightingShader, State->CookTorranceF0, "CTF0");
 	SetUniform(State->LightingShader, State->CookTorranceM, "CTM");
@@ -122,12 +138,20 @@ void RenderLightedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Cam
 	DrawTriangleMesh(&State->CubeMesh);
 
 	// NOTE(hugo) : Drawing Light Mesh
-	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Light);
+	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Lights[0]);
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
-	SetUniform(State->BasicShader, State->Light.Color, "ObjectColor");
-	DrawTriangleMesh(State->Light.Mesh);
+	SetUniform(State->BasicShader, State->Lights[0].Color, "ObjectColor");
+	DrawTriangleMesh(State->Lights[0].Mesh);
 
+}
+
+void PushLight(game_state* State, light Light)
+{
+	Assert(State->LightCount < ArrayCount(State->Lights));
+
+	State->Lights[State->LightCount] = Light;
+	State->LightCount++;
 }
 
 void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input* Input, game_offscreen_buffer* Screenbuffer)
@@ -147,7 +171,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->DepthDebugQuadShader = LoadShader("../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl");
 		State->ShadowMappingShader = LoadShader("../src/shaders/shadow_mapping_v.glsl", "../src/shaders/shadow_mapping_f.glsl");
 
-		State->Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 0.0f, 0.0f)};
+		light Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 0.0f, 0.0f)};
+		PushLight(State, Light);
 
 		State->Time = 0.0f;
 
@@ -238,7 +263,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->MouseDragging = false;
 	}
 
-	State->Light.Pos.y = Sin(State->Time) + 2.0f;
+	State->Lights[0].Pos.y = Sin(State->Time) + 2.0f;
 
 #if 0
 	// NOTE(hugo) : Rendering on quads
@@ -269,14 +294,14 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	glBindFramebuffer(GL_FRAMEBUFFER, State->DepthFramebuffer.FBO);
 	glClear(GL_DEPTH_BUFFER_BIT);
 	glCullFace(GL_FRONT);
-	RenderSimpleScene(State, State->Light.Pos, State->Light.Target, V3(0.0f, 1.0f, 0.0f), LightProjectionMatrix);
+	RenderSimpleScene(State, State->Lights[0].Pos, State->Lights[0].Target, V3(0.0f, 1.0f, 0.0f), LightProjectionMatrix);
 	glCullFace(GL_BACK);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
 	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
 
-	mat4 LightLookAt = LookAt(State->Light.Pos, State->Light.Target, V3(0.0f, 1.0f, 0.0f));
+	mat4 LightLookAt = LookAt(State->Lights[0].Pos, State->Lights[0].Target, V3(0.0f, 1.0f, 0.0f));
 	mat4 LightSpaceMatrix = LightProjectionMatrix * LightLookAt;
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
 	RenderShadowedScene(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightSpaceMatrix);

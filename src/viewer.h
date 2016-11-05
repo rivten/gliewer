@@ -43,7 +43,8 @@ struct game_state
 
 	mesh CubeMesh;
 
-	light Light;
+	light Lights[4];
+	int LightCount;
 
 	shader BasicShader;
 	shader LightingShader;

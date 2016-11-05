@@ -8,8 +8,8 @@ in vec4 FragmentPositionInLightSpace;
 
 uniform sampler2D ShadowMap;
 
-uniform vec3 LightPos;
-uniform vec4 LightColor;
+uniform vec3 LightPos[4];
+uniform vec4 LightColor[4];
 uniform mat4 ViewMatrix;
 uniform vec4 ObjectColor;
 uniform int BlinnPhongShininess;
@@ -100,7 +100,7 @@ vec4 BlinnPhongBRDF(vec4 ObjectColor, vec4 LightColor, vec4 SpecularColor, vec3 
 void main()
 {
 	vec3 FragmentPos = vec3(ViewMatrix * FragmentPositionInWorldSpace);
-	vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos, 1.0f)) - FragmentPos);
+	vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos[0], 1.0f)) - FragmentPos);
 	vec3 ViewDir = normalize(-FragmentPos);
 	vec3 HalfDir = normalize(ViewDir + LightDir);
 
@@ -108,5 +108,5 @@ void main()
 	// since we computed the Normal in that very space
 	float BlinnPhongSpecularIntensity = 1.0f;
 	//Color = BlinnPhongBRDF(ObjectColor, LightColor, vec4(1.0f), VertexNormal, LightDir, HalfDir, BlinnPhongShininess, BlinnPhongSpecularIntensity);
-	Color = (1.0f - ShadowFactor(FragmentPositionInLightSpace)) * CookTorranceBRDF(ObjectColor, LightColor, VertexNormal, LightDir, HalfDir, ViewDir, CTF0, CTM);
+	Color = (1.0f - ShadowFactor(FragmentPositionInLightSpace)) * CookTorranceBRDF(ObjectColor, LightColor[0], VertexNormal, LightDir, HalfDir, ViewDir, CTF0, CTM);
 }
