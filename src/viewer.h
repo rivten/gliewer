@@ -71,6 +71,8 @@ struct game_state
 	GLuint QuadVAO;
 	GLuint QuadVBO;
 
+	float Sigma;
+
 };
 
 #include "viewer.cpp"

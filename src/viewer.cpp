@@ -243,6 +243,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		glBindVertexArray(0);
 		// }
 
+		State->Sigma = 1.0f;
 
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
@@ -336,7 +337,25 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
 
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
+	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
+	glEnable(GL_DEPTH_TEST);
+
 	RenderShadowedScene(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightProjectionMatrix);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	UseShader(State->DepthDebugQuadShader);
+	SetUniform(State->DepthDebugQuadShader, State->Sigma, "Sigma");
+	glBindVertexArray(State->QuadVAO);
+	glDisable(GL_DEPTH_TEST);
+	glBindTexture(GL_TEXTURE_2D, State->ScreenFramebuffer.Texture);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
 
 #if 0
 	UseShader(State->DepthDebugQuadShader);
@@ -351,7 +370,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
-	ImGui::SliderFloat("Cook-Torrance M", (float*)&State->CookTorranceM, 0.0f, 1.0f);
+	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
+	ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.001f, 50.0f);
 
 	if(ImGui::BeginMainMenuBar())
 	{
