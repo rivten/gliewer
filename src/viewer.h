@@ -29,10 +29,13 @@ struct camera
 
 struct light
 {
+	// NOTE(hugo) : If Mesh = NULL, then the light must not be rendered
 	mesh* Mesh;
 	v3 Pos;
 	v4 Color;
 	v3 Target;
+
+	gl_depth_framebuffer DepthFramebuffer;
 };
 
 struct game_state
@@ -44,7 +47,7 @@ struct game_state
 	mesh CubeMesh;
 
 	light Lights[4];
-	int LightCount;
+	u32 LightCount;
 
 	shader BasicShader;
 	shader LightingShader;
@@ -68,7 +71,6 @@ struct game_state
 	GLuint QuadVAO;
 	GLuint QuadVBO;
 
-	gl_depth_framebuffer DepthFramebuffer;
 };
 
 #include "viewer.cpp"

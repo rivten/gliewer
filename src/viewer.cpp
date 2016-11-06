@@ -13,8 +13,10 @@ mat4 GetLightModelMatrix(light Light)
 		return(ModelMatrix);
 }
 
-void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightSpaceMatrix)
+void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix)
 {
+	mat4 LightSpaceMatrix[4];
+
 	mat4 ViewMatrix = LookAt(CameraPos, CameraTarget, CameraUp);
 
 	// NOTE(hugo) : Drawing Object Mesh
@@ -23,14 +25,14 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 
 	UseShader(State->ShadowMappingShader);
 
-	glBindTexture(GL_TEXTURE_2D, State->DepthFramebuffer.Texture);
 
 	SetUniform(State->ShadowMappingShader, MVPObjectMatrix, "MVPMatrix");
 	SetUniform(State->ShadowMappingShader, NormalObjectMatrix, "NormalMatrix");
 	SetUniform(State->ShadowMappingShader, ViewMatrix, "ViewMatrix");
 	SetUniform(State->ShadowMappingShader, State->ObjectModelMatrix, "ModelObjectMatrix");
 	SetUniform(State->ShadowMappingShader, State->ObjectColor, "ObjectColor");
-	SetUniform(State->ShadowMappingShader, LightSpaceMatrix, "LightSpaceMatrix");
+	SetUniform(State->ShadowMappingShader, State->LightCount, "LightCount");
+
 
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
@@ -49,6 +51,22 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 		strcat(Buffer, "]");
 
 		SetUniform(State->ShadowMappingShader, State->Lights[LightIndex].Color, Buffer);
+
+		mat4 LightLookAt = LookAt(State->Lights[LightIndex].Pos, State->Lights[LightIndex].Target, V3(0.0f, 1.0f, 0.0f));
+		LightSpaceMatrix[LightIndex] = LightProjectionMatrix * LightLookAt;
+		memset(Buffer, 0, ArrayCount(Buffer));
+		strcpy(Buffer, "LightSpaceMatrix[");
+		strcat(Buffer, StringNum);
+		strcat(Buffer, "]");
+		SetUniform(State->ShadowMappingShader, LightSpaceMatrix[LightIndex], Buffer);
+
+		memset(Buffer, 0, ArrayCount(Buffer));
+		strcpy(Buffer, "ShadowMap[");
+		strcat(Buffer, StringNum);
+		strcat(Buffer, "]");
+		glActiveTexture(GL_TEXTURE0 + LightIndex);
+		SetUniform(State->ShadowMappingShader, LightIndex, Buffer);
+		glBindTexture(GL_TEXTURE_2D, State->Lights[LightIndex].DepthFramebuffer.Texture);
 	}
 
 	SetUniform(State->ShadowMappingShader, State->CookTorranceF0, "CTF0");
@@ -57,6 +75,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 
 	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
 	DrawTriangleMesh(&State->ObjectMesh);
+	glActiveTexture(GL_TEXTURE0);
 
 
 	// NOTE(hugo) : Drawing ground based on the cube mesh
@@ -71,11 +90,17 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	DrawTriangleMesh(&State->CubeMesh);
 
 	// NOTE(hugo) : Drawing Light Mesh
-	mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Lights[0]);
-	UseShader(State->BasicShader);
-	SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
-	SetUniform(State->BasicShader, State->Lights[0].Color, "ObjectColor");
-	DrawTriangleMesh(State->Lights[0].Mesh);
+	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
+	{
+		if(State->Lights[LightIndex].Mesh)
+		{
+			mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Lights[LightIndex]);
+			UseShader(State->BasicShader);
+			SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
+			SetUniform(State->BasicShader, State->Lights[LightIndex].Color, "ObjectColor");
+			DrawTriangleMesh(State->Lights[LightIndex].Mesh);
+		}
+	}
 
 #if 0
 	SetUniform(State->BasicShader, MVPObjectMatrix, "MVPMatrix");
@@ -101,6 +126,7 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 	DrawTriangleMesh(&State->CubeMesh);
 }
 
+#if 0
 void RenderLightedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix)
 {
 	mat4 ViewMatrix = LookAt(CameraPos, CameraTarget, CameraUp);
@@ -145,6 +171,7 @@ void RenderLightedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Cam
 	DrawTriangleMesh(State->Lights[0].Mesh);
 
 }
+#endif
 
 void PushLight(game_state* State, light Light)
 {
@@ -172,7 +199,12 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->ShadowMappingShader = LoadShader("../src/shaders/shadow_mapping_v.glsl", "../src/shaders/shadow_mapping_f.glsl");
 
 		light Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 0.0f, 0.0f)};
+		Light.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light);
+
+		light Light2 = {&State->CubeMesh, V3(0.0f, 4.0f, -4.0f), V4(0.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 0.0f, 0.0f)};
+		Light2.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
+		PushLight(State, Light2);
 
 		State->Time = 0.0f;
 
@@ -211,7 +243,6 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		glBindVertexArray(0);
 		// }
 
-		State->DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
 
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
@@ -291,25 +322,26 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	// TODO(hugo) : Get rid of OpenGL in here
 	mat4 LightProjectionMatrix = Orthographic(10.0f, 10.0f, 1.0f, 20.0f);
 	SetViewport(GlobalShadowWidth, GlobalShadowHeight);
-	glBindFramebuffer(GL_FRAMEBUFFER, State->DepthFramebuffer.FBO);
-	glClear(GL_DEPTH_BUFFER_BIT);
-	glCullFace(GL_FRONT);
-	RenderSimpleScene(State, State->Lights[0].Pos, State->Lights[0].Target, V3(0.0f, 1.0f, 0.0f), LightProjectionMatrix);
-	glCullFace(GL_BACK);
+	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
+	{
+		glBindFramebuffer(GL_FRAMEBUFFER, State->Lights[LightIndex].DepthFramebuffer.FBO);
+		glClear(GL_DEPTH_BUFFER_BIT);
+		glCullFace(GL_FRONT);
+		RenderSimpleScene(State, State->Lights[LightIndex].Pos, State->Lights[LightIndex].Target, V3(0.0f, 1.0f, 0.0f), LightProjectionMatrix);
+		glCullFace(GL_BACK);
+	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
 	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
 
-	mat4 LightLookAt = LookAt(State->Lights[0].Pos, State->Lights[0].Target, V3(0.0f, 1.0f, 0.0f));
-	mat4 LightSpaceMatrix = LightProjectionMatrix * LightLookAt;
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
-	RenderShadowedScene(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightSpaceMatrix);
+	RenderShadowedScene(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightProjectionMatrix);
 
 #if 0
 	UseShader(State->DepthDebugQuadShader);
 	glBindVertexArray(State->QuadVAO);
-	glBindTexture(GL_TEXTURE_2D, State->DepthFramebuffer.Texture);
+	glBindTexture(GL_TEXTURE_2D, State->Lights[0].DepthFramebuffer.Texture);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
 #endif

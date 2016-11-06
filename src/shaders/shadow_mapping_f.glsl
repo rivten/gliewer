@@ -4,19 +4,21 @@ out vec4 Color;
 
 in vec3 VertexNormal;
 in vec4 FragmentPositionInWorldSpace;
-in vec4 FragmentPositionInLightSpace;
+in vec4 FragmentPositionInLightSpace[4];
 
-uniform sampler2D ShadowMap;
+uniform sampler2D ShadowMap[4];
 
+// TODO(hugo) : GLSL struct for lights
 uniform vec3 LightPos[4];
 uniform vec4 LightColor[4];
+uniform int LightCount;
 uniform mat4 ViewMatrix;
 uniform vec4 ObjectColor;
 uniform int BlinnPhongShininess;
 uniform float CTF0;
 uniform float CTM;
 
-float ShadowFactor(vec4 FragmentPositionInLightSpace)
+float ShadowFactor(vec4 FragmentPositionInLightSpace, sampler2D ShadowMap)
 {
 	vec3 ProjectedCoordinates = FragmentPositionInLightSpace.xyz / FragmentPositionInLightSpace.w;
 	ProjectedCoordinates = 0.5f * ProjectedCoordinates + 0.5f;
@@ -87,7 +89,9 @@ vec4 CookTorranceBRDF(vec4 ObjectColor, vec4 LightColor, vec3 Normal, vec3 Light
 
 	vec4 DiffColor = DiffuseColor(ObjectColor, LightColor, LightDir, Normal);
 
-	return(DiffColor + SpecularColor);
+	// TODO(hugo) : Investigate why I need to use clamp
+	// I think I could get negative color otherwise
+	return(clamp(DiffColor + SpecularColor, 0.0f, 1.0f));
 }
 
 vec4 BlinnPhongBRDF(vec4 ObjectColor, vec4 LightColor, vec4 SpecularColor, vec3 VertexNormal, vec3 LightDir, vec3 HalfDir, int Shininess, float SpecularIntensity)
@@ -100,13 +104,17 @@ vec4 BlinnPhongBRDF(vec4 ObjectColor, vec4 LightColor, vec4 SpecularColor, vec3 
 void main()
 {
 	vec3 FragmentPos = vec3(ViewMatrix * FragmentPositionInWorldSpace);
-	vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos[0], 1.0f)) - FragmentPos);
 	vec3 ViewDir = normalize(-FragmentPos);
-	vec3 HalfDir = normalize(ViewDir + LightDir);
 
 	// NOTE(hugo) : Computations needs to happen in eye space
 	// since we computed the Normal in that very space
 	float BlinnPhongSpecularIntensity = 1.0f;
 	//Color = BlinnPhongBRDF(ObjectColor, LightColor, vec4(1.0f), VertexNormal, LightDir, HalfDir, BlinnPhongShininess, BlinnPhongSpecularIntensity);
-	Color = (1.0f - ShadowFactor(FragmentPositionInLightSpace)) * CookTorranceBRDF(ObjectColor, LightColor[0], VertexNormal, LightDir, HalfDir, ViewDir, CTF0, CTM);
+	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
+	{
+		vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos[LightIndex], 1.0f)) - FragmentPos);
+		vec3 HalfDir = normalize(ViewDir + LightDir);
+
+		Color += (1.0f - ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex])) * CookTorranceBRDF(ObjectColor, LightColor[LightIndex], VertexNormal, LightDir, HalfDir, ViewDir, CTF0, CTM);
+	}
 }

@@ -5,12 +5,13 @@ layout (location = 1) in vec3 Normal;
 
 out vec3 VertexNormal;
 out vec4 FragmentPositionInWorldSpace;
-out vec4 FragmentPositionInLightSpace;
+out vec4 FragmentPositionInLightSpace[4];
 
 uniform mat4 MVPMatrix;
 uniform mat4 NormalMatrix;
 uniform mat4 ModelObjectMatrix;
-uniform mat4 LightSpaceMatrix;
+uniform mat4 LightSpaceMatrix[4];
+uniform int LightCount;
 
 void main()
 {
@@ -23,5 +24,8 @@ void main()
 	gl_Position = MVPMatrix * ObjectPos;
 	VertexNormal = normalize(vec3(NormalMatrix * vec4(Normal, 1.0)));
 	FragmentPositionInWorldSpace = ModelObjectMatrix * ObjectPos;
-	FragmentPositionInLightSpace = LightSpaceMatrix * ModelObjectMatrix * ObjectPos;
+	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
+	{
+		FragmentPositionInLightSpace[LightIndex] = LightSpaceMatrix[LightIndex] * ModelObjectMatrix * ObjectPos;
+	}
 }
