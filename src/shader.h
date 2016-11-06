@@ -35,7 +35,7 @@ shader LoadShader(const GLchar* vertexPath, const GLchar* fragmentPath)
 	}
 	catch (std::ifstream::failure e)
 	{
-		//std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ" << std::endl;
+		SDL_Log("Error::shader::File not successfully read.\n");
 	}
 	const GLchar* vShaderCode = vertexCode.c_str();
 	const GLchar* fShaderCode = fragmentCode.c_str();
@@ -52,7 +52,7 @@ shader LoadShader(const GLchar* vertexPath, const GLchar* fragmentPath)
 	if (!success)
 	{
 		glGetShaderInfoLog(vertex, 512, 0, infoLog);
-		//std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+		SDL_Log("%s\n", infoLog);
 	}
 
 	fragment = glCreateShader(GL_FRAGMENT_SHADER);
@@ -62,7 +62,7 @@ shader LoadShader(const GLchar* vertexPath, const GLchar* fragmentPath)
 	if (!success)
 	{
 		glGetShaderInfoLog(fragment, 512, 0, infoLog);
-		//std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+		SDL_Log("%s\n", infoLog);
 	}
 
 	Result.Program = glCreateProgram();
@@ -73,7 +73,7 @@ shader LoadShader(const GLchar* vertexPath, const GLchar* fragmentPath)
 	if (!success)
 	{
 		glGetProgramInfoLog(Result.Program, 512, 0, infoLog);
-		//std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+		SDL_Log("%s\n", infoLog);
 	}
 
 	glDeleteShader(vertex);
@@ -116,7 +116,7 @@ shader LoadShader(const GLchar* vertexPath, const GLchar* geometryPath, const GL
 	}
 	catch (std::ifstream::failure e)
 	{
-		//std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ" << std::endl;
+		SDL_Log("Error::shader::File not successfully read.\n");
 	}
 	const GLchar* vShaderCode = vertexCode.c_str();
 	const GLchar* gShaderCode = geometryCode.c_str();
@@ -135,7 +135,7 @@ shader LoadShader(const GLchar* vertexPath, const GLchar* geometryPath, const GL
 	if (!success)
 	{
 		glGetShaderInfoLog(vertex, 512, 0, infoLog);
-		//std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+		SDL_Log("%s\n", infoLog);
 	}
 
 	geometry = glCreateShader(GL_GEOMETRY_SHADER);
@@ -145,7 +145,7 @@ shader LoadShader(const GLchar* vertexPath, const GLchar* geometryPath, const GL
 	if (!success)
 	{
 		glGetShaderInfoLog(vertex, 512, 0, infoLog);
-		//std::cout << "ERROR::SHADER::GEOMETRY::COMPILATION_FAILED\n" << infoLog << std::endl;
+		SDL_Log("%s\n", infoLog);
 	}
 
 	fragment = glCreateShader(GL_FRAGMENT_SHADER);
@@ -155,7 +155,7 @@ shader LoadShader(const GLchar* vertexPath, const GLchar* geometryPath, const GL
 	if (!success)
 	{
 		glGetShaderInfoLog(fragment, 512, 0, infoLog);
-		//std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+		SDL_Log("%s\n", infoLog);
 	}
 
 	Result.Program = glCreateProgram();
@@ -167,7 +167,7 @@ shader LoadShader(const GLchar* vertexPath, const GLchar* geometryPath, const GL
 	if (!success)
 	{
 		glGetProgramInfoLog(Result.Program, 512, 0, infoLog);
-		//std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+		SDL_Log("%s\n", infoLog);
 	}
 
 	glDeleteShader(vertex);
