@@ -241,7 +241,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->Camera.FoV = Radians(45);
 		State->Camera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
 		State->Camera.NearPlane = 0.5f;
-		State->Camera.FarPlane = 30.0f;
+		State->Camera.FarPlane = 10.0f;
 
 		State->MouseXInitial = 0;
 		State->MouseYInitial = 0;
@@ -347,7 +347,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	// NOTE(hugo) : Shadow mapping rendering
 	// {
 	// TODO(hugo) : Get rid of OpenGL in here
-	mat4 LightProjectionMatrix = Orthographic(3.0f, 3.0f, 0.01f, 3.0f);
+	mat4 LightProjectionMatrix = Orthographic(3.0f, 3.0f, 0.2f, 3.0f);
 	SetViewport(GlobalShadowWidth, GlobalShadowHeight);
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{

@@ -194,7 +194,6 @@ std::vector<mesh> LoadOBJ(const std::string BaseDir, const std::string Filename)
 	bool LoadingWorked = tinyobj::LoadObj(&Attributes, &Shapes, &Materials, &Error, (BaseDir + Filename).c_str(), BaseDir.c_str());
 	Assert(LoadingWorked);
 
-	// TODO(hugo) : Handle different shapes separately
 	for(u32 ShapeIndex = 0; ShapeIndex < Shapes.size(); ++ShapeIndex)
 	{
 		mesh Mesh = {};
@@ -202,10 +201,17 @@ std::vector<mesh> LoadOBJ(const std::string BaseDir, const std::string Filename)
 		Mesh.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
 		for(u32 MaterialIndex = 0; MaterialIndex < Materials.size(); ++MaterialIndex)
 		{
-			if(Materials[MaterialIndex].name == Mesh.Name)
+			if(!Mesh.Name.empty() && Materials[MaterialIndex].name == Mesh.Name)
 			{
 				tinyobj::material_t MeshMaterial = Materials[MaterialIndex];
 				Mesh.Color = V4(MeshMaterial.ambient[0], MeshMaterial.ambient[1], MeshMaterial.ambient[2], 1.0f);
+				break;
+			}
+			else if(Materials[MaterialIndex].name == Mesh.Name && Mesh.Name == "light")
+			{
+				// TODO(hugo) : Handle lights as meshes
+				tinyobj::material_t MeshMaterial = Materials[MaterialIndex];
+				Mesh.Color = V4(MeshMaterial.emission[0], MeshMaterial.emission[1], MeshMaterial.emission[2], 1.0f);
 				break;
 			}
 		}
