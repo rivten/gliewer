@@ -14,6 +14,7 @@
  *   - gamma correction
  *   - normal mapping
  *   - deferred shading
+ *   - automatic reloading of shaders (as in http://swarminglogic.com/jotting/2013_10_gamedev01)
  */
 
 struct camera

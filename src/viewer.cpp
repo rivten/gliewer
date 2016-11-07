@@ -227,6 +227,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->CookTorranceF0 = 0.5f;
 		State->CookTorranceM = 0.5f;
 
+		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
+		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
 		State->ScreenFramebuffer = CreateScreenFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
 
 		// NOTE(hugo) : Initializing Quad data 
@@ -243,7 +245,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		glBindVertexArray(0);
 		// }
 
-		State->Sigma = 1.0f;
+		State->Sigma = 0.0f;
 
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
@@ -371,7 +373,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
-	ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.001f, 50.0f);
+	ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.0f, 50.0f);
 
 	if(ImGui::BeginMainMenuBar())
 	{
