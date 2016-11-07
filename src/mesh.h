@@ -1,5 +1,7 @@
 #pragma once
 
+#define TINYOBJLOADER_IMPLEMENTATION
+
 #include <vector>
 #include <fstream>
 #include <unordered_map>
@@ -97,6 +99,155 @@ void ComputeNormal(mesh* Mesh)
 	}
 }
 
+void DrawTriangleMesh(mesh* Mesh)
+{
+	glBindVertexArray(Mesh->VAO);
+	glDrawElements(GL_TRIANGLES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+}
+
+void DrawWiredTriangleMesh(mesh* Mesh)
+{
+	glBindVertexArray(Mesh->VAO);
+	glDrawElements(GL_LINES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+}
+
+void DrawTriangleMeshInstances(mesh* Mesh, int InstanceCount)
+{
+	glBindVertexArray(Mesh->VAO);
+	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0, InstanceCount);
+	glBindVertexArray(0);
+}
+
+void DrawWiredTriangleMeshInstances(mesh* Mesh, int InstanceCount)
+{
+	glBindVertexArray(Mesh->VAO);
+	glDrawElementsInstanced(GL_LINES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0, InstanceCount);
+	glBindVertexArray(0);
+}
+
+// NOTE(hugo) : Lot of pressure on that function this is called three time for each face
+int GetPositionOfVertexInMesh(vertex V, mesh* Result, std::unordered_map<vertex, int, hash_vertex>& VertexIndices)
+{
+    // TODO(hugo) : Could this be improved using a hashmap of the index of the vertex in the OBJ positioning ?
+    std::unordered_map<vertex, int, hash_vertex>::const_iterator it = VertexIndices.find(V);
+    if(it == VertexIndices.end())
+    {
+        Result->Vertices.push_back(V);
+        VertexIndices[V] = (u32)(Result->Vertices.size() - 1);
+        return((u32)(Result->Vertices.size() - 1));
+    }
+    else
+    {
+        return(it->second);
+    }
+}
+
+void GenerateDataBuffer(mesh* Mesh)
+{
+	glGenVertexArrays(1, &Mesh->VAO);
+
+	glGenBuffers(1, &Mesh->VBO);
+
+	glGenBuffers(1, &Mesh->EBO);
+
+	glBindVertexArray(Mesh->VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, Mesh->VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertex) * Mesh->Vertices.size(), (GLuint*)Mesh->Vertices.data(), GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Mesh->EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(triangle) * Mesh->Faces.size(), (GLuint*)Mesh->Faces.data(), GL_STATIC_DRAW);
+	
+	// NOTE(hugo) : Vertex positions
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)0);
+
+	// NOTE(hugo) : Vertex normals
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)(3 * sizeof(float)));
+
+	// NOTE(hugo) : Vertex textures
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)(6 * sizeof(float)));
+
+	glBindVertexArray(0);
+}
+
+#if 1
+// ---------------------------------------
+// NOTE(hugo) : TinyObjLoader mesh implementation
+// ---------------------------------------
+
+#include "tiny_obj_loader.h"
+
+mesh LoadOBJ(const std::string filename)
+{
+	tinyobj::attrib_t Attributes;
+	std::vector<tinyobj::shape_t> Shapes;
+	std::vector<tinyobj::material_t> Materials;
+	std::string Error;
+	bool LoadingWorked = tinyobj::LoadObj(&Attributes, &Shapes, &Materials, &Error, filename.c_str());
+	Assert(LoadingWorked);
+
+	// TODO(hugo) : Right now, we only consider the first parsed shape. Generalize this in the future.
+	mesh Result = {};
+	bool NormalsComputed = true;
+	Assert(Shapes.size() >= 1);
+    std::unordered_map<vertex, int, hash_vertex> VertexIndices;
+	for(u32 TriangleIndex = 0; TriangleIndex < (Shapes[0].mesh.indices.size() / 3); ++TriangleIndex)
+	{
+		triangle Triangle = {};
+		for(u32 i = 0; i < 3; ++i)
+		{
+			vertex V = {};
+			u32 VertexIndex = Shapes[0].mesh.indices[3 * TriangleIndex + i].vertex_index;
+			if(VertexIndex != -1)
+			{
+				V.Position = V3(Attributes.vertices[3 * VertexIndex + 0],
+						Attributes.vertices[3 * VertexIndex + 1],
+						Attributes.vertices[3 * VertexIndex + 2]);
+			}
+
+			u32 NormalIndex = Shapes[0].mesh.indices[3 * TriangleIndex + i].normal_index;
+			if(NormalsComputed && (NormalIndex != -1))
+			{
+				V.Normal = V3(Attributes.normals[3 * NormalIndex + 0],
+						Attributes.normals[3 * NormalIndex + 1],
+						Attributes.normals[3 * NormalIndex + 2]);
+			}
+			else
+			{
+				NormalsComputed = false;
+			}
+
+			u32 TextureIndex = Shapes[0].mesh.indices[3 * TriangleIndex + i].texcoord_index;
+			if(TextureIndex != -1)
+			{
+				V.Texture = V2(Attributes.texcoords[2 * TextureIndex + 0],
+						Attributes.texcoords[2 * TextureIndex + 1]);
+			}
+
+			int VertexIndexInMesh = GetPositionOfVertexInMesh(V, &Result, VertexIndices);
+			Triangle.Vertices[i] = VertexIndexInMesh;
+		}
+		Result.Faces.push_back(Triangle);
+	}
+
+	if(!NormalsComputed)
+	{
+		ComputeNormal(&Result);
+	}
+
+	GenerateDataBuffer(&Result);
+
+	return(Result);
+}
+
+#else
+// ---------------------------------------
+// NOTE(hugo) : My own mesh implementation
+// ---------------------------------------
 
 mesh LoadOFF(const std::string& filename)
 {
@@ -181,51 +332,6 @@ mesh LoadOFF(const std::string& filename)
 	glBindVertexArray(0);
 
 	return(Result);
-}
-
-void DrawTriangleMesh(mesh* Mesh)
-{
-	glBindVertexArray(Mesh->VAO);
-	glDrawElements(GL_TRIANGLES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
-}
-
-void DrawWiredTriangleMesh(mesh* Mesh)
-{
-	glBindVertexArray(Mesh->VAO);
-	glDrawElements(GL_LINES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
-}
-
-void DrawTriangleMeshInstances(mesh* Mesh, int InstanceCount)
-{
-	glBindVertexArray(Mesh->VAO);
-	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0, InstanceCount);
-	glBindVertexArray(0);
-}
-
-void DrawWiredTriangleMeshInstances(mesh* Mesh, int InstanceCount)
-{
-	glBindVertexArray(Mesh->VAO);
-	glDrawElementsInstanced(GL_LINES, (GLsizei)(3 * Mesh->Faces.size()), GL_UNSIGNED_INT, 0, InstanceCount);
-	glBindVertexArray(0);
-}
-
-// NOTE(hugo) : Lot of pressure on that function this is called three time for each face
-int GetPositionOfVertexInMesh(vertex V, mesh* Result, std::unordered_map<vertex, int, hash_vertex>& VertexIndices)
-{
-    // TODO(hugo) : Could this be improved using a hashmap of the index of the vertex in the OBJ positioning ?
-    std::unordered_map<vertex, int, hash_vertex>::const_iterator it = VertexIndices.find(V);
-    if(it == VertexIndices.end())
-    {
-        Result->Vertices.push_back(V);
-        VertexIndices[V] = (u32)(Result->Vertices.size() - 1);
-        return((u32)(Result->Vertices.size() - 1));
-    }
-    else
-    {
-        return(it->second);
-    }
 }
 
 struct parse_obj_triangle_result
@@ -451,33 +557,8 @@ mesh LoadOBJ(const std::string filename)
     ComputeNormal(&Result);
 
     // TODO(hugo) : Here we assume that the normals were given ! Do not do this in the future
-	glGenVertexArrays(1, &Result.VAO);
-
-	glGenBuffers(1, &Result.VBO);
-
-	glGenBuffers(1, &Result.EBO);
-
-	glBindVertexArray(Result.VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, Result.VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertex) * Result.Vertices.size(), (GLuint*)Result.Vertices.data(), GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Result.EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(triangle) * Result.Faces.size(), (GLuint*)Result.Faces.data(), GL_STATIC_DRAW);
-	
-	// NOTE(hugo) : Vertex positions
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)0);
-
-	// NOTE(hugo) : Vertex normals
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)(3 * sizeof(float)));
-
-	// NOTE(hugo) : Vertex textures
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (GLvoid*)(6 * sizeof(float)));
-
-	glBindVertexArray(0);
 
     return(Result);
 }
 
+#endif
