@@ -62,6 +62,9 @@ struct mesh
     // NOTE(hugo) : Mesh Data
 	std::vector<vertex> Vertices;
 	std::vector<triangle> Faces;
+
+	v4 Color;
+	std::string Name;
 };
 
 
@@ -181,65 +184,82 @@ void GenerateDataBuffer(mesh* Mesh)
 
 #include "tiny_obj_loader.h"
 
-mesh LoadOBJ(const std::string filename)
+std::vector<mesh> LoadOBJ(const std::string BaseDir, const std::string Filename)
 {
+	std::vector<mesh> Result;
 	tinyobj::attrib_t Attributes;
 	std::vector<tinyobj::shape_t> Shapes;
 	std::vector<tinyobj::material_t> Materials;
 	std::string Error;
-	bool LoadingWorked = tinyobj::LoadObj(&Attributes, &Shapes, &Materials, &Error, filename.c_str());
+	bool LoadingWorked = tinyobj::LoadObj(&Attributes, &Shapes, &Materials, &Error, (BaseDir + Filename).c_str(), BaseDir.c_str());
 	Assert(LoadingWorked);
 
-	// TODO(hugo) : Right now, we only consider the first parsed shape. Generalize this in the future.
-	mesh Result = {};
-	bool NormalsComputed = true;
-	Assert(Shapes.size() >= 1);
-    std::unordered_map<vertex, int, hash_vertex> VertexIndices;
-	for(u32 TriangleIndex = 0; TriangleIndex < (Shapes[0].mesh.indices.size() / 3); ++TriangleIndex)
+	// TODO(hugo) : Handle different shapes separately
+	for(u32 ShapeIndex = 0; ShapeIndex < Shapes.size(); ++ShapeIndex)
 	{
-		triangle Triangle = {};
-		for(u32 i = 0; i < 3; ++i)
+		mesh Mesh = {};
+		Mesh.Name = Shapes[ShapeIndex].name;
+		Mesh.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
+		for(u32 MaterialIndex = 0; MaterialIndex < Materials.size(); ++MaterialIndex)
 		{
-			vertex V = {};
-			u32 VertexIndex = Shapes[0].mesh.indices[3 * TriangleIndex + i].vertex_index;
-			if(VertexIndex != -1)
+			if(Materials[MaterialIndex].name == Mesh.Name)
 			{
-				V.Position = V3(Attributes.vertices[3 * VertexIndex + 0],
-						Attributes.vertices[3 * VertexIndex + 1],
-						Attributes.vertices[3 * VertexIndex + 2]);
+				tinyobj::material_t MeshMaterial = Materials[MaterialIndex];
+				Mesh.Color = V4(MeshMaterial.ambient[0], MeshMaterial.ambient[1], MeshMaterial.ambient[2], 1.0f);
+				break;
 			}
-
-			u32 NormalIndex = Shapes[0].mesh.indices[3 * TriangleIndex + i].normal_index;
-			if(NormalsComputed && (NormalIndex != -1))
-			{
-				V.Normal = V3(Attributes.normals[3 * NormalIndex + 0],
-						Attributes.normals[3 * NormalIndex + 1],
-						Attributes.normals[3 * NormalIndex + 2]);
-			}
-			else
-			{
-				NormalsComputed = false;
-			}
-
-			u32 TextureIndex = Shapes[0].mesh.indices[3 * TriangleIndex + i].texcoord_index;
-			if(TextureIndex != -1)
-			{
-				V.Texture = V2(Attributes.texcoords[2 * TextureIndex + 0],
-						Attributes.texcoords[2 * TextureIndex + 1]);
-			}
-
-			int VertexIndexInMesh = GetPositionOfVertexInMesh(V, &Result, VertexIndices);
-			Triangle.Vertices[i] = VertexIndexInMesh;
 		}
-		Result.Faces.push_back(Triangle);
+
+		// TODO(hugo) : Right now, we only consider the first parsed shape. Generalize this in the future.
+		bool NormalsComputed = true;
+		std::unordered_map<vertex, int, hash_vertex> VertexIndices;
+		for(u32 TriangleIndex = 0; TriangleIndex < (Shapes[ShapeIndex].mesh.indices.size() / 3); ++TriangleIndex)
+		{
+			triangle Triangle = {};
+			for(u32 i = 0; i < 3; ++i)
+			{
+				vertex V = {};
+				u32 VertexIndex = Shapes[ShapeIndex].mesh.indices[3 * TriangleIndex + i].vertex_index;
+				if(VertexIndex != -1)
+				{
+					V.Position = V3(Attributes.vertices[3 * VertexIndex + 0],
+							Attributes.vertices[3 * VertexIndex + 1],
+							Attributes.vertices[3 * VertexIndex + 2]);
+				}
+
+				u32 NormalIndex = Shapes[ShapeIndex].mesh.indices[3 * TriangleIndex + i].normal_index;
+				if(NormalsComputed && (NormalIndex != -1))
+				{
+					V.Normal = V3(Attributes.normals[3 * NormalIndex + 0],
+							Attributes.normals[3 * NormalIndex + 1],
+							Attributes.normals[3 * NormalIndex + 2]);
+				}
+				else
+				{
+					NormalsComputed = false;
+				}
+
+				u32 TextureIndex = Shapes[ShapeIndex].mesh.indices[3 * TriangleIndex + i].texcoord_index;
+				if(TextureIndex != -1)
+				{
+					V.Texture = V2(Attributes.texcoords[2 * TextureIndex + 0],
+							Attributes.texcoords[2 * TextureIndex + 1]);
+				}
+
+				int VertexIndexInMesh = GetPositionOfVertexInMesh(V, &Mesh, VertexIndices);
+				Triangle.Vertices[i] = VertexIndexInMesh;
+			}
+			Mesh.Faces.push_back(Triangle);
+		}
+		if(!NormalsComputed)
+		{
+			ComputeNormal(&Mesh);
+		}
+
+		GenerateDataBuffer(&Mesh);
+		Result.push_back(Mesh);
 	}
 
-	if(!NormalsComputed)
-	{
-		ComputeNormal(&Result);
-	}
-
-	GenerateDataBuffer(&Result);
 
 	return(Result);
 }

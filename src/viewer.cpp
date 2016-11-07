@@ -30,7 +30,6 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, NormalObjectMatrix, "NormalMatrix");
 	SetUniform(State->ShadowMappingShader, ViewMatrix, "ViewMatrix");
 	SetUniform(State->ShadowMappingShader, State->ObjectModelMatrix, "ModelObjectMatrix");
-	SetUniform(State->ShadowMappingShader, State->ObjectColor, "ObjectColor");
 	SetUniform(State->ShadowMappingShader, State->LightCount, "LightCount");
 
 
@@ -74,10 +73,15 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 
 
 	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
-	DrawTriangleMesh(&State->ObjectMesh);
+	for(u32 MeshIndex = 0; MeshIndex < State->MeshCount; ++MeshIndex)
+	{
+		SetUniform(State->ShadowMappingShader, State->Meshes[MeshIndex].Color, "ObjectColor");
+		DrawTriangleMesh(&State->Meshes[MeshIndex]);
+	}
 	glActiveTexture(GL_TEXTURE0);
 
 
+#if 0
 	// NOTE(hugo) : Drawing ground based on the cube mesh
 	mat4 GroundModelMatrix = Translation(V3(0.0f, -1.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
 	mat4 MVPGroundMatrix = ProjectionMatrix * ViewMatrix * GroundModelMatrix;
@@ -88,6 +92,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, GroundModelMatrix, "ModelObjectMatrix");
 	SetUniform(State->ShadowMappingShader, GroundColor, "ObjectColor");
 	DrawTriangleMesh(&State->CubeMesh);
+#endif
 
 	// NOTE(hugo) : Drawing Light Mesh
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
@@ -118,12 +123,17 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 	UseShader(State->BasicShader);
 	SetUniform(State->BasicShader, MVPObjectMatrix, "MVPMatrix");
 	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
-	DrawTriangleMesh(&State->ObjectMesh);
+	for(u32 MeshIndex = 0; MeshIndex < State->MeshCount; ++MeshIndex)
+	{
+		DrawTriangleMesh(&State->Meshes[MeshIndex]);
+	}
 
+#if 0
 	mat4 GroundModelMatrix = Translation(V3(0.0f, -1.0f, 0.0f)) * Scaling(V3(10.0f, 0.01f, 10.0f));
 	mat4 MVPGroundMatrix = ProjectionMatrix * ViewMatrix * GroundModelMatrix;
 	SetUniform(State->BasicShader, MVPGroundMatrix, "MVPMatrix");
 	DrawTriangleMesh(&State->CubeMesh);
+#endif
 }
 
 #if 0
@@ -172,6 +182,13 @@ void RenderLightedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Cam
 
 }
 #endif
+void PushMesh(game_state* State, mesh* Mesh)
+{
+	Assert(State->MeshCount < ArrayCount(State->Meshes));
+
+	State->Meshes[State->MeshCount] = *Mesh;
+	State->MeshCount++;
+}
 
 void PushLight(game_state* State, light Light)
 {
@@ -187,11 +204,18 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	game_state* State = (game_state*)Memory->PermanentStorage;
 	if(!Memory->IsInitialized)
 	{
-		State->ObjectMesh = LoadOBJ("../models/teapot.obj");
-		State->ObjectModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
-		State->ObjectColor = V4(0.6f, 0.1f, 0.0f, 1.0f);
+		{
+			std::vector<mesh> Meshes = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
+			for(u32 MeshIndex = 0; MeshIndex < Meshes.size(); ++MeshIndex)
+			{
+				PushMesh(State, &Meshes[MeshIndex]);
+			}
+		}
+		State->ObjectModelMatrix = Identity4();
+		//State->ObjectMesh = LoadOBJ("../models/teapot.obj");
+		//State->ObjectModelMatrix = Scaling(V3(0.2f, 0.2f, 0.2f));
 
-		State->CubeMesh = LoadOBJ("../models/cube.obj");
+		//State->CubeMesh = LoadOBJ("../models/cube.obj");
 
 		State->BasicShader = LoadShader("../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl");
 		State->LightingShader = LoadShader("../src/shaders/lighting_v.glsl", "../src/shaders/lighting_f.glsl");
@@ -200,9 +224,9 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 		light Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 0.0f, 0.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
-		PushLight(State, Light);
+		//PushLight(State, Light);
 
-		light Light2 = {&State->CubeMesh, V3(0.0f, 4.0f, -4.0f), V4(0.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 0.0f, 0.0f)};
+		light Light2 = {&State->CubeMesh, V3(0.0f, 1.95f, 0.1f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 0.0f, 0.0f)};
 		Light2.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light2);
 
@@ -210,7 +234,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 		State->Camera = {};
 		State->Camera.Pos = V3(0.0f, 0.0f, 5.0f);
-		State->Camera.Target = V3(0.0f, 0.0f, 0.0f);
+		State->Camera.Target = V3(0.0f, 1.0f, 0.0f);
 		v3 LookingDir = State->Camera.Target - State->Camera.Pos;
 		v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
 		State->Camera.Right = Normalized(Cross(LookingDir, WorldUp));
@@ -297,7 +321,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->MouseDragging = false;
 	}
 
-	State->Lights[0].Pos.y = Sin(State->Time) + 2.0f;
+	//State->Lights[0].Pos.y = Sin(State->Time) + 2.0f;
 
 #if 0
 	// NOTE(hugo) : Rendering on quads
@@ -323,7 +347,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	// NOTE(hugo) : Shadow mapping rendering
 	// {
 	// TODO(hugo) : Get rid of OpenGL in here
-	mat4 LightProjectionMatrix = Orthographic(10.0f, 10.0f, 1.0f, 20.0f);
+	mat4 LightProjectionMatrix = Orthographic(3.0f, 3.0f, 0.01f, 3.0f);
 	SetViewport(GlobalShadowWidth, GlobalShadowHeight);
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
@@ -372,7 +396,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
-	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
+	ImGui::SliderFloat("Cook-Torrance M", (float*)&State->CookTorranceM, 0.0f, 1.0f);
 	ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.0f, 50.0f);
 
 	if(ImGui::BeginMainMenuBar())

@@ -41,9 +41,9 @@ struct light
 
 struct game_state
 {
-	mesh ObjectMesh;
+	mesh Meshes[10];
+	u32 MeshCount;
 	mat4 ObjectModelMatrix;
-	v4 ObjectColor;
 
 	mesh CubeMesh;
 
