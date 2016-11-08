@@ -402,7 +402,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
 
-#if 1
+#if 0
 	UseShader(State->DepthDebugQuadShader);
 	glBindVertexArray(State->QuadVAO);
 	glBindTexture(GL_TEXTURE_2D, State->Lights[0].DepthFramebuffer.Texture);

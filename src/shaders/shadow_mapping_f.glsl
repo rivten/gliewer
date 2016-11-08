@@ -30,13 +30,12 @@ float DotClamp(vec3 A, vec3 B)
 // ---------------------------------------
 // NOTE(hugo) : Shadow Map Computation
 // ---------------------------------------
-float ShadowFactor(vec4 FragmentPositionInLightSpace, sampler2D ShadowMap)
+float ShadowFactor(vec4 FragmentPositionInLightSpace, sampler2D ShadowMap, float Bias)
 {
 	vec3 ProjectedCoordinates = FragmentPositionInLightSpace.xyz / FragmentPositionInLightSpace.w;
 	ProjectedCoordinates = 0.5f * ProjectedCoordinates + 0.5f;
 	float FragmentDepth = ProjectedCoordinates.z;
 
-	float ShadowMappingBias = 0.01;
 	float Result = 0.0f;
 	vec2 TexelSize = 1.0f / textureSize(ShadowMap, 0);
 
@@ -48,7 +47,7 @@ float ShadowFactor(vec4 FragmentPositionInLightSpace, sampler2D ShadowMap)
 		for(int Y = -K; Y <= K; ++Y)
 		{
 			float PCFDepthValue = texture(ShadowMap, ProjectedCoordinates.xy + vec2(X, Y) * TexelSize).r;
-			Result += ((FragmentDepth - ShadowMappingBias) > PCFDepthValue) ? 1.0f : 0.0f;
+			Result += ((FragmentDepth - Bias) > PCFDepthValue) ? 1.0f : 0.0f;
 		}
 	}
 	Result /= float(PCFSize * PCFSize);
@@ -167,9 +166,12 @@ void main()
 		vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos[LightIndex], 1.0f)) - FragmentPos);
 		vec3 HalfDir = normalize(ViewDir + LightDir);
 
-		float Shadow = ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex]);
+		float LightIntensity = 3.0f;
+
+		float ShadowMappingBias = max(0.01f * (1.0f - dot(VertexNormal, LightDir)), 0.005f);
+		float Shadow = ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex], ShadowMappingBias);
 		float BRDF = GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
-		vec4 Li = 4.0f * ObjectColor * LightColor[LightIndex];
+		vec4 Li = LightIntensity * ObjectColor * LightColor[LightIndex];
 		Color += (1.0f - Shadow) * BRDF * Li * DotClamp(VertexNormal, LightDir);
 	}
 }
