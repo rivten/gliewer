@@ -92,19 +92,21 @@ struct game_state
 	s32 MouseYInitial;
 	bool MouseDragging;
 
+	// NOTE(hugo) : Render parameters
+	// {
 	u32 BlinnPhongShininess;
 	float CookTorranceF0;
 	float CookTorranceM;
 	float Alpha;
+	float Sigma;
+	float LightIntensity;
+	// }
 
 	gl_screen_framebuffer ScreenFramebuffer;
 
 	GLuint RBO;
 	GLuint QuadVAO;
 	GLuint QuadVBO;
-
-	float Sigma;
-
 };
 
 #include "viewer.cpp"

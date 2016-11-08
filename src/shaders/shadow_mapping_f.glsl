@@ -18,6 +18,7 @@ uniform int BlinnPhongShininess;
 uniform float CTF0;
 uniform float CTM;
 uniform float Alpha;
+uniform float LightIntensity;
 
 const float Pi = 3.14159265f;
 
@@ -165,8 +166,6 @@ void main()
 	{
 		vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos[LightIndex], 1.0f)) - FragmentPos);
 		vec3 HalfDir = normalize(ViewDir + LightDir);
-
-		float LightIntensity = 3.0f;
 
 		float ShadowMappingBias = max(0.01f * (1.0f - dot(VertexNormal, LightDir)), 0.005f);
 		float Shadow = ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex], ShadowMappingBias);

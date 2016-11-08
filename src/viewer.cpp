@@ -32,6 +32,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, State->ObjectModelMatrix, "ModelObjectMatrix");
 	SetUniform(State->ShadowMappingShader, State->LightCount, "LightCount");
 	SetUniform(State->ShadowMappingShader, State->Alpha, "Alpha");
+	SetUniform(State->ShadowMappingShader, State->LightIntensity, "LightIntensity");
 
 
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
@@ -229,9 +230,9 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		PushLight(State, Light);
 #endif
 
-		light Light2 = {&State->CubeMesh, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
-		Light2.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
-		PushLight(State, Light2);
+		light Light = {&State->CubeMesh, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		Light.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
+		PushLight(State, Light);
 		
 		State->LightType = LightType_Perspective;
 
@@ -273,6 +274,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->CookTorranceF0 = 0.5f;
 		State->CookTorranceM = 0.5f;
 		State->Alpha = 0.5f;
+		State->Sigma = 0.0f;
+		State->LightIntensity = 4.5f;
 
 		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
 		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
@@ -291,8 +294,6 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)(2 * sizeof(GLfloat)));
 		glBindVertexArray(0);
 		// }
-
-		State->Sigma = 0.0f;
 
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
@@ -411,6 +412,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 #endif
 	// }
 
+	ImGui::SliderFloat("Light Intensity", (float*)&State->LightIntensity, 0.0f, 10.0f);
+#if 0
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
 	ImGui::SliderFloat("Cook-Torrance M", (float*)&State->CookTorranceM, 0.0f, 1.0f);
@@ -458,4 +461,5 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		}
         ImGui::EndMainMenuBar();
 	}
+#endif
 }
