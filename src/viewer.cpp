@@ -412,6 +412,57 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 #endif
 	// }
 
+	if(Input->MouseButtons[2].EndedDown)
+	{
+		s32 MouseX = Input->MouseX;
+		s32 MouseY = GlobalWindowHeight - Input->MouseY;
+		u8 Color[3];
+		float PixelDepth;
+		glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
+		// TODO(hugo) : How to read the three color components at once ?
+		glReadPixels(MouseX, MouseY, 1, 1, GL_RED, GL_UNSIGNED_BYTE, Color + 0);
+		glReadPixels(MouseX, MouseY, 1, 1, GL_GREEN, GL_UNSIGNED_BYTE, Color + 1);
+		glReadPixels(MouseX, MouseY, 1, 1, GL_BLUE, GL_UNSIGNED_BYTE, Color + 2);
+		glReadPixels(MouseX, MouseY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &PixelDepth);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		float NearPlane = State->Camera.NearPlane;
+		float FarPlane = State->Camera.FarPlane;
+		PixelDepth = 2.0f * PixelDepth - 1.0f;
+		PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
+		float ColorFloat[3];
+		for(u32 i = 0; i < ArrayCount(Color); ++i)
+		{
+			ColorFloat[i] = (float)(Color[i]) / 255.0f;
+		}
+		ImGui::ColorEdit3("Color Picked", ColorFloat);
+		ImGui::Value("Depth @ Pixel", PixelDepth);
+
+#if 0
+		SDL_Window* DEBUGDataWindow = SDL_CreateWindow("DisplayData", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 100, 100, SDL_WINDOW_SHOWN);
+		Assert(DEBUGDataWindow);
+		SDL_Surface* DEBUGScreen = SDL_GetWindowSurface(DEBUGDataWindow);
+		Assert(DEBUGScreen);
+		u8* Pixel = (u8*)DEBUGScreen->pixels;
+		for(u32 Y = 0; Y < DEBUGScreen->h; ++Y)
+		{
+			for(u32 X = 0; X < DEBUGScreen->w; ++X)
+			{
+				*Pixel = 0; // Blue
+				Pixel++;
+				*Pixel = 0; // Green
+				Pixel++;
+				*Pixel = Color; // Red
+				Pixel++;
+				*Pixel = 0xFF; // Alpha
+				Pixel++;
+			}
+		}
+		SDL_UpdateWindowSurface(DEBUGDataWindow);
+		SDL_Delay(1000);
+		SDL_DestroyWindow(DEBUGDataWindow);
+#endif
+	}
+
 	ImGui::SliderFloat("Light Intensity", (float*)&State->LightIntensity, 0.0f, 10.0f);
 #if 0
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
