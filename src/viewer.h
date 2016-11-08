@@ -65,6 +65,7 @@ struct game_state
 	u32 BlinnPhongShininess;
 	float CookTorranceF0;
 	float CookTorranceM;
+	float Alpha;
 
 	gl_screen_framebuffer ScreenFramebuffer;
 

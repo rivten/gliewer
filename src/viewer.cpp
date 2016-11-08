@@ -31,6 +31,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, ViewMatrix, "ViewMatrix");
 	SetUniform(State->ShadowMappingShader, State->ObjectModelMatrix, "ModelObjectMatrix");
 	SetUniform(State->ShadowMappingShader, State->LightCount, "LightCount");
+	SetUniform(State->ShadowMappingShader, State->Alpha, "Alpha");
 
 
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
@@ -250,6 +251,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->BlinnPhongShininess = 32;
 		State->CookTorranceF0 = 0.5f;
 		State->CookTorranceM = 0.5f;
+		State->Alpha = 0.5f;
 
 		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
 		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
@@ -347,7 +349,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	// NOTE(hugo) : Shadow mapping rendering
 	// {
 	// TODO(hugo) : Get rid of OpenGL in here
-	mat4 LightProjectionMatrix = Orthographic(3.0f, 3.0f, 0.2f, 3.0f);
+	mat4 LightProjectionMatrix = Orthographic(3.0f, 3.0f, 0.1f, 3.0f);
 	SetViewport(GlobalShadowWidth, GlobalShadowHeight);
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
@@ -398,6 +400,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
 	ImGui::SliderFloat("Cook-Torrance M", (float*)&State->CookTorranceM, 0.0f, 1.0f);
 	ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.0f, 50.0f);
+	ImGui::SliderFloat("Alpha", (float*)&State->Alpha, 0.0f, 1.0f);
 
 	if(ImGui::BeginMainMenuBar())
 	{

@@ -17,7 +17,19 @@ uniform vec4 ObjectColor;
 uniform int BlinnPhongShininess;
 uniform float CTF0;
 uniform float CTM;
+uniform float Alpha;
 
+const float Pi = 3.14159265f;
+
+float DotClamp(vec3 A, vec3 B)
+{
+	float Result = max(0.0f, dot(A, B));
+	return(Result);
+}
+
+// ---------------------------------------
+// NOTE(hugo) : Shadow Map Computation
+// ---------------------------------------
 float ShadowFactor(vec4 FragmentPositionInLightSpace, sampler2D ShadowMap)
 {
 	vec3 ProjectedCoordinates = FragmentPositionInLightSpace.xyz / FragmentPositionInLightSpace.w;
@@ -44,12 +56,34 @@ float ShadowFactor(vec4 FragmentPositionInLightSpace, sampler2D ShadowMap)
 	return(Result);
 }
 
+// ---------------------------------------
+// NOTE(hugo) : Blinn Phong BRDF
+// ---------------------------------------
+vec4 DiffuseColor(vec4 ObjectColor, vec4 LightColor, vec3 LightDir, vec3 Normal)
+{
+	vec4 Result = ObjectColor * LightColor * max(0.0, dot(LightDir, Normal));
+
+	return(Result);
+}
+
+vec4 BlinnPhongBRDF(vec4 ObjectColor, vec4 LightColor, vec4 SpecularColor, vec3 VertexNormal, vec3 LightDir, vec3 HalfDir, int Shininess, float SpecularIntensity)
+{
+	vec4 SpecularObjectColor = SpecularColor * pow(max(0.0, dot(HalfDir, LightDir)), Shininess);
+	vec4 DiffColor = DiffuseColor(ObjectColor, LightColor, LightDir, VertexNormal);
+	return(DiffColor + ObjectColor * SpecularIntensity * SpecularObjectColor);
+}
+
+
+// TODO(hugo) : LightDirDotHalfDir or ViewDirDotHalfDir ?
 float FresnelSchlickFactor(float F0, float LightDirDotHalfDir)
 {
 	float Result = F0 + (1.0f - F0) * pow((1.0f - LightDirDotHalfDir), 5);
 	return(Result);
 }
 
+// ---------------------------------------
+// NOTE(hugo) : Cook-Torrance BRDF
+// ---------------------------------------
 float CookTorranceGeometricTerm(float NormalDotHalfDir, float NormalDotViewDir, float NormalDotLightDir, float ViewDirDotHalfDir)
 {
 	float A = 2 * NormalDotHalfDir * NormalDotViewDir / ViewDirDotHalfDir;
@@ -67,12 +101,6 @@ float CookTorranceDistributionTerm(float NormalDotHalfDir, float M)
 	return(Result);
 }
 
-vec4 DiffuseColor(vec4 ObjectColor, vec4 LightColor, vec3 LightDir, vec3 Normal)
-{
-	vec4 Result = ObjectColor * LightColor * max(0.0, dot(LightDir, Normal));
-
-	return(Result);
-}
 
 vec4 CookTorranceBRDF(vec4 ObjectColor, vec4 LightColor, vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float F0, float M)
 {
@@ -94,11 +122,37 @@ vec4 CookTorranceBRDF(vec4 ObjectColor, vec4 LightColor, vec3 Normal, vec3 Light
 	return(clamp(DiffColor + SpecularColor, 0.0f, 1.0f));
 }
 
-vec4 BlinnPhongBRDF(vec4 ObjectColor, vec4 LightColor, vec4 SpecularColor, vec3 VertexNormal, vec3 LightDir, vec3 HalfDir, int Shininess, float SpecularIntensity)
+// ---------------------------------------
+// NOTE(hugo) : GGX BRDF
+// ---------------------------------------
+float GGXDistributionTerm(float AlphaSqr, float NormalDotHalfDir)
 {
-	vec4 SpecularObjectColor = SpecularColor * pow(max(0.0, dot(HalfDir, LightDir)), Shininess);
-	vec4 DiffColor = DiffuseColor(ObjectColor, LightColor, LightDir, VertexNormal);
-	return(DiffColor + ObjectColor * SpecularIntensity * SpecularObjectColor);
+	float Denominator = ((NormalDotHalfDir * NormalDotHalfDir) * (AlphaSqr - 1.0f)) + 1.0f;
+	Denominator = Pi + Denominator * Denominator;
+	float Result = AlphaSqr / Denominator;
+
+	return(Result);
+}
+
+
+float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alpha, float F0)
+{
+	float NormalDotHalfDir = DotClamp(Normal, HalfDir);
+	//float NormalDotViewDir = DotClamp(Normal, ViewDir);
+	float NormalDotLightDir = DotClamp(Normal, LightDir);
+	float ViewDirDotHalfDir = DotClamp(ViewDir, HalfDir);
+	float LightDirDotHalfDir = DotClamp(LightDir, HalfDir);
+
+	float AlphaSqr = Alpha * Alpha;
+	float F = FresnelSchlickFactor(F0, LightDirDotHalfDir);
+	float D = GGXDistributionTerm(AlphaSqr, NormalDotHalfDir);
+	float OneOverGL = NormalDotLightDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotLightDir * NormalDotLightDir)));
+	float OneOverGH = NormalDotHalfDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotHalfDir * NormalDotHalfDir)));
+
+	float AmbientFactor = 0.3f;
+	float Result = AmbientFactor + ((F * D) / (OneOverGL * OneOverGH));
+
+	return(Result);
 }
 
 void main()
@@ -108,13 +162,14 @@ void main()
 
 	// NOTE(hugo) : Computations needs to happen in eye space
 	// since we computed the Normal in that very space
-	float BlinnPhongSpecularIntensity = 1.0f;
-	//Color = BlinnPhongBRDF(ObjectColor, LightColor, vec4(1.0f), VertexNormal, LightDir, HalfDir, BlinnPhongShininess, BlinnPhongSpecularIntensity);
 	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
 	{
 		vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos[LightIndex], 1.0f)) - FragmentPos);
 		vec3 HalfDir = normalize(ViewDir + LightDir);
 
-		Color += (1.0f - ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex])) * CookTorranceBRDF(ObjectColor, LightColor[LightIndex], VertexNormal, LightDir, HalfDir, ViewDir, CTF0, CTM);
+		float Shadow = ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex]);
+		float BRDF = GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
+		vec4 Li = 4.0f * ObjectColor * LightColor[LightIndex];
+		Color += (1.0f - Shadow) * BRDF * Li * DotClamp(VertexNormal, LightDir);
 	}
 }
