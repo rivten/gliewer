@@ -28,6 +28,33 @@ struct camera
 	float FarPlane;
 };
 
+enum light_type
+{
+	LightType_Orthographic,
+	LightType_Perspective,
+	LightType_PointLight,
+};
+
+struct projection_parameters
+{
+	union
+	{
+		struct
+		{
+			float FoV;
+			float Aspect;
+		};
+		struct
+		{
+			float Width;
+			float Height;
+		};
+	};
+
+	float NearPlane;
+	float FarPlane;
+};
+
 struct light
 {
 	// NOTE(hugo) : If Mesh = NULL, then the light must not be rendered
@@ -49,6 +76,9 @@ struct game_state
 
 	light Lights[4];
 	u32 LightCount;
+
+	light_type LightType;
+	projection_parameters ProjectionParams;
 
 	shader BasicShader;
 	shader LightingShader;

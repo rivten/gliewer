@@ -223,13 +223,34 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->DepthDebugQuadShader = LoadShader("../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl");
 		State->ShadowMappingShader = LoadShader("../src/shaders/shadow_mapping_v.glsl", "../src/shaders/shadow_mapping_f.glsl");
 
+#if 0
 		light Light = {&State->CubeMesh, V3(3.0f, 0.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 0.0f, 0.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
-		//PushLight(State, Light);
+		PushLight(State, Light);
+#endif
 
-		light Light2 = {&State->CubeMesh, V3(0.0f, 1.95f, 0.1f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 0.0f, 0.0f)};
+		light Light2 = {&State->CubeMesh, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
 		Light2.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light2);
+		
+		State->LightType = LightType_Perspective;
+
+		switch(State->LightType)
+		{
+			case LightType_Orthographic:
+				{
+					State->ProjectionParams = {5.0f, 5.0f, 1.0f, 5.5f};
+				} break;
+			case LightType_Perspective:
+				{
+					State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 1.0f, 5.5f};
+				} break;
+			case LightType_PointLight:
+				{
+					InvalidCodePath;
+				} break;
+				InvalidDefaultCase;
+		}
 
 		State->Time = 0.0f;
 
@@ -325,31 +346,27 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	//State->Lights[0].Pos.y = Sin(State->Time) + 2.0f;
 
-#if 0
-	// NOTE(hugo) : Rendering on quads
-	// {
-	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
-	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
-	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
-	glEnable(GL_DEPTH_TEST);
-	RenderLightedScene(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	UseShader(State->DepthDebugQuadShader);
-	glBindVertexArray(State->QuadVAO);
-	glDisable(GL_DEPTH_TEST);
-	glBindTexture(GL_TEXTURE_2D, State->ScreenFramebuffer.Texture);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glBindVertexArray(0);
-	// }
-#else
 	// NOTE(hugo) : Shadow mapping rendering
 	// {
 	// TODO(hugo) : Get rid of OpenGL in here
-	mat4 LightProjectionMatrix = Orthographic(3.0f, 3.0f, 0.1f, 3.0f);
+	mat4 LightProjectionMatrix;
+	switch(State->LightType)
+	{
+		case LightType_Orthographic:
+			{
+				LightProjectionMatrix = Orthographic(State->ProjectionParams.Width, State->ProjectionParams.Height, State->ProjectionParams.NearPlane, State->ProjectionParams.FarPlane);
+			} break;
+		case LightType_Perspective:
+			{
+				LightProjectionMatrix = Perspective(State->ProjectionParams.FoV, State->ProjectionParams.Aspect, State->ProjectionParams.NearPlane, State->ProjectionParams.FarPlane);
+			} break;
+		case LightType_PointLight:
+			{
+				InvalidCodePath;
+			} break;
+			InvalidDefaultCase;
+	};
+	//mat4 LightProjectionMatrix = Orthographic(5.0f, 5.0f, 0.1f, 3.0f);
 	SetViewport(GlobalShadowWidth, GlobalShadowHeight);
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
@@ -385,7 +402,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
 
-#if 0
+#if 1
 	UseShader(State->DepthDebugQuadShader);
 	glBindVertexArray(State->QuadVAO);
 	glBindTexture(GL_TEXTURE_2D, State->Lights[0].DepthFramebuffer.Texture);
@@ -394,13 +411,38 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 #endif
 	// }
 
-#endif
-
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
 	ImGui::SliderFloat("Cook-Torrance M", (float*)&State->CookTorranceM, 0.0f, 1.0f);
 	ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.0f, 50.0f);
 	ImGui::SliderFloat("Alpha", (float*)&State->Alpha, 0.0f, 1.0f);
+
+	if(ImGui::CollapsingHeader("Light Data"))
+	{
+		ImGui::SliderFloat3("Light Position", State->Lights[0].Pos.E, -3.0f, 3.0f);
+		switch(State->LightType)
+		{
+			case LightType_Orthographic:
+				{
+					ImGui::SliderFloat("Orthographic Width", &State->ProjectionParams.Width, 0.0f, 5.0f);
+					ImGui::SliderFloat("Orthographic Height", &State->ProjectionParams.Height, 0.0f, 5.0f);
+					ImGui::SliderFloat("Orthographic Near Plane", &State->ProjectionParams.NearPlane, 0.0f, 1.0f);
+					ImGui::SliderFloat("Orthographic Far Plane", &State->ProjectionParams.FarPlane, 1.0f, 8.0f);
+				} break;
+			case LightType_Perspective:
+				{
+					ImGui::SliderFloat("Perspective FoV", &State->ProjectionParams.FoV, 0.01f, 3.14f);
+					ImGui::SliderFloat("Perspective Aspect", &State->ProjectionParams.Aspect, 0.01f, 5.0f);
+					ImGui::SliderFloat("Perspective Near Plane", &State->ProjectionParams.NearPlane, 0.0f, 1.0f);
+					ImGui::SliderFloat("Perspective Far Plane", &State->ProjectionParams.FarPlane, 1.0f, 8.0f);
+				} break;
+			case LightType_PointLight:
+				{
+					InvalidCodePath;
+				} break;
+				InvalidDefaultCase;
+		}
+	}
 
 	if(ImGui::BeginMainMenuBar())
 	{
