@@ -148,8 +148,8 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 	float OneOverGL = NormalDotLightDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotLightDir * NormalDotLightDir)));
 	float OneOverGH = NormalDotHalfDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotHalfDir * NormalDotHalfDir)));
 
-	float AmbientFactor = 0.3f;
-	float Result = AmbientFactor + ((F * D) / (OneOverGL * OneOverGH));
+	float DiffuseFactor = 0.3f;
+	float Result = DiffuseFactor + ((F * D) / (OneOverGL * OneOverGH));
 
 	return(Result);
 }
