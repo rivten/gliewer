@@ -316,8 +316,8 @@ mat4 Perspective(float FoV, float Aspect, float NearPlane, float FarPlane)
 	SetValue(&Result, 1, 1, 1 / Tan(0.5f * FoV));
 	SetValue(&Result, 0, 0, GetValue(Result, 1, 1) / Aspect);
 	SetValue(&Result, 2, 2, - (FarPlane + NearPlane) * OneOverDepth);
-	SetValue(&Result, 3, 2, - 2 * FarPlane * NearPlane * OneOverDepth);
-	SetValue(&Result, 2, 3, -1);
+	SetValue(&Result, 2, 3, - 2 * FarPlane * NearPlane * OneOverDepth);
+	SetValue(&Result, 3, 2, -1);
 	 
 	return(Result);
 }
