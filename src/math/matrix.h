@@ -313,7 +313,7 @@ mat4 Perspective(float FoV, float Aspect, float NearPlane, float FarPlane)
 	float OneOverDepth = 1.0 / FrustrumDepth;
 
 	// NOTE(hugo) : Here we assert that Aspect = Width / Height
-	SetValue(&Result, 1, 1, 1 / Tan(0.5f * FoV));
+	SetValue(&Result, 1, 1, 1.0f / Tan(0.5f * FoV));
 	SetValue(&Result, 0, 0, GetValue(Result, 1, 1) / Aspect);
 	SetValue(&Result, 2, 2, - (FarPlane + NearPlane) * OneOverDepth);
 	SetValue(&Result, 2, 3, - 2 * FarPlane * NearPlane * OneOverDepth);

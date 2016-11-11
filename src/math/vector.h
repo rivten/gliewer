@@ -290,6 +290,11 @@ struct v4
 			v3 xyz;
 			float Ignored0_;
 		};
+		struct
+		{
+			v2 xy;
+			v2 Ignored1_;
+		};
         float E[4];
     };
 
