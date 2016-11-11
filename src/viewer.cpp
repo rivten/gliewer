@@ -434,8 +434,26 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		{
 			ColorFloat[i] = (float)(Color[i]) / 255.0f;
 		}
+
+		v4 PixelPos = {};
+		PixelPos.z = -PixelDepth;
+		PixelPos.w = 1.0f;
+
+		PixelPos.x = (float)(MouseX) / float(GlobalWindowWidth);
+		PixelPos.y = (float)(MouseY) / float(GlobalWindowHeight);
+
+		PixelPos.xy = 2.0f * PixelPos.xy - V2(1.0f, 1.0f);
+
+		PixelPos.x = - State->Camera.Aspect * Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.x;
+		PixelPos.y = - Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.y;
+
+		mat4 InvLookAtCamera = Inverse(LookAt(NextCamera.Pos, NextCamera.Target, NextCameraUp));
+
+		PixelPos = InvLookAtCamera * PixelPos;
+
 		ImGui::ColorEdit3("Color Picked", ColorFloat);
 		ImGui::Value("Depth @ Pixel", PixelDepth);
+		ImGui::Text("Position pointed at screen : (%f, %f, %f, %f)", PixelPos.x, PixelPos.y, PixelPos.z, PixelPos.w);
 
 #if 0
 		SDL_Window* DEBUGDataWindow = SDL_CreateWindow("DisplayData", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 100, 100, SDL_WINDOW_SHOWN);
