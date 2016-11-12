@@ -8,16 +8,6 @@ struct thread_context
     int Placeholder;
 };
 
-#define BITMAP_BYTES_PER_PIXEL 4
-struct game_offscreen_buffer
-{
-    // NOTE(casey): Pixels are always 32-bits wide, Memory Order BB GG RR XX
-    void* Memory;
-    u32 Width;
-    u32 Height;
-    u32 Pitch;
-};
-
 struct game_sound_output_buffer
 {
     u32 SamplesPerSecond;

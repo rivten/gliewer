@@ -15,7 +15,6 @@ void main()
 	if(Sigma < Epsilon)
 	{
 		Color = texture(ScreenTexture, TextureCoordinates);
-		//Color = vec4(dot(texture(ScreenTexture, TextureCoordinates), vec4(0.3f, 0.59, 0.11f, 0.0f)) * vec3(1.0f, 1.0f, 1.0f), 1.0f);
 	}
 	else
 	{

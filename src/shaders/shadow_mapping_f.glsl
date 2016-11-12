@@ -76,7 +76,6 @@ vec4 BlinnPhongBRDF(vec4 ObjectColor, vec4 LightColor, vec4 SpecularColor, vec3 
 }
 
 
-// TODO(hugo) : LightDirDotHalfDir or ViewDirDotHalfDir ?
 float FresnelSchlickFactor(float F0, float LightDirDotHalfDir)
 {
 	float Result = F0 + (1.0f - F0) * pow((1.0f - LightDirDotHalfDir), 5);
@@ -140,7 +139,6 @@ float GGXDistributionTerm(float AlphaSqr, float NormalDotHalfDir)
 float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alpha, float F0)
 {
 	float NormalDotHalfDir = DotClamp(Normal, HalfDir);
-	//float NormalDotViewDir = DotClamp(Normal, ViewDir);
 	float NormalDotLightDir = DotClamp(Normal, LightDir);
 	float ViewDirDotHalfDir = DotClamp(ViewDir, HalfDir);
 	float LightDirDotHalfDir = DotClamp(LightDir, HalfDir);

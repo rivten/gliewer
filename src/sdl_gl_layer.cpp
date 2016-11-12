@@ -328,11 +328,6 @@ int main(int argc, char** argv)
                 // TODO(hugo) : Get the screen earlier to avoid re-getting each frame ? But how to handle screen redimensionning in this case ?
 
                 SDL_Surface* Screen = SDL_GetWindowSurface(Window);
-                game_offscreen_buffer Buffer = {};
-                Buffer.Memory = (void*)Screen->pixels;
-                Buffer.Width = Screen->w;
-                Buffer.Height = Screen->h;
-                Buffer.Pitch = Screen->pitch;
 
 				// TODO(hugo) : Make this resolution-independant ?
 				glViewport(0, 0, Screen->w, Screen->h);
@@ -343,7 +338,7 @@ int main(int argc, char** argv)
 
 				ImGuiNewFrame(Window, Input);
 
-                GameUpdateAndRender(&Thread, &GameMemory, NewInput, &Buffer);
+                GameUpdateAndRender(&Thread, &GameMemory, NewInput);
 				ImGui::Render();
                 SDL_GL_SwapWindow(Window);
 
@@ -371,11 +366,7 @@ int main(int argc, char** argv)
                 }
 
                 float EndWorkCounter = SDL_GetTicks();
-                //SDL_Log("%ums", (u32)(1000.0f * WorkSecondsElapsed));
                 LastCounter = EndWorkCounter;
-
-				// TODO(hugo) : Formalize how I handle ScreenBuffer with the game architecture
-                //SDL_UpdateWindowSurface(Window);
 
 				// TODO(hugo) : Properly cleanup Input::MouseZ value
 				NewInput->MouseZ = 0;
