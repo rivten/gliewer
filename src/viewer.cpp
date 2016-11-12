@@ -22,6 +22,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	// NOTE(hugo) : Drawing Object Mesh
 	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectModelMatrix;
 	mat4 NormalObjectMatrix = Transpose(Inverse(ViewMatrix * State->ObjectModelMatrix));
+	mat4 NormalWorldMatrix = Transpose(Inverse(State->ObjectModelMatrix));
 
 	UseShader(State->ShadowMappingShader);
 
@@ -33,6 +34,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, State->LightCount, "LightCount");
 	SetUniform(State->ShadowMappingShader, State->Alpha, "Alpha");
 	SetUniform(State->ShadowMappingShader, State->LightIntensity, "LightIntensity");
+	SetUniform(State->ShadowMappingShader, NormalWorldMatrix, "NormalWorldMatrix");
 
 
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
@@ -279,7 +281,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
 		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
-		State->ScreenFramebuffer = CreateScreenFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
+		State->ScreenFramebuffer = CreateScreenNormalFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {
@@ -399,7 +401,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	SetUniform(State->DepthDebugQuadShader, State->Sigma, "Sigma");
 	glBindVertexArray(State->QuadVAO);
 	glDisable(GL_DEPTH_TEST);
-	glBindTexture(GL_TEXTURE_2D, State->ScreenFramebuffer.Texture);
+	glBindTexture(GL_TEXTURE_2D, State->ScreenFramebuffer.ScreenTexture);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
 
@@ -420,11 +422,23 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		float PixelDepth;
 		glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
 		// TODO(hugo) : How to read the three color components at once ?
+
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
 		glReadPixels(MouseX, MouseY, 1, 1, GL_RED, GL_UNSIGNED_BYTE, Color + 0);
 		glReadPixels(MouseX, MouseY, 1, 1, GL_GREEN, GL_UNSIGNED_BYTE, Color + 1);
 		glReadPixels(MouseX, MouseY, 1, 1, GL_BLUE, GL_UNSIGNED_BYTE, Color + 2);
+
 		glReadPixels(MouseX, MouseY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &PixelDepth);
+
+		glReadBuffer(GL_COLOR_ATTACHMENT1);
+		v3 Normal = {};
+		glReadPixels(MouseX, MouseY, 1, 1, GL_RED, GL_FLOAT, &Normal.x);
+		glReadPixels(MouseX, MouseY, 1, 1, GL_GREEN, GL_FLOAT, &Normal.y);
+		glReadPixels(MouseX, MouseY, 1, 1, GL_BLUE, GL_FLOAT, &Normal.z);
+		Assert(glGetError() != GL_INVALID_OPERATION);
+
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 		float NearPlane = State->Camera.NearPlane;
 		float FarPlane = State->Camera.FarPlane;
 		PixelDepth = 2.0f * PixelDepth - 1.0f;
@@ -454,6 +468,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		ImGui::ColorEdit3("Color Picked", ColorFloat);
 		ImGui::Value("Depth @ Pixel", PixelDepth);
 		ImGui::Text("Position pointed at screen : (%f, %f, %f, %f)", PixelPos.x, PixelPos.y, PixelPos.z, PixelPos.w);
+		Normal = 2.0f * Normal - V3(1.0f, 1.0f, 1.0f);
+		ImGui::Text("Normal pointed at screen : (%f, %f, %f)", Normal.x, Normal.y, Normal.z);
 
 #if 0
 		SDL_Window* DEBUGDataWindow = SDL_CreateWindow("DisplayData", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 100, 100, SDL_WINDOW_SHOWN);

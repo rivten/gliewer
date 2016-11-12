@@ -102,7 +102,7 @@ struct game_state
 	float LightIntensity;
 	// }
 
-	gl_screen_framebuffer ScreenFramebuffer;
+	gl_screen_normal_framebuffer ScreenFramebuffer;
 
 	GLuint RBO;
 	GLuint QuadVAO;

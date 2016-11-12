@@ -4,6 +4,7 @@ layout (location = 0) in vec3 Position;
 layout (location = 1) in vec3 Normal;
 
 out vec3 VertexNormal;
+out vec3 NormalWorldSpace;
 out vec4 FragmentPositionInWorldSpace;
 out vec4 FragmentPositionInLightSpace[4];
 
@@ -12,6 +13,7 @@ uniform mat4 NormalMatrix;
 uniform mat4 ModelObjectMatrix;
 uniform mat4 LightSpaceMatrix[4];
 uniform int LightCount;
+uniform mat4 NormalWorldMatrix;
 
 void main()
 {
@@ -28,4 +30,6 @@ void main()
 	{
 		FragmentPositionInLightSpace[LightIndex] = LightSpaceMatrix[LightIndex] * ModelObjectMatrix * ObjectPos;
 	}
+
+	NormalWorldSpace = normalize(vec3(NormalWorldMatrix * vec4(Normal, 1.0f)));
 }

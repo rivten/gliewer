@@ -1,8 +1,10 @@
 #version 400 core
 
-out vec4 Color;
+layout (location = 0) out vec4 Color;
+layout (location = 1) out vec3 NormalMap;
 
 in vec3 VertexNormal;
+in vec3 NormalWorldSpace;
 in vec4 FragmentPositionInWorldSpace;
 in vec4 FragmentPositionInLightSpace[4];
 
@@ -173,4 +175,7 @@ void main()
 		vec4 Li = LightIntensity * ObjectColor * LightColor[LightIndex];
 		Color += (1.0f - Shadow) * BRDF * Li * DotClamp(VertexNormal, LightDir);
 	}
+
+	// NOTE(hugo) : Compacting the normal into [0,1]^3
+	NormalMap = 0.5f * NormalWorldSpace + vec3(0.5f, 0.5f, 0.5f);
 }
