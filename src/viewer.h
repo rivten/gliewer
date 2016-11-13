@@ -79,7 +79,6 @@ struct game_state
 	projection_parameters ProjectionParams;
 
 	shader BasicShader;
-	shader LightingShader;
 	shader DepthDebugQuadShader;
 	shader ShadowMappingShader;
 
