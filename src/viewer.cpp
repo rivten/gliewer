@@ -13,6 +13,7 @@ mat4 GetLightModelMatrix(light Light)
 		return(ModelMatrix);
 }
 
+// NOTE(hugo) : In order for this function to work, the light depth buffers must have been previously computed
 void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix)
 {
 	mat4 LightSpaceMatrix[4];
@@ -25,7 +26,6 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	mat4 NormalWorldMatrix = Transpose(Inverse(State->ObjectModelMatrix));
 
 	UseShader(State->ShadowMappingShader);
-
 
 	SetUniform(State->ShadowMappingShader, MVPObjectMatrix, "MVPMatrix");
 	SetUniform(State->ShadowMappingShader, NormalObjectMatrix, "NormalMatrix");
@@ -112,6 +112,28 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 
 }
 
+void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix, gl_screen_normal_framebuffer Framebuffer)
+{
+	glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer.FBO);
+	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
+	glEnable(GL_DEPTH_TEST);
+
+	RenderShadowedScene(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix, LightProjectionMatrix);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	UseShader(State->DepthDebugQuadShader);
+	SetUniform(State->DepthDebugQuadShader, State->Sigma, "Sigma");
+	glBindVertexArray(State->QuadVAO);
+	glDisable(GL_DEPTH_TEST);
+	glBindTexture(GL_TEXTURE_2D, Framebuffer.ScreenTexture);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glBindVertexArray(0);
+}
+
 void PushMesh(game_state* State, mesh* Mesh)
 {
 	Assert(State->MeshCount < ArrayCount(State->Meshes));
@@ -196,6 +218,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
 		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
 		State->ScreenFramebuffer = CreateScreenNormalFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
+		State->DEBUGScreenFramebuffer = CreateScreenNormalFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {
@@ -299,24 +322,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
-	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
-	glEnable(GL_DEPTH_TEST);
-
-	RenderShadowedScene(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightProjectionMatrix);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	UseShader(State->DepthDebugQuadShader);
-	SetUniform(State->DepthDebugQuadShader, State->Sigma, "Sigma");
-	glBindVertexArray(State->QuadVAO);
-	glDisable(GL_DEPTH_TEST);
-	glBindTexture(GL_TEXTURE_2D, State->ScreenFramebuffer.ScreenTexture);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glBindVertexArray(0);
+	RenderShadowSceneOnQuad(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightProjectionMatrix, State->ScreenFramebuffer);
 
 #if 0
 	UseShader(State->DepthDebugQuadShader);
@@ -348,7 +354,6 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		glReadPixels(MouseX, MouseY, 1, 1, GL_RED, GL_FLOAT, &Normal.x);
 		glReadPixels(MouseX, MouseY, 1, 1, GL_GREEN, GL_FLOAT, &Normal.y);
 		glReadPixels(MouseX, MouseY, 1, 1, GL_BLUE, GL_FLOAT, &Normal.z);
-		Assert(glGetError() != GL_INVALID_OPERATION);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -377,36 +382,19 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		mat4 InvLookAtCamera = Inverse(LookAt(NextCamera.Pos, NextCamera.Target, NextCameraUp));
 
 		PixelPos = InvLookAtCamera * PixelPos;
+		Normal = 2.0f * Normal - V3(1.0f, 1.0f, 1.0f);
+		v3 MicroCameraPos = PixelPos.xyz;
+		v3 MicroCameraTarget = MicroCameraPos + Normal;
+		v3 MicroCameraUp = V3(0.0f, 1.0f, 0.0f);
 
+		RenderShadowSceneOnQuad(State, MicroCameraPos, MicroCameraTarget, MicroCameraUp, ProjectionMatrix, LightProjectionMatrix, State->DEBUGScreenFramebuffer);
+		SDL_GL_SwapWindow(GlobalWindow);
+		SDL_Delay(2000);
+#if 0
 		ImGui::ColorEdit3("Color Picked", ColorFloat);
 		ImGui::Value("Depth @ Pixel", PixelDepth);
 		ImGui::Text("Position pointed at screen : (%f, %f, %f, %f)", PixelPos.x, PixelPos.y, PixelPos.z, PixelPos.w);
-		Normal = 2.0f * Normal - V3(1.0f, 1.0f, 1.0f);
 		ImGui::Text("Normal pointed at screen : (%f, %f, %f)", Normal.x, Normal.y, Normal.z);
-
-#if 0
-		SDL_Window* DEBUGDataWindow = SDL_CreateWindow("DisplayData", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 100, 100, SDL_WINDOW_SHOWN);
-		Assert(DEBUGDataWindow);
-		SDL_Surface* DEBUGScreen = SDL_GetWindowSurface(DEBUGDataWindow);
-		Assert(DEBUGScreen);
-		u8* Pixel = (u8*)DEBUGScreen->pixels;
-		for(u32 Y = 0; Y < DEBUGScreen->h; ++Y)
-		{
-			for(u32 X = 0; X < DEBUGScreen->w; ++X)
-			{
-				*Pixel = 0; // Blue
-				Pixel++;
-				*Pixel = 0; // Green
-				Pixel++;
-				*Pixel = Color; // Red
-				Pixel++;
-				*Pixel = 0xFF; // Alpha
-				Pixel++;
-			}
-		}
-		SDL_UpdateWindowSurface(DEBUGDataWindow);
-		SDL_Delay(1000);
-		SDL_DestroyWindow(DEBUGDataWindow);
 #endif
 	}
 

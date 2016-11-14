@@ -1,18 +1,26 @@
 #pragma once
 
 /*
- * TODO(hugo)
- *   - different type of camera (FPS camera)
- *   - texture support
- *   - mesh code cleanup
- *   - SDL code cleanup (cleaner layer, e.g. use of DLL for the main "game", etc...)
- *   - ambient occlusion (SSAO ?)
- *   - proper OBJ loading
- *   - profiling
- *   - bloom
- *   - cubemaps
- *   - gamma correction
- *   - automatic reloading of shaders (as in http://swarminglogic.com/jotting/2013_10_gamedev01)
+   TODO(hugo)
+     * Basic GLiewer todos
+	    - different type of camera (FPS camera)
+	    - texture support
+	    - mesh code cleanup
+	    - SDL code cleanup (cleaner layer, e.g. use of DLL for the main "game", etc...)
+	    - ambient occlusion (SSAO ?)
+	    - proper OBJ loading
+	    - profiling
+	    - bloom
+	    - cubemaps
+	    - gamma correction
+	    - automatic reloading of shaders (as in http://swarminglogic.com/jotting/2013_10_gamedev01)
+
+	* PBGI todos
+		- rendering a scene to a half cubemaps
+		- given a cubemap, a position and an orientation, know the direction of a particular cubemap pixel
+		- convoluting a BRDF with a half cubemap
+		- showing the new lighted image construct pixel by pixel
+		- profile the whole process and analyze the results
  */
 
 struct camera
@@ -100,6 +108,7 @@ struct game_state
 	// }
 
 	gl_screen_normal_framebuffer ScreenFramebuffer;
+	gl_screen_normal_framebuffer DEBUGScreenFramebuffer;
 
 	GLuint RBO;
 	GLuint QuadVAO;

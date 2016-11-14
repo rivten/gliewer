@@ -15,6 +15,7 @@
 global_variable bool GlobalRunning = false;
 global_variable int GlobalWindowWidth = 800;
 global_variable int GlobalWindowHeight = 600;
+global_variable SDL_Window* GlobalWindow = 0;
 
 #include "shader.h"
 #include "mesh.h"
@@ -127,6 +128,10 @@ static void SDLProcessPendingMessages(game_input* Input)
                         {
                             SDLProcessKeyboardMessage(&Input->Controllers[0].Start, IsDown);
                         }
+						else if(Keycode == SDLK_c)
+						{
+							GlobalRunning = false;
+						}
                     }
                 } break;
 
@@ -152,6 +157,18 @@ int main(int argc, char** argv)
 {
     SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO);
 
+#if 0
+	SDL_version Compiled;
+	SDL_version Linked;
+
+	SDL_VERSION(&Compiled);
+	SDL_GetVersion(&Linked);
+	printf("We compiled against SDL version %d.%d.%d ...\n",
+		   Compiled.major, Compiled.minor, Compiled.patch);
+	printf("We are linking against SDL version %d.%d.%d.\n",
+		   Linked.major, Linked.minor, Linked.patch);
+#endif
+
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
@@ -161,6 +178,7 @@ int main(int argc, char** argv)
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
@@ -172,8 +190,8 @@ int main(int argc, char** argv)
 
 	SDL_GL_SetSwapInterval(0);
 
-    SDL_Window* Window = SDL_CreateWindow("3d viewer @ rivten", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-            GlobalWindowWidth, GlobalWindowHeight, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    SDL_Window* Window = SDL_CreateWindow("3d viewer @ rivten", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, GlobalWindowWidth, GlobalWindowHeight, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
+	GlobalWindow = Window;
 
     if(!Window)
     {
@@ -184,6 +202,7 @@ int main(int argc, char** argv)
 
 
 	SDL_GLContext GLContext = SDL_GL_CreateContext(Window);
+	Assert(GLContext != 0);
 
     // NOTE(hugo) : Initializating glew
     glewExperimental = GL_TRUE;
