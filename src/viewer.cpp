@@ -321,6 +321,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
 
 	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
+	mat4 MicroProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, 0.1f * State->Camera.NearPlane, 0.3f * State->Camera.FarPlane);
 
 	RenderShadowSceneOnQuad(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightProjectionMatrix, State->ScreenFramebuffer);
 
@@ -387,7 +388,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		v3 MicroCameraTarget = MicroCameraPos + Normal;
 		v3 MicroCameraUp = V3(0.0f, 1.0f, 0.0f);
 
-		RenderShadowSceneOnQuad(State, MicroCameraPos, MicroCameraTarget, MicroCameraUp, ProjectionMatrix, LightProjectionMatrix, State->DEBUGScreenFramebuffer);
+		RenderShadowSceneOnQuad(State, MicroCameraPos, MicroCameraTarget, MicroCameraUp, MicroProjectionMatrix, LightProjectionMatrix, State->DEBUGScreenFramebuffer);
 		SDL_GL_SwapWindow(GlobalWindow);
 		SDL_Delay(2000);
 #if 0
