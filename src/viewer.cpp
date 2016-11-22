@@ -6,11 +6,73 @@ static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
 
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+u8* LoadImageRGB(const char* Filename, s32* Width, s32* Height)
+{
+	s32 BitPerPixel;
+	u8* Result = stbi_load(Filename, Width, Height, &BitPerPixel, 3);
+	Assert(Result != 0);
+	return(Result);
+}
+
+void FreeImage(u8* Image)
+{
+	stbi_image_free(Image);
+}
+
+GLuint LoadCubemap(const char** Filenames)
+{
+	GLuint Texture;
+	glGenTextures(1, &Texture);
+	glActiveTexture(GL_TEXTURE0);
+
+	s32 Width = 0;
+	s32 Height = 0;
+	u8* Image = 0;
+
+	glBindTexture(GL_TEXTURE_CUBE_MAP, Texture);
+
+	for(u32 FaceIndex = 0; FaceIndex < 6; ++FaceIndex)
+	{
+		Image = LoadImageRGB(Filenames[FaceIndex], &Width, &Height);
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + FaceIndex, 0, GL_RGB, Width, Height, 0, GL_RGB, GL_UNSIGNED_BYTE, Image);
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+	return(Texture);
+}
+
 mat4 GetLightModelMatrix(light Light)
 {
 		mat4 ModelMatrix = Translation(Light.Pos) * Scaling(V3(0.2f, 0.2f, 0.2f));
 
 		return(ModelMatrix);
+}
+
+// TODO(hugo) : A lot of render call recompute the LookAt matrix. Factorize this to compute it only once
+void RenderSkybox(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix)
+{
+	glDepthMask(GL_FALSE);
+	UseShader(State->SkyboxShader);
+
+	mat4 UntranslatedView = RemoveTranslationPart(LookAt(CameraPos, CameraTarget, CameraUp));
+	SetUniform(State->SkyboxShader, ProjectionMatrix, "Projection");
+	SetUniform(State->SkyboxShader, UntranslatedView, "View");
+
+	glBindVertexArray(State->SkyboxVAO);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, State->SkyboxTexture);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glBindVertexArray(0);
+	glDepthMask(GL_TRUE);
 }
 
 // NOTE(hugo) : In order for this function to work, the light depth buffers must have been previously computed
@@ -118,6 +180,7 @@ void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v
 	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
 	glEnable(GL_DEPTH_TEST);
 
+	RenderSkybox(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix);
 	RenderShadowedScene(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix, LightProjectionMatrix);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -125,6 +188,7 @@ void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
+	// NOTE(hugo) : Quad rendering
 	UseShader(State->DepthDebugQuadShader);
 	SetUniform(State->DepthDebugQuadShader, State->Sigma, "Sigma");
 	glBindVertexArray(State->QuadVAO);
@@ -167,6 +231,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->BasicShader = LoadShader("../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl");
 		State->DepthDebugQuadShader = LoadShader("../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl");
 		State->ShadowMappingShader = LoadShader("../src/shaders/shadow_mapping_v.glsl", "../src/shaders/shadow_mapping_f.glsl");
+		State->SkyboxShader = LoadShader("../src/shaders/skybox_v.glsl", "../src/shaders/skybox_f.glsl");
 
 		light Light = {&State->CubeMesh, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
@@ -233,6 +298,23 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)(2 * sizeof(GLfloat)));
 		glBindVertexArray(0);
 		// }
+
+		// NOTE(hugo) : Initializing Skybox data 
+		// {
+		glGenVertexArrays(1, &State->SkyboxVAO);
+		glGenBuffers(1, &State->SkyboxVBO);
+		glBindVertexArray(State->SkyboxVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, State->SkyboxVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(SkyboxVertices), &SkyboxVertices, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+		glBindVertexArray(0);
+
+		const char* SkyboxFilenames[6] = {"../models/skybox/right.jpg", "../models/skybox/left.jpg", "../models/skybox/top.jpg", "../models/skybox/bottom.jpg", "../models/skybox/back.jpg", "../models/skybox/front.jpg"};
+		State->SkyboxTexture = LoadCubemap(SkyboxFilenames);
+
+		// }
+
 
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;

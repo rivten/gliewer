@@ -588,3 +588,20 @@ mat4 Inverse(mat4 A)
 
 	return(Result);
 }
+
+// TODO(hugo) : Test this
+mat4 RemoveTranslationPart(mat4 A)
+{
+	mat4 Result = {};
+	for(u32 I = 0; I < 3; ++I)
+	{
+		for(u32 J = 0; J < 3; ++J)
+		{
+			SetValue(&Result, I, J, GetValue(A, I, J));
+		}
+	}
+
+	Result.Data_[15] = 1.0f;
+
+	return(Result);
+}

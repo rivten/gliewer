@@ -11,9 +11,9 @@
 	    - proper OBJ loading
 	    - profiling
 	    - bloom
-	    - cubemaps
 	    - gamma correction
 	    - automatic reloading of shaders (as in http://swarminglogic.com/jotting/2013_10_gamedev01)
+		- automatic shader gestion I/O to chain easily shaders
 
 	* PBGI todos
 		- rendering a scene to a half cubemaps
@@ -89,6 +89,7 @@ struct game_state
 	shader BasicShader;
 	shader DepthDebugQuadShader;
 	shader ShadowMappingShader;
+	shader SkyboxShader;
 
 	camera Camera;
 	float Time;
@@ -113,6 +114,10 @@ struct game_state
 	GLuint RBO;
 	GLuint QuadVAO;
 	GLuint QuadVBO;
+
+	GLuint SkyboxVAO;
+	GLuint SkyboxVBO;
+	GLuint SkyboxTexture;
 };
 
 #include "viewer.cpp"
