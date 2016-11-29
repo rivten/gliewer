@@ -277,3 +277,29 @@ gl_geometry_framebuffer CreateGeometryFramebuffer(u32 BufferWidth, u32 BufferHei
 	return(Result);
 }
 
+struct gl_hemicube_framebuffer
+{
+	union
+	{
+		struct
+		{
+			gl_screen_normal_framebuffer FrontMicroBuffers;
+			gl_screen_normal_framebuffer LeftMicroBuffers;
+			gl_screen_normal_framebuffer RightMicroBuffers;
+			gl_screen_normal_framebuffer TopMicroBuffers;
+			gl_screen_normal_framebuffer BottomMicroBuffers;
+		};
+		gl_screen_normal_framebuffer MicroBuffers[5];
+	};
+};
+
+gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(int BufferWidth, int BufferHeight)
+{
+	gl_hemicube_framebuffer Result = {};
+	for(u32 FramebufferIndex = 0; FramebufferIndex < ArrayCount(Result.MicroBuffers); ++FramebufferIndex)
+	{
+		Result.MicroBuffers[FramebufferIndex] = CreateScreenNormalFramebuffer(BufferWidth, BufferHeight);
+	}
+
+	return(Result);
+}

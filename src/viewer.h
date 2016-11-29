@@ -109,7 +109,7 @@ struct game_state
 	// }
 
 	gl_screen_normal_framebuffer ScreenFramebuffer;
-	gl_screen_normal_framebuffer DEBUGScreenFramebuffer;
+	gl_hemicube_framebuffer HemicubeFramebuffer;
 
 	GLuint RBO;
 	GLuint QuadVAO;

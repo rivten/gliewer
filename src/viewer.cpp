@@ -174,7 +174,7 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 
 }
 
-void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix, gl_screen_normal_framebuffer Framebuffer)
+void RenderShadowSceneOnFramebuffer(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix, gl_screen_normal_framebuffer Framebuffer)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer.FBO);
 	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
@@ -185,6 +185,10 @@ void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+}
+
+void RenderFramebufferOnQuadScreen(game_state* State, gl_screen_normal_framebuffer Framebuffer)
+{
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
@@ -196,6 +200,12 @@ void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v
 	glBindTexture(GL_TEXTURE_2D, Framebuffer.ScreenTexture);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
+}
+
+void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix, gl_screen_normal_framebuffer Framebuffer)
+{
+	RenderShadowSceneOnFramebuffer(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix, LightProjectionMatrix, Framebuffer);
+	RenderFramebufferOnQuadScreen(State, Framebuffer);
 }
 
 void PushMesh(game_state* State, mesh* Mesh)
@@ -283,7 +293,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
 		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
 		State->ScreenFramebuffer = CreateScreenNormalFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
-		State->DEBUGScreenFramebuffer = CreateScreenNormalFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
+		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {
@@ -468,9 +478,22 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		Normal = 2.0f * Normal - V3(1.0f, 1.0f, 1.0f);
 		v3 MicroCameraPos = PixelPos.xyz;
 		v3 MicroCameraTarget = MicroCameraPos + Normal;
-		v3 MicroCameraUp = V3(0.0f, 1.0f, 0.0f);
+		v3 MicroCameraUp = V3(0.0f, 1.01f, 0.0f);
 
-		RenderShadowSceneOnQuad(State, MicroCameraPos, MicroCameraTarget, MicroCameraUp, MicroProjectionMatrix, LightProjectionMatrix, State->DEBUGScreenFramebuffer);
+		// NOTE(hugo) : Render directions are, in order : FRONT / LEFT / RIGHT / TOP / BOTTOM
+		// with FRONT being the direction of the normal previously found;
+		v3 MicroRenderDir[5];
+		MicroRenderDir[0] = Normal;
+		MicroRenderDir[1] = Cross(Normal, MicroCameraUp);
+		MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
+		MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
+		MicroRenderDir[4] = -1.0f * MicroRenderDir[3];;
+
+		for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroRenderDir); ++FaceIndex)
+		{
+			RenderShadowSceneOnFramebuffer(State, MicroCameraPos, MicroCameraPos + MicroRenderDir[FaceIndex], MicroCameraUp, ProjectionMatrix, LightProjectionMatrix, State->HemicubeFramebuffer.MicroBuffers[FaceIndex]);
+		}
+		RenderFramebufferOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[4]);
 		SDL_GL_SwapWindow(GlobalWindow);
 		SDL_Delay(2000);
 #if 0
