@@ -1,6 +1,11 @@
 #pragma once
 
+#ifdef _WIN32
+#include <SDL_syswm.h>
+#else
 #include <SDL2/SDL_syswm.h>
+#endif
+
 #include <imgui.cpp>
 #include <imgui_draw.cpp>
 
@@ -113,6 +118,17 @@ void ImGuiRenderDrawLists(ImDrawData* draw_data)
     glScissor(last_scissor_box[0], last_scissor_box[1], (GLsizei)last_scissor_box[2], (GLsizei)last_scissor_box[3]);
 }
 
+#ifdef _WIN32
+static const char* ImGuiGetClipboardText()
+{
+    return SDL_GetClipboardText();
+}
+
+static void ImGuiSetClipboardText(const char* text)
+{
+    SDL_SetClipboardText(text);
+}
+#else
 static const char* ImGuiGetClipboardText(void* user_data)
 {
     return SDL_GetClipboardText();
@@ -122,6 +138,7 @@ static void ImGuiSetClipboardText(void* user_data, const char* text)
 {
     SDL_SetClipboardText(text);
 }
+#endif
 
 void ImGuiCreateFontsTexture()
 {

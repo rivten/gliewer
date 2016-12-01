@@ -1,7 +1,12 @@
 #include "platform.h"
 
 // NOTE(hugo): The includes below are for the SDL/GL layer only
+#ifdef _WIN32
+#include <SDL.h>
+#else
 #include <SDL2/SDL.h>
+#endif
+
 #define GLEW_STATIC
 #include <GL/glew.h>
 #include <stdio.h>
@@ -216,9 +221,13 @@ int main(int argc, char** argv)
 		glDepthFunc(GL_LEQUAL);
 		glDepthMask(GL_TRUE);
 
+#ifdef _WIN32
+		glDisable(GL_CULL_FACE);
+#else
 		glEnable(GL_CULL_FACE);
 		glCullFace(GL_BACK);
 		glFrontFace(GL_CCW);
+#endif
 
         GlobalRunning = true;
 

@@ -381,7 +381,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	// NOTE(hugo) : Shadow mapping rendering
 	// {
 	// TODO(hugo) : Get rid of OpenGL in here
-	mat4 LightProjectionMatrix;
+	mat4 LightProjectionMatrix = {};
 	switch(State->LightType)
 	{
 		case LightType_Orthographic:
