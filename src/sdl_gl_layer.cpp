@@ -13,9 +13,7 @@
 
 #include "imgui_layer.h"
 
-#include "math/vector.h"
-#include "math/functions.h"
-#include "math/matrix.h"
+#include "rivten_math.h"
 
 global_variable bool GlobalRunning = false;
 global_variable int GlobalWindowWidth = 800;

@@ -1,7 +1,6 @@
 #pragma once
 
-#include "utils/macros.h"
-#include "utils/types.h"
+#include "rivten.h"
 
 struct thread_context
 {
