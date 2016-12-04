@@ -129,7 +129,7 @@ vec4 CookTorranceBRDF(vec4 ObjectColor, vec4 LightColor, vec3 Normal, vec3 Light
 float GGXDistributionTerm(float AlphaSqr, float NormalDotHalfDir)
 {
 	float Denominator = ((NormalDotHalfDir * NormalDotHalfDir) * (AlphaSqr - 1.0f)) + 1.0f;
-	Denominator = Pi + Denominator * Denominator;
+	Denominator = Pi * Denominator * Denominator;
 	float Result = AlphaSqr / Denominator;
 
 	return(Result);
@@ -140,6 +140,7 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 {
 	float NormalDotHalfDir = DotClamp(Normal, HalfDir);
 	float NormalDotLightDir = DotClamp(Normal, LightDir);
+	float NormalDotViewDir = DotClamp(Normal, ViewDir);
 	float ViewDirDotHalfDir = DotClamp(ViewDir, HalfDir);
 	float LightDirDotHalfDir = DotClamp(LightDir, HalfDir);
 
@@ -147,10 +148,10 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 	float F = FresnelSchlickFactor(F0, LightDirDotHalfDir);
 	float D = GGXDistributionTerm(AlphaSqr, NormalDotHalfDir);
 	float OneOverGL = NormalDotLightDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotLightDir * NormalDotLightDir)));
-	float OneOverGH = NormalDotHalfDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotHalfDir * NormalDotHalfDir)));
+	float OneOverGV = NormalDotViewDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotViewDir * NormalDotViewDir)));
 
 	float DiffuseFactor = 0.3f;
-	float Result = DiffuseFactor + ((F * D) / (OneOverGL * OneOverGH));
+	float Result = DiffuseFactor + ((F * D) / (OneOverGL * OneOverGV));
 
 	return(Result);
 }
