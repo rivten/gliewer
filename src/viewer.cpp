@@ -208,6 +208,80 @@ void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v
 	RenderFramebufferOnQuadScreen(State, Framebuffer);
 }
 
+void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix)
+{
+	u32 Pixel;
+	float PixelDepth;
+	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
+	// TODO(hugo) : How to read the three color components at once ?
+
+	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	glReadPixels(X, Y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &Pixel);
+
+	glReadPixels(X, Y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &PixelDepth);
+
+	glReadBuffer(GL_COLOR_ATTACHMENT1);
+	v3 Normal = {};
+	glReadPixels(X, Y, 1, 1, GL_RGB, GL_FLOAT, &Normal);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	float NearPlane = State->Camera.NearPlane;
+	float FarPlane = State->Camera.FarPlane;
+	PixelDepth = 2.0f * PixelDepth - 1.0f;
+	PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
+	v4 ColorFloat = {};
+	ColorFloat.r = float(((Pixel >>  0) & 0x000000FF)) / 255.0f;
+	ColorFloat.g = float(((Pixel >>  8) & 0x000000FF)) / 255.0f;
+	ColorFloat.b = float(((Pixel >> 16) & 0x000000FF)) / 255.0f;
+	ColorFloat.a = float(((Pixel >> 24) & 0x000000FF)) / 255.0f;
+
+	v4 PixelPos = {};
+	PixelPos.z = -PixelDepth;
+	PixelPos.w = 1.0f;
+
+	PixelPos.x = (float)(X) / float(GlobalWindowWidth);
+	PixelPos.y = (float)(Y) / float(GlobalWindowHeight);
+
+	PixelPos.xy = 2.0f * PixelPos.xy - V2(1.0f, 1.0f);
+
+	PixelPos.x = - State->Camera.Aspect * Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.x;
+	PixelPos.y = - Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.y;
+
+	mat4 InvLookAtCamera = Inverse(LookAt(Camera.Pos, Camera.Target, CameraUp));
+
+	PixelPos = InvLookAtCamera * PixelPos;
+	Normal = 2.0f * Normal - V3(1.0f, 1.0f, 1.0f);
+	v3 MicroCameraPos = PixelPos.xyz;
+	v3 MicroCameraTarget = MicroCameraPos + Normal;
+	v3 MicroCameraUp = V3(0.0f, 1.01f, 0.0f);
+
+	// NOTE(hugo) : Render directions are, in order : FRONT / LEFT / RIGHT / TOP / BOTTOM
+	// with FRONT being the direction of the normal previously found;
+	v3 MicroRenderDir[5];
+	MicroRenderDir[0] = Normal;
+	MicroRenderDir[1] = Cross(Normal, MicroCameraUp);
+	MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
+	MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
+	MicroRenderDir[4] = -1.0f * MicroRenderDir[3];;
+
+#if 0
+	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroRenderDir); ++FaceIndex)
+	{
+		RenderShadowSceneOnFramebuffer(State, MicroCameraPos, MicroCameraPos + MicroRenderDir[FaceIndex], MicroCameraUp, ProjectionMatrix, LightProjectionMatrix, State->HemicubeFramebuffer.MicroBuffers[FaceIndex]);
+	}
+	RenderFramebufferOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[4]);
+	SDL_GL_SwapWindow(GlobalWindow);
+	SDL_Delay(2000);
+#endif
+#if 1
+	ImGui::ColorEdit3("Color Picked", ColorFloat.E);
+	ImGui::Value("Depth @ Pixel", PixelDepth);
+	ImGui::Text("Position pointed at screen : (%f, %f, %f, %f)", PixelPos.x, PixelPos.y, PixelPos.z, PixelPos.w);
+	ImGui::Text("Normal pointed at screen : (%f, %f, %f)", Normal.x, Normal.y, Normal.z);
+#endif
+}
+
 void PushMesh(game_state* State, mesh* Mesh)
 {
 	Assert(State->MeshCount < ArrayCount(State->Meshes));
@@ -430,78 +504,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	{
 		s32 MouseX = Input->MouseX;
 		s32 MouseY = GlobalWindowHeight - Input->MouseY;
-		u8 Color[3];
-		float PixelDepth;
-		glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
-		// TODO(hugo) : How to read the three color components at once ?
-
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		glReadPixels(MouseX, MouseY, 1, 1, GL_RED, GL_UNSIGNED_BYTE, Color + 0);
-		glReadPixels(MouseX, MouseY, 1, 1, GL_GREEN, GL_UNSIGNED_BYTE, Color + 1);
-		glReadPixels(MouseX, MouseY, 1, 1, GL_BLUE, GL_UNSIGNED_BYTE, Color + 2);
-
-		glReadPixels(MouseX, MouseY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &PixelDepth);
-
-		glReadBuffer(GL_COLOR_ATTACHMENT1);
-		v3 Normal = {};
-		glReadPixels(MouseX, MouseY, 1, 1, GL_RED, GL_FLOAT, &Normal.x);
-		glReadPixels(MouseX, MouseY, 1, 1, GL_GREEN, GL_FLOAT, &Normal.y);
-		glReadPixels(MouseX, MouseY, 1, 1, GL_BLUE, GL_FLOAT, &Normal.z);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		float NearPlane = State->Camera.NearPlane;
-		float FarPlane = State->Camera.FarPlane;
-		PixelDepth = 2.0f * PixelDepth - 1.0f;
-		PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
-		float ColorFloat[3];
-		for(u32 i = 0; i < ArrayCount(Color); ++i)
-		{
-			ColorFloat[i] = (float)(Color[i]) / 255.0f;
-		}
-
-		v4 PixelPos = {};
-		PixelPos.z = -PixelDepth;
-		PixelPos.w = 1.0f;
-
-		PixelPos.x = (float)(MouseX) / float(GlobalWindowWidth);
-		PixelPos.y = (float)(MouseY) / float(GlobalWindowHeight);
-
-		PixelPos.xy = 2.0f * PixelPos.xy - V2(1.0f, 1.0f);
-
-		PixelPos.x = - State->Camera.Aspect * Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.x;
-		PixelPos.y = - Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.y;
-
-		mat4 InvLookAtCamera = Inverse(LookAt(NextCamera.Pos, NextCamera.Target, NextCameraUp));
-
-		PixelPos = InvLookAtCamera * PixelPos;
-		Normal = 2.0f * Normal - V3(1.0f, 1.0f, 1.0f);
-		v3 MicroCameraPos = PixelPos.xyz;
-		v3 MicroCameraTarget = MicroCameraPos + Normal;
-		v3 MicroCameraUp = V3(0.0f, 1.01f, 0.0f);
-
-		// NOTE(hugo) : Render directions are, in order : FRONT / LEFT / RIGHT / TOP / BOTTOM
-		// with FRONT being the direction of the normal previously found;
-		v3 MicroRenderDir[5];
-		MicroRenderDir[0] = Normal;
-		MicroRenderDir[1] = Cross(Normal, MicroCameraUp);
-		MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
-		MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
-		MicroRenderDir[4] = -1.0f * MicroRenderDir[3];;
-
-		for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroRenderDir); ++FaceIndex)
-		{
-			RenderShadowSceneOnFramebuffer(State, MicroCameraPos, MicroCameraPos + MicroRenderDir[FaceIndex], MicroCameraUp, ProjectionMatrix, LightProjectionMatrix, State->HemicubeFramebuffer.MicroBuffers[FaceIndex]);
-		}
-		RenderFramebufferOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[4]);
-		SDL_GL_SwapWindow(GlobalWindow);
-		SDL_Delay(2000);
-#if 0
-		ImGui::ColorEdit3("Color Picked", ColorFloat);
-		ImGui::Value("Depth @ Pixel", PixelDepth);
-		ImGui::Text("Position pointed at screen : (%f, %f, %f, %f)", PixelPos.x, PixelPos.y, PixelPos.z, PixelPos.w);
-		ImGui::Text("Normal pointed at screen : (%f, %f, %f)", Normal.x, Normal.y, Normal.z);
-#endif
+		ComputeGlobalIllumination(State, MouseX, MouseY, NextCamera, NextCameraUp, ProjectionMatrix, LightProjectionMatrix);
 	}
 
 	ImGui::SliderFloat("Light Intensity", (float*)&State->LightIntensity, 0.0f, 10.0f);
