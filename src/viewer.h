@@ -3,6 +3,7 @@
 /*
    TODO(hugo)
      * Basic GLiewer todos
+	    - split the viewer.cpp code into several files
 	    - different type of camera (FPS camera)
 	    - texture support
 	    - mesh code cleanup
@@ -14,11 +15,10 @@
 	    - gamma correction
 	    - automatic reloading of shaders (as in http://swarminglogic.com/jotting/2013_10_gamedev01)
 		- automatic shader gestion I/O to chain easily shaders
+		- logging system
 
 	* PBGI todos
-		- rendering a scene to a half cubemaps
 		- given a cubemap, a position and an orientation, know the direction of a particular cubemap pixel
-		- convoluting a BRDF with a half cubemap
 		- showing the new lighted image construct pixel by pixel
 		- profile the whole process and analyze the results
  */
@@ -108,7 +108,7 @@ struct game_state
 	float LightIntensity;
 	// }
 
-	gl_screen_normal_framebuffer ScreenFramebuffer;
+	gl_geometry_framebuffer ScreenFramebuffer;
 	gl_hemicube_framebuffer HemicubeFramebuffer;
 
 	GLuint RBO;

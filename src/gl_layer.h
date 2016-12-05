@@ -232,46 +232,58 @@ gl_screen_normal_framebuffer CreateScreenNormalFramebuffer(int BufferWidth, int 
 	return(Result);
 }
 
+// NOTE(hugo) : If we wanted to do a real GBuffer, we
+// would need to store the world position as well. Not need for that
+// here at the moment.
 struct gl_geometry_framebuffer
 {
-	GLuint GBuffer;
-	GLuint PositionTexture;
+	GLuint FBO;
+	GLuint ScreenTexture;
 	GLuint NormalTexture;
 	GLuint AlbedoTexture;
+	GLuint RBO;
 };
 
 gl_geometry_framebuffer CreateGeometryFramebuffer(u32 BufferWidth, u32 BufferHeight)
 {
 	gl_geometry_framebuffer Result = {};
+	glGenFramebuffers(1, &Result.FBO);
 
-	glGenFramebuffers(1, &Result.GBuffer);
-	glGenTextures(1, &Result.PositionTexture);
+	glGenTextures(1, &Result.ScreenTexture);
 	glGenTextures(1, &Result.NormalTexture);
 	glGenTextures(1, &Result.AlbedoTexture);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, Result.GBuffer);
-	glBindTexture(GL_TEXTURE_2D, Result.PositionTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, BufferWidth, BufferHeight, 0, GL_RGB, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.PositionTexture, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, Result.FBO);
+
+	glBindTexture(GL_TEXTURE_2D, Result.ScreenTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, BufferWidth, BufferHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.ScreenTexture, 0);
 
 	glBindTexture(GL_TEXTURE_2D, Result.NormalTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, BufferWidth, BufferHeight, 0, GL_RGB, GL_FLOAT, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, BufferWidth, BufferHeight, 0, GL_RGB, GL_FLOAT, 0);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, Result.NormalTexture, 0);
 
 	glBindTexture(GL_TEXTURE_2D, Result.AlbedoTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, BufferWidth, BufferHeight, 0, GL_RGB, GL_FLOAT, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, BufferWidth, BufferHeight, 0, GL_RGB, GL_FLOAT, 0);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, Result.AlbedoTexture, 0);
+
+	glGenRenderbuffers(1, &Result.RBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, Result.RBO);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, BufferWidth, BufferHeight);
+
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, Result.RBO);
 
 	GLuint Attachements[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
 	glDrawBuffers(3, Attachements);
 
 	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	return(Result);
@@ -283,13 +295,13 @@ struct gl_hemicube_framebuffer
 	{
 		struct
 		{
-			gl_screen_normal_framebuffer FrontMicroBuffers;
-			gl_screen_normal_framebuffer LeftMicroBuffers;
-			gl_screen_normal_framebuffer RightMicroBuffers;
-			gl_screen_normal_framebuffer TopMicroBuffers;
-			gl_screen_normal_framebuffer BottomMicroBuffers;
+			gl_geometry_framebuffer FrontMicroBuffers;
+			gl_geometry_framebuffer LeftMicroBuffers;
+			gl_geometry_framebuffer RightMicroBuffers;
+			gl_geometry_framebuffer TopMicroBuffers;
+			gl_geometry_framebuffer BottomMicroBuffers;
 		};
-		gl_screen_normal_framebuffer MicroBuffers[5];
+		gl_geometry_framebuffer MicroBuffers[5];
 	};
 };
 
@@ -298,7 +310,7 @@ gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(int BufferWidth, int Buf
 	gl_hemicube_framebuffer Result = {};
 	for(u32 FramebufferIndex = 0; FramebufferIndex < ArrayCount(Result.MicroBuffers); ++FramebufferIndex)
 	{
-		Result.MicroBuffers[FramebufferIndex] = CreateScreenNormalFramebuffer(BufferWidth, BufferHeight);
+		Result.MicroBuffers[FramebufferIndex] = CreateGeometryFramebuffer(BufferWidth, BufferHeight);
 	}
 
 	return(Result);

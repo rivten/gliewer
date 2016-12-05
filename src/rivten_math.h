@@ -91,6 +91,30 @@ int Sign(float X)
 	}
 }
 
+float Maxf(float A, float B)
+{
+	if(A >= B)
+	{
+		return(A);
+	}
+	else
+	{
+		return(B);
+	}
+}
+
+float Minf(float A, float B)
+{
+	if(A <= B)
+	{
+		return(A);
+	}
+	else
+	{
+		return(B);
+	}
+}
+
 /* ------------------------------
  *           v2 
  * ------------------------------ */
@@ -185,6 +209,11 @@ void v2::operator-()
 float Dot(v2 A, v2 B)
 {
     return(A.x * B.x + A.y * B.y);
+}
+
+float DotClamp(v2 A, v2 B)
+{
+	return(Maxf(0.0f, Dot(A, B)));
 }
 
 float LengthSqr(v2 A)
@@ -327,6 +356,11 @@ float Dot(v3 A, v3 B)
     return(A.x * B.x + A.y * B.y + A.z * B.z);
 }
 
+float DotClamp(v3 A, v3 B)
+{
+	return(Maxf(0.0f, Dot(A, B)));
+}
+
 float LengthSqr(v3 A)
 {
     return(Dot(A, A));
@@ -467,6 +501,11 @@ void v4::operator/=(float Lambda)
 float Dot(v4 A, v4 B)
 {
     return(A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w);
+}
+
+float DotClamp(v4 A, v4 B)
+{
+	return(Maxf(0.0f, Dot(A, B)));
 }
 
 float LengthSqr(v4 A)

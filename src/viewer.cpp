@@ -174,7 +174,7 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 
 }
 
-void RenderShadowSceneOnFramebuffer(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix, gl_screen_normal_framebuffer Framebuffer)
+void RenderShadowSceneOnFramebuffer(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix, gl_geometry_framebuffer Framebuffer)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer.FBO);
 	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
@@ -187,7 +187,7 @@ void RenderShadowSceneOnFramebuffer(game_state* State, v3 CameraPos, v3 CameraTa
 
 }
 
-void RenderFramebufferOnQuadScreen(game_state* State, gl_screen_normal_framebuffer Framebuffer)
+void RenderTextureOnQuadScreen(game_state* State, u32 Texture)
 {
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -197,26 +197,33 @@ void RenderFramebufferOnQuadScreen(game_state* State, gl_screen_normal_framebuff
 	SetUniform(State->DepthDebugQuadShader, State->Sigma, "Sigma");
 	glBindVertexArray(State->QuadVAO);
 	glDisable(GL_DEPTH_TEST);
-	glBindTexture(GL_TEXTURE_2D, Framebuffer.ScreenTexture);
+	glBindTexture(GL_TEXTURE_2D, Texture);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glBindVertexArray(0);
 }
 
-void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix, gl_screen_normal_framebuffer Framebuffer)
+void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix, gl_geometry_framebuffer Framebuffer)
 {
 	RenderShadowSceneOnFramebuffer(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix, LightProjectionMatrix, Framebuffer);
-	RenderFramebufferOnQuadScreen(State, Framebuffer);
+	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
+}
+
+v3 ComputeDirectionOfPixel(u32 FaceIndex, v3 Normal, u32 PixelX, u32 PixelY)
+{
+	// TODO(hugo)
+	return(V3(0.0f, 0.0f, 0.0f));
+}
+
+float GGXBRDF(v3 Normal, v3 Wi, v3 H, v3 Camera, float Alpha, float CookTorranceF0)
+{
+	// TODO(hugo)
+	return(0.0f);
 }
 
 void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix)
 {
-	u32 Pixel;
 	float PixelDepth;
 	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
-	// TODO(hugo) : How to read the three color components at once ?
-
-	glReadBuffer(GL_COLOR_ATTACHMENT0);
-	glReadPixels(X, Y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &Pixel);
 
 	glReadPixels(X, Y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &PixelDepth);
 
@@ -230,11 +237,6 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 	float FarPlane = State->Camera.FarPlane;
 	PixelDepth = 2.0f * PixelDepth - 1.0f;
 	PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
-	v4 ColorFloat = {};
-	ColorFloat.r = float(((Pixel >>  0) & 0x000000FF)) / 255.0f;
-	ColorFloat.g = float(((Pixel >>  8) & 0x000000FF)) / 255.0f;
-	ColorFloat.b = float(((Pixel >> 16) & 0x000000FF)) / 255.0f;
-	ColorFloat.a = float(((Pixel >> 24) & 0x000000FF)) / 255.0f;
 
 	v4 PixelPos = {};
 	PixelPos.z = -PixelDepth;
@@ -263,22 +265,63 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 	MicroRenderDir[1] = Cross(Normal, MicroCameraUp);
 	MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
 	MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
-	MicroRenderDir[4] = -1.0f * MicroRenderDir[3];;
+	MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
 
-#if 0
+#if 1
 	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroRenderDir); ++FaceIndex)
 	{
 		RenderShadowSceneOnFramebuffer(State, MicroCameraPos, MicroCameraPos + MicroRenderDir[FaceIndex], MicroCameraUp, ProjectionMatrix, LightProjectionMatrix, State->HemicubeFramebuffer.MicroBuffers[FaceIndex]);
+
 	}
-	RenderFramebufferOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[4]);
+	RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[0].ScreenTexture);
+
+	// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
+#if 0
+	v4 ColorBleeding = {};
+	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroRenderDir); ++FaceIndex)
+	{
+		for(u32 PixelX = 0; PixelX < (u32)GlobalWindowWidth; ++PixelX)
+		{
+			for(u32 PixelY = 0; PixelY < (u32)GlobalWindowHeight; ++PixelY)
+			{
+				v3 Wi = ComputeDirectionOfPixel(FaceIndex, Normal, PixelX, PixelY);
+
+				// TODO(hugo): I would have prefered to query only once for each framebuffer
+				// but for some reason I get a stackoverflow when allocating a basic
+				// 800*600 u32 array on the stack... WTF ??
+				u32 Pixel;
+				glBindFramebuffer(GL_FRAMEBUFFER, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].FBO);
+				glReadBuffer(GL_COLOR_ATTACHMENT0);
+				glReadPixels(PixelX, PixelY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &Pixel);
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+				v4 PixelColor = {};
+				PixelColor.r = float(((Pixel >>  0) & 0x000000FF)) / 255.0f;
+				PixelColor.g = float(((Pixel >>  8) & 0x000000FF)) / 255.0f;
+				PixelColor.b = float(((Pixel >> 16) & 0x000000FF)) / 255.0f;
+				PixelColor.a = float(((Pixel >> 24) & 0x000000FF)) / 255.0f;
+
+				v3 H = Normalized(0.5f * (Wi + Camera.Pos));
+				// TODO(hugo) : I need to get back the object color. I cannot
+				// sample from the previous framebuffer because if the object is
+				// black because of some shadows, the resulting indirect lighting 
+				// will also be black. 
+				// I think the best way to do that is to have an albedo map to query from.
+				float BRDF = GGXBRDF(Normal, Wi, H, Camera.Pos, State->Alpha, State->CookTorranceF0);
+				ColorBleeding += BRDF * Hadamard(ObjectColor, PixelColor) * DotClamp(Normal, Wi);
+			}
+		}
+	}
+#endif
+	
 	SDL_GL_SwapWindow(GlobalWindow);
 	SDL_Delay(2000);
 #endif
 #if 1
-	ImGui::ColorEdit3("Color Picked", ColorFloat.E);
+	//ImGui::ColorEdit3("Color Picked", ColorFloat.E);
 	ImGui::Value("Depth @ Pixel", PixelDepth);
 	ImGui::Text("Position pointed at screen : (%f, %f, %f, %f)", PixelPos.x, PixelPos.y, PixelPos.z, PixelPos.w);
 	ImGui::Text("Normal pointed at screen : (%f, %f, %f)", Normal.x, Normal.y, Normal.z);
+	//SDL_Delay(2000);
 #endif
 }
 
@@ -366,7 +409,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
 		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
-		State->ScreenFramebuffer = CreateScreenNormalFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
+		State->ScreenFramebuffer = CreateGeometryFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
 
 		// NOTE(hugo) : Initializing Quad data 
@@ -502,9 +545,12 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	if(Input->MouseButtons[2].EndedDown)
 	{
-		s32 MouseX = Input->MouseX;
-		s32 MouseY = GlobalWindowHeight - Input->MouseY;
-		ComputeGlobalIllumination(State, MouseX, MouseY, NextCamera, NextCameraUp, ProjectionMatrix, LightProjectionMatrix);
+		//s32 MouseX = Input->MouseX;
+		//s32 MouseY = GlobalWindowHeight - Input->MouseY;
+		//ComputeGlobalIllumination(State, MouseX, MouseY, NextCamera, NextCameraUp, ProjectionMatrix, LightProjectionMatrix);
+		RenderTextureOnQuadScreen(State, State->ScreenFramebuffer.AlbedoTexture);
+		SDL_GL_SwapWindow(GlobalWindow);
+		SDL_Delay(2000);
 	}
 
 	ImGui::SliderFloat("Light Intensity", (float*)&State->LightIntensity, 0.0f, 10.0f);

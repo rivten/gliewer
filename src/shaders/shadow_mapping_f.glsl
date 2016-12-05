@@ -2,6 +2,7 @@
 
 layout (location = 0) out vec4 Color;
 layout (location = 1) out vec3 NormalMap;
+layout (location = 2) out vec3 AlbedoMap;
 
 in vec3 VertexNormal;
 in vec3 NormalWorldSpace;
@@ -177,4 +178,6 @@ void main()
 
 	// NOTE(hugo) : Compacting the normal into [0,1]^3
 	NormalMap = 0.5f * NormalWorldSpace + vec3(0.5f, 0.5f, 0.5f);
+
+	AlbedoMap = ObjectColor.xyz;
 }
