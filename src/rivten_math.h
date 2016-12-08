@@ -115,6 +115,18 @@ float Minf(float A, float B)
 	}
 }
 
+float Power(float X, u32 N)
+{
+	// TODO(hugo) : This is a naive implementation of power function
+	float Result = 1.0f;
+	for(u32 i = 0; i < N; ++i)
+	{
+		Result *= X;
+	}
+
+	return(Result);
+}
+
 /* ------------------------------
  *           v2 
  * ------------------------------ */
@@ -388,6 +400,16 @@ v3 Cross(v3 A, v3 B)
 	return(Result);
 }
 
+v3 Hadamard(v3 A, v3 B)
+{
+	v3 Result;
+	Result.x = A.x * B.x;
+	Result.y = A.y * B.y;
+	Result.z = A.z * B.z;
+
+	return(Result);
+}
+
 /* ------------------------------
  *           v4 
  * ------------------------------ */
@@ -523,6 +545,17 @@ v4 Normalized(v4 A)
     v4 Result;
     Result = A / sqrt(LengthSqr(A));
     return(Result);
+}
+
+v4 Hadamard(v4 A, v4 B)
+{
+	v4 Result;
+	Result.x = A.x * B.x;
+	Result.y = A.y * B.y;
+	Result.z = A.z * B.z;
+	Result.w = A.w * B.w;
+
+	return(Result);
 }
 
 /* ------------------------------
@@ -912,7 +945,6 @@ mat4 Transpose(mat4 A)
 	return(Result);
 }
 
-// TODO(hugo) : Check that this is not wrong !!
 float Det(mat4 M)
 {
 	float Result = 0.0f;
@@ -952,7 +984,6 @@ float Det(mat4 M)
 	return(Result);
 }
 
-// TODO(hugo) : Check that this is not wrong !!
 mat4 Inverse(mat4 A)
 {
 	mat4 Result = {};
@@ -1114,7 +1145,6 @@ mat4 Inverse(mat4 A)
 	return(Result);
 }
 
-// TODO(hugo) : Test this
 mat4 RemoveTranslationPart(mat4 A)
 {
 	mat4 Result = {};

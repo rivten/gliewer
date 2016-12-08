@@ -17,6 +17,11 @@
 		- automatic shader gestion I/O to chain easily shaders
 		- logging system
 
+	* Some ideas
+		- framebuffer have an OpenGL structure that I could exploit (with color attachment). For example, 
+			I know that if I want to read into the normal map, I could read a mapping that says that the
+			normal map is the nth color attachment of this framebuffer.
+
 	* PBGI todos
 		- given a cubemap, a position and an orientation, know the direction of a particular cubemap pixel
 		- showing the new lighted image construct pixel by pixel

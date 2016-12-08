@@ -58,9 +58,18 @@ mat4 GetLightModelMatrix(light Light)
 		return(ModelMatrix);
 }
 
+mat4 GetCameraPerspective(camera Camera)
+{
+	mat4 Result = Perspective(Camera.FoV, Camera.Aspect, Camera.NearPlane, Camera.FarPlane);
+
+	return(Result);
+}
+
 // TODO(hugo) : A lot of render call recompute the LookAt matrix. Factorize this to compute it only once
 void RenderSkybox(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix)
 {
+	// TODO(hugo) : From learnopengl.com, there is an optim 
+	// using the stencil to compute less.
 	glDepthMask(GL_FALSE);
 	UseShader(State->SkyboxShader);
 
@@ -208,25 +217,89 @@ void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v
 	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
 }
 
-v3 ComputeDirectionOfPixel(u32 FaceIndex, v3 Normal, u32 PixelX, u32 PixelY)
+v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY)
 {
-	// TODO(hugo)
-	return(V3(0.0f, 0.0f, 0.0f));
+	float WidthInMeters = 2.0f * Camera.NearPlane * Tan(0.5f * Camera.FoV);
+	float PixelsToMeters = WidthInMeters / float(GlobalWindowWidth);
+	s32 PixelPosX = s32(PixelX) - 0.5f * float(GlobalWindowWidth);
+	s32 PixelPosY = s32(PixelY) - 0.5f * float(GlobalWindowHeight);
+	v3 PixelCameraPos = {};
+	PixelCameraPos.x = PixelPosX * PixelsToMeters;
+	PixelCameraPos.y = PixelPosY * PixelsToMeters;
+	PixelCameraPos.z = - Camera.NearPlane;
+
+	mat4 MicroCameraLookAt = LookAt(Camera.Pos, Camera.Target, WorldUp);
+	v3 PixelWorldPos = (Inverse(MicroCameraLookAt) * ToV4(PixelCameraPos)).xyz;
+
+	return(Normalized(PixelWorldPos - Camera.Pos));
 }
 
-float GGXBRDF(v3 Normal, v3 Wi, v3 H, v3 Camera, float Alpha, float CookTorranceF0)
+float FresnelSchlickFactor(float F0, float LightDirDotHalfDir)
 {
-	// TODO(hugo)
-	return(0.0f);
+	float Result = F0 + (1.0f - F0) * Power((1.0f - LightDirDotHalfDir), 5);
+	return(Result);
 }
 
-void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix)
+float GGXDistributionTerm(float AlphaSqr, float NormalDotHalfDir)
 {
+	float Denominator = ((NormalDotHalfDir * NormalDotHalfDir) * (AlphaSqr - 1.0f)) + 1.0f;
+	Denominator = PI * Denominator * Denominator;
+	float Result = AlphaSqr / Denominator;
+
+	return(Result);
+}
+
+float GGXBRDF(v3 Normal, v3 LightDir, v3 HalfDir, v3 ViewDir, float Alpha, float CookTorranceF0)
+{
+	float NormalDotHalfDir = DotClamp(Normal, HalfDir);
+	float NormalDotLightDir = DotClamp(Normal, LightDir);
+	float NormalDotViewDir = DotClamp(Normal, ViewDir);
+	//float ViewDirDotHalfDir = DotClamp(ViewDir, HalfDir);
+	float LightDirDotHalfDir = DotClamp(LightDir, HalfDir);
+
+	float AlphaSqr = Alpha * Alpha;
+	float F = FresnelSchlickFactor(CookTorranceF0, LightDirDotHalfDir);
+	float D = GGXDistributionTerm(AlphaSqr, NormalDotHalfDir);
+	float OneOverGL = NormalDotLightDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotLightDir * NormalDotLightDir)));
+	float OneOverGV = NormalDotViewDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotViewDir * NormalDotViewDir)));
+
+	float DiffuseFactor = 0.0f;
+	float Result = DiffuseFactor + ((F * D) / (OneOverGL * OneOverGV));
+
+	return(Result);
+}
+
+v4 ColorU32ToV4(u32 Color)
+{
+	v4 Result = {};
+
+	Result.r = float(((Color >>  0) & 0x000000FF)) / 255.0f;
+	Result.g = float(((Color >>  8) & 0x000000FF)) / 255.0f;
+	Result.b = float(((Color >> 16) & 0x000000FF)) / 255.0f;
+	Result.a = float(((Color >> 24) & 0x000000FF)) / 255.0f;
+
+	return(Result);
+}
+
+void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v3 CameraUp, mat4 LightProjectionMatrix)
+{
+	u32 PixelAlbedo;
 	float PixelDepth;
 	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
 
+	// NOTE(hugo) : Reading depth of touched pixel
+	// Another possibility would be to store the position map in
+	// the GBuffer. This query would take all three composants and would
+	// not require any unprojection. However more space is needed.
+	// I think I prefer unproject pixel for now
 	glReadPixels(X, Y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &PixelDepth);
 
+	// NOTE(hugo) : Reading albedo of touched pixel
+	glReadBuffer(GL_COLOR_ATTACHMENT2);
+	glReadPixels(X, Y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &PixelAlbedo);
+	v4 Albedo = ColorU32ToV4(PixelAlbedo);
+
+	// NOTE(hugo) : Reading normal of touched pixel
 	glReadBuffer(GL_COLOR_ATTACHMENT1);
 	v3 Normal = {};
 	glReadPixels(X, Y, 1, 1, GL_RGB, GL_FLOAT, &Normal);
@@ -236,78 +309,101 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 	float NearPlane = State->Camera.NearPlane;
 	float FarPlane = State->Camera.FarPlane;
 	PixelDepth = 2.0f * PixelDepth - 1.0f;
+	// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
 	PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
-
-	v4 PixelPos = {};
-	PixelPos.z = -PixelDepth;
-	PixelPos.w = 1.0f;
-
-	PixelPos.x = (float)(X) / float(GlobalWindowWidth);
-	PixelPos.y = (float)(Y) / float(GlobalWindowHeight);
-
-	PixelPos.xy = 2.0f * PixelPos.xy - V2(1.0f, 1.0f);
-
-	PixelPos.x = - State->Camera.Aspect * Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.x;
-	PixelPos.y = - Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.y;
 
 	mat4 InvLookAtCamera = Inverse(LookAt(Camera.Pos, Camera.Target, CameraUp));
 
-	PixelPos = InvLookAtCamera * PixelPos;
-	Normal = 2.0f * Normal - V3(1.0f, 1.0f, 1.0f);
-	v3 MicroCameraPos = PixelPos.xyz;
-	v3 MicroCameraTarget = MicroCameraPos + Normal;
-	v3 MicroCameraUp = V3(0.0f, 1.01f, 0.0f);
+	Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
+	v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
 
 	// NOTE(hugo) : Render directions are, in order : FRONT / LEFT / RIGHT / TOP / BOTTOM
 	// with FRONT being the direction of the normal previously found;
-	v3 MicroRenderDir[5];
-	MicroRenderDir[0] = Normal;
-	MicroRenderDir[1] = Cross(Normal, MicroCameraUp);
-	MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
-	MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
-	MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
+	camera MicroCameras[5];
+	mat4 MicroCameraProjections[5];
+	{
+		v4 PixelPos = {};
+		PixelPos.z = -PixelDepth;
+		PixelPos.w = 1.0f;
+
+		PixelPos.x = (float)(X) / float(GlobalWindowWidth);
+		PixelPos.y = (float)(Y) / float(GlobalWindowHeight);
+
+		PixelPos.xy = 2.0f * PixelPos.xy - V2(1.0f, 1.0f);
+
+		PixelPos.x = - State->Camera.Aspect * Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.x;
+		PixelPos.y = - Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.y;
+
+		PixelPos = InvLookAtCamera * PixelPos;
+		v3 MicroCameraPos = PixelPos.xyz;
+
+		v3 MicroRenderDir[5];
+		MicroRenderDir[0] = Normal;
+		MicroRenderDir[1] = Cross(Normal, WorldUp);
+		MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
+		MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
+		MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
+		for(u32 MicroCameraIndex = 0; MicroCameraIndex < ArrayCount(MicroCameras); ++MicroCameraIndex)
+		{
+			MicroCameras[MicroCameraIndex].Pos = MicroCameraPos;
+			MicroCameras[MicroCameraIndex].Target = MicroCameraPos + MicroRenderDir[MicroCameraIndex];
+			MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], WorldUp));
+			MicroCameras[MicroCameraIndex].FoV = State->Camera.FoV;
+			MicroCameras[MicroCameraIndex].Aspect = State->Camera.Aspect;
+			MicroCameras[MicroCameraIndex].NearPlane = 0.1f * State->Camera.NearPlane;
+			MicroCameras[MicroCameraIndex].FarPlane = 0.3f * State->Camera.FarPlane;
+
+			MicroCameraProjections[MicroCameraIndex] = GetCameraPerspective(MicroCameras[MicroCameraIndex]);
+		}
+	}
+
 
 #if 1
-	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroRenderDir); ++FaceIndex)
+	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 	{
-		RenderShadowSceneOnFramebuffer(State, MicroCameraPos, MicroCameraPos + MicroRenderDir[FaceIndex], MicroCameraUp, ProjectionMatrix, LightProjectionMatrix, State->HemicubeFramebuffer.MicroBuffers[FaceIndex]);
+		// TODO(hugo) : Not sure that WorldUp should be the Camera Up since this one should 
+		// be computed according to the normal
+		camera MicroCamera = MicroCameras[FaceIndex];
+		RenderShadowSceneOnFramebuffer(State, MicroCamera.Pos, MicroCamera.Target, WorldUp, MicroCameraProjections[FaceIndex], LightProjectionMatrix, State->HemicubeFramebuffer.MicroBuffers[FaceIndex]);
 
 	}
 	RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[0].ScreenTexture);
 
 	// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
-#if 0
+#if 1
 	v4 ColorBleeding = {};
-	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroRenderDir); ++FaceIndex)
+	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 	{
 		for(u32 PixelX = 0; PixelX < (u32)GlobalWindowWidth; ++PixelX)
 		{
 			for(u32 PixelY = 0; PixelY < (u32)GlobalWindowHeight; ++PixelY)
 			{
-				v3 Wi = ComputeDirectionOfPixel(FaceIndex, Normal, PixelX, PixelY);
+				v3 Wi = ComputeDirectionOfPixel(MicroCameras[FaceIndex], WorldUp, PixelX, PixelY);
+				if(DotClamp(Normal, Wi) > 0.0f)
+				{
+					// TODO(hugo): I would have prefered to query only once for each framebuffer
+					// but for some reason I get a stackoverflow when allocating a basic
+					// 800*600 u32 array on the stack... WTF ??
+					u32 Pixel;
+					glBindFramebuffer(GL_FRAMEBUFFER, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].FBO);
+					glReadBuffer(GL_COLOR_ATTACHMENT0);
+					glReadPixels(PixelX, PixelY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &Pixel);
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
+					v4 PixelColor = ColorU32ToV4(Pixel);
 
-				// TODO(hugo): I would have prefered to query only once for each framebuffer
-				// but for some reason I get a stackoverflow when allocating a basic
-				// 800*600 u32 array on the stack... WTF ??
-				u32 Pixel;
-				glBindFramebuffer(GL_FRAMEBUFFER, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].FBO);
-				glReadBuffer(GL_COLOR_ATTACHMENT0);
-				glReadPixels(PixelX, PixelY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &Pixel);
-				glBindFramebuffer(GL_FRAMEBUFFER, 0);
-				v4 PixelColor = {};
-				PixelColor.r = float(((Pixel >>  0) & 0x000000FF)) / 255.0f;
-				PixelColor.g = float(((Pixel >>  8) & 0x000000FF)) / 255.0f;
-				PixelColor.b = float(((Pixel >> 16) & 0x000000FF)) / 255.0f;
-				PixelColor.a = float(((Pixel >> 24) & 0x000000FF)) / 255.0f;
-
-				v3 H = Normalized(0.5f * (Wi + Camera.Pos));
-				// TODO(hugo) : I need to get back the object color. I cannot
-				// sample from the previous framebuffer because if the object is
-				// black because of some shadows, the resulting indirect lighting 
-				// will also be black. 
-				// I think the best way to do that is to have an albedo map to query from.
-				float BRDF = GGXBRDF(Normal, Wi, H, Camera.Pos, State->Alpha, State->CookTorranceF0);
-				ColorBleeding += BRDF * Hadamard(ObjectColor, PixelColor) * DotClamp(Normal, Wi);
+					if(LengthSqr(PixelColor) > 0.0f)
+					{
+						v3 Wo = Normalized(Camera.Pos - MicroCameras[FaceIndex].Pos);
+						v3 H = Normalized(0.5f * (Wi + Wo));
+						// TODO(hugo) : I need to get back the object color. I cannot
+						// sample from the previous framebuffer because if the object is
+						// black because of some shadows, the resulting indirect lighting 
+						// will also be black. 
+						// I think the best way to do that is to have an albedo map to query from.
+						float BRDF = GGXBRDF(Normal, Wi, H, Wo, State->Alpha, State->CookTorranceF0);
+						ColorBleeding += BRDF * DotClamp(Normal, Wi) * Hadamard(Albedo, PixelColor);
+					}
+				}
 			}
 		}
 	}
@@ -319,7 +415,7 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 #if 1
 	//ImGui::ColorEdit3("Color Picked", ColorFloat.E);
 	ImGui::Value("Depth @ Pixel", PixelDepth);
-	ImGui::Text("Position pointed at screen : (%f, %f, %f, %f)", PixelPos.x, PixelPos.y, PixelPos.z, PixelPos.w);
+	//ImGui::Text("Position pointed at screen : (%f, %f, %f, %f)", PixelPos.x, PixelPos.y, PixelPos.z, PixelPos.w);
 	ImGui::Text("Normal pointed at screen : (%f, %f, %f)", Normal.x, Normal.y, Normal.z);
 	//SDL_Delay(2000);
 #endif
@@ -529,8 +625,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
 	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
 
-	mat4 ProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, State->Camera.NearPlane, State->Camera.FarPlane);
-	mat4 MicroProjectionMatrix = Perspective(State->Camera.FoV, State->Camera.Aspect, 0.1f * State->Camera.NearPlane, 0.3f * State->Camera.FarPlane);
+	mat4 ProjectionMatrix = GetCameraPerspective(State->Camera);
 
 	RenderShadowSceneOnQuad(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightProjectionMatrix, State->ScreenFramebuffer);
 
@@ -545,12 +640,9 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	if(Input->MouseButtons[2].EndedDown)
 	{
-		//s32 MouseX = Input->MouseX;
-		//s32 MouseY = GlobalWindowHeight - Input->MouseY;
-		//ComputeGlobalIllumination(State, MouseX, MouseY, NextCamera, NextCameraUp, ProjectionMatrix, LightProjectionMatrix);
-		RenderTextureOnQuadScreen(State, State->ScreenFramebuffer.AlbedoTexture);
-		SDL_GL_SwapWindow(GlobalWindow);
-		SDL_Delay(2000);
+		s32 MouseX = Input->MouseX;
+		s32 MouseY = GlobalWindowHeight - Input->MouseY;
+		ComputeGlobalIllumination(State, MouseX, MouseY, NextCamera, NextCameraUp, LightProjectionMatrix);
 	}
 
 	ImGui::SliderFloat("Light Intensity", (float*)&State->LightIntensity, 0.0f, 10.0f);
