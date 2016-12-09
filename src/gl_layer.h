@@ -242,11 +242,18 @@ struct gl_geometry_framebuffer
 	GLuint NormalTexture;
 	GLuint AlbedoTexture;
 	GLuint RBO;
+
+	u32 Width;
+	u32 Height;
 };
 
 gl_geometry_framebuffer CreateGeometryFramebuffer(u32 BufferWidth, u32 BufferHeight)
 {
 	gl_geometry_framebuffer Result = {};
+
+	Result.Width = BufferWidth;
+	Result.Height = BufferHeight;
+
 	glGenFramebuffers(1, &Result.FBO);
 
 	glGenTextures(1, &Result.ScreenTexture);
@@ -310,7 +317,13 @@ gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(int BufferWidth, int Buf
 	gl_hemicube_framebuffer Result = {};
 	for(u32 FramebufferIndex = 0; FramebufferIndex < ArrayCount(Result.MicroBuffers); ++FramebufferIndex)
 	{
-		Result.MicroBuffers[FramebufferIndex] = CreateGeometryFramebuffer(BufferWidth, BufferHeight);
+		u32 Width = BufferWidth;
+		u32 Height = BufferHeight;
+		if(FramebufferIndex > 0)
+		{
+			Height /= 2;
+		}
+		Result.MicroBuffers[FramebufferIndex] = CreateGeometryFramebuffer(Width, Height);
 	}
 
 	return(Result);

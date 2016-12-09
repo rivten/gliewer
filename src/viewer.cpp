@@ -5,6 +5,8 @@
 static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
+static u32 GlobalMicrobufferWidth = 128;
+static u32 GlobalMicrobufferHeight = 128;
 
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -217,10 +219,10 @@ void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v
 	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
 }
 
-v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY, float PixelsToMeters, mat4 InvMicroCameraLookAt)
+v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY, float PixelsToMeters, mat4 InvMicroCameraLookAt, u32 BufferWidth, u32 BufferHeight)
 {
-	s32 PixelPosX = s32(PixelX) - 0.5f * float(GlobalWindowWidth);
-	s32 PixelPosY = s32(PixelY) - 0.5f * float(GlobalWindowHeight);
+	s32 PixelPosX = s32(PixelX) - 0.5f * float(BufferWidth);
+	s32 PixelPosY = s32(PixelY) - 0.5f * float(BufferHeight);
 	v3 PixelCameraPos = {};
 	PixelCameraPos.x = PixelPosX * PixelsToMeters;
 	PixelCameraPos.y = PixelPosY * PixelsToMeters;
@@ -344,7 +346,7 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 			MicroCameras[MicroCameraIndex].Target = MicroCameraPos + MicroRenderDir[MicroCameraIndex];
 			MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], WorldUp));
 			MicroCameras[MicroCameraIndex].FoV = State->Camera.FoV;
-			MicroCameras[MicroCameraIndex].Aspect = State->Camera.Aspect;
+			MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
 			MicroCameras[MicroCameraIndex].NearPlane = 0.1f * State->Camera.NearPlane;
 			MicroCameras[MicroCameraIndex].FarPlane = 0.3f * State->Camera.FarPlane;
 
@@ -368,39 +370,39 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 #if 1
 	v4 ColorBleeding = {};
 
-	float WidthInMeters = 2.0f * Camera.NearPlane * Tan(0.5f * Camera.FoV);
-	float PixelsToMeters = WidthInMeters / float(GlobalWindowWidth);
+	float MicrobufferWidthInMeters = 2.0f * MicroCameras[0].NearPlane * Tan(0.5f * MicroCameras[0].FoV);
+	float PixelsToMeters = MicrobufferWidthInMeters / float(State->HemicubeFramebuffer.MicroBuffers[0].Width);
 	float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
-	mat4 InvMicroCameraLookAt = Inverse(LookAt(Camera.Pos, Camera.Target, WorldUp));
 	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 	{
-		// TODO(hugo) : This should be queries from the framebuffer sizes
-		u32* Pixels = (u32*) malloc(sizeof(u32) * GlobalWindowWidth * GlobalWindowHeight);
+		gl_geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
+		u32* Pixels = (u32*) malloc(sizeof(u32) * Microbuffer.Width * Microbuffer.Height);
 		Assert(Pixels);
 
-		glBindFramebuffer(GL_FRAMEBUFFER, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].FBO);
+		glBindFramebuffer(GL_FRAMEBUFFER, Microbuffer.FBO);
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
+		glReadPixels(0, 0, Microbuffer.Width, Microbuffer.Height, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		v3 Wo = Normalized(Camera.Pos - MicroCameras[FaceIndex].Pos);
 		float NormalDotWo = DotClamp(Normal, Wo);
 		camera MicroCamera = MicroCameras[FaceIndex];
+		mat4 InvMicroCameraLookAt = Inverse(LookAt(MicroCamera.Pos, MicroCamera.Target, WorldUp));
 		float MicroCameraNearPlaneSqr = MicroCamera.NearPlane * MicroCamera.NearPlane;
 		v3 MicroCameraLookingDir = MicroCamera.Target - MicroCamera.Pos;
 
-		for(u32 PixelX = 0; PixelX < (u32)GlobalWindowWidth; ++PixelX)
+		for(u32 PixelX = 0; PixelX < Microbuffer.Width; ++PixelX)
 		{
-			for(u32 PixelY = 0; PixelY < (u32)GlobalWindowHeight; ++PixelY)
+			for(u32 PixelY = 0; PixelY < Microbuffer.Height; ++PixelY)
 			{
-				v3 Wi = ComputeDirectionOfPixel(MicroCamera, WorldUp, PixelX, PixelY, PixelsToMeters, InvMicroCameraLookAt);
+				v3 Wi = ComputeDirectionOfPixel(MicroCamera, WorldUp, PixelX, PixelY, PixelsToMeters, InvMicroCameraLookAt, Microbuffer.Width, Microbuffer.Height);
 				if(DotClamp(Normal, Wi) > 0.0f)
 				{
 					// TODO(hugo) : Check that this is the correct getter and not the other way around
 					// accord to what OpenGL sends us
-					v4 PixelColor = ColorU32ToV4(Pixels[800 * PixelY + PixelX]);
+					v4 PixelColor = ColorU32ToV4(Pixels[Microbuffer.Width * PixelY + PixelX]);
 
-					if(LengthSqr(PixelColor) > 0.0f)
+					if(LengthSqr(PixelColor.rgb) > 0.0f)
 					{
 						v3 H = Normalized(0.5f * (Wi + Wo));
 						float SolidAngle = PixelSurfaceInMeters / (MicroCameraNearPlaneSqr) * Dot(Wi, MicroCameraLookingDir);
@@ -517,7 +519,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
 		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
 		State->ScreenFramebuffer = CreateGeometryFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
-		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
+		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {
@@ -546,9 +548,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 		const char* SkyboxFilenames[6] = {"../models/skybox/right.jpg", "../models/skybox/left.jpg", "../models/skybox/top.jpg", "../models/skybox/bottom.jpg", "../models/skybox/back.jpg", "../models/skybox/front.jpg"};
 		State->SkyboxTexture = LoadCubemap(SkyboxFilenames);
-
 		// }
-
 
 		// NOTE(hugo) : This must be the last command of the initialization of memory
 		Memory->IsInitialized = true;
@@ -570,6 +570,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
 	State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
 
+	// NOTE(hugo) : Live shader reloading
 	if(IsKeyPressed(Input, SCANCODE_SPACE))
 	{
 		glDeleteShader(State->BasicShader.Program);
@@ -609,9 +610,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->MouseDragging = false;
 	}
 
-	//State->Lights[0].Pos.y = Sin(State->Time) + 2.0f;
-
-	// NOTE(hugo) : Shadow mapping rendering
+	// NOTE(hugo) : Direct lighting rendering
 	// {
 	// TODO(hugo) : Get rid of OpenGL in here
 	mat4 LightProjectionMatrix = {};
@@ -648,14 +647,6 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	mat4 ProjectionMatrix = GetCameraPerspective(State->Camera);
 
 	RenderShadowSceneOnQuad(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightProjectionMatrix, State->ScreenFramebuffer);
-
-#if 0
-	UseShader(State->DepthDebugQuadShader);
-	glBindVertexArray(State->QuadVAO);
-	glBindTexture(GL_TEXTURE_2D, State->Lights[0].DepthFramebuffer.Texture);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glBindVertexArray(0);
-#endif
 	// }
 
 	if(Input->MouseButtons[2].EndedDown)

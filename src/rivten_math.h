@@ -442,6 +442,11 @@ struct v4
 			v2 xy;
 			v2 Ignored1_;
 		};
+		struct
+		{
+			v3 rgb;
+			float Ignored2_;
+		};
         float E[4];
     };
 
