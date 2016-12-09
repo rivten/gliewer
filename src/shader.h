@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 
+// TODO(hugo) : Use basic C parsing scheme (see OFF parsing in meshrekt)
 struct shader
 {
 	GLuint Program;

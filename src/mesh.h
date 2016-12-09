@@ -216,7 +216,6 @@ std::vector<mesh> LoadOBJ(const std::string BaseDir, const std::string Filename)
 			}
 		}
 
-		// TODO(hugo) : Right now, we only consider the first parsed shape. Generalize this in the future.
 		bool NormalsComputed = true;
 		std::unordered_map<vertex, int, hash_vertex> VertexIndices;
 		for(u32 TriangleIndex = 0; TriangleIndex < (Shapes[ShapeIndex].mesh.indices.size() / 3); ++TriangleIndex)

@@ -443,6 +443,14 @@ void PushLight(game_state* State, light Light)
 	State->LightCount++;
 }
 
+void LoadShaders(game_state* State)
+{
+	State->BasicShader = LoadShader("../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl");
+	State->DepthDebugQuadShader = LoadShader("../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl");
+	State->ShadowMappingShader = LoadShader("../src/shaders/shadow_mapping_v.glsl", "../src/shaders/shadow_mapping_f.glsl");
+	State->SkyboxShader = LoadShader("../src/shaders/skybox_v.glsl", "../src/shaders/skybox_f.glsl");
+}
+
 void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input* Input)
 {
 	Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
@@ -457,10 +465,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 			}
 		}
 		State->ObjectModelMatrix = Identity4();
-		State->BasicShader = LoadShader("../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl");
-		State->DepthDebugQuadShader = LoadShader("../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl");
-		State->ShadowMappingShader = LoadShader("../src/shaders/shadow_mapping_v.glsl", "../src/shaders/shadow_mapping_f.glsl");
-		State->SkyboxShader = LoadShader("../src/shaders/skybox_v.glsl", "../src/shaders/skybox_f.glsl");
+		LoadShaders(State);
 
 		light Light = {&State->CubeMesh, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
@@ -564,6 +569,15 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	float DeltaMovement = 0.5f;
 	v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
 	State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
+
+	if(IsKeyPressed(Input, SCANCODE_SPACE))
+	{
+		glDeleteShader(State->BasicShader.Program);
+		glDeleteShader(State->DepthDebugQuadShader.Program);
+		glDeleteShader(State->ShadowMappingShader.Program);
+		glDeleteShader(State->SkyboxShader.Program);
+		LoadShaders(State);
+	}
 
 	if(Input->MouseButtons[0].EndedDown)
 	{
