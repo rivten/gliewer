@@ -217,7 +217,7 @@ void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v
 	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
 }
 
-v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY, float PixelsToMeters)
+v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY, float PixelsToMeters, mat4 InvMicroCameraLookAt)
 {
 	s32 PixelPosX = s32(PixelX) - 0.5f * float(GlobalWindowWidth);
 	s32 PixelPosY = s32(PixelY) - 0.5f * float(GlobalWindowHeight);
@@ -226,8 +226,7 @@ v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY, fl
 	PixelCameraPos.y = PixelPosY * PixelsToMeters;
 	PixelCameraPos.z = - Camera.NearPlane;
 
-	mat4 MicroCameraLookAt = LookAt(Camera.Pos, Camera.Target, WorldUp);
-	v3 PixelWorldPos = (Inverse(MicroCameraLookAt) * ToV4(PixelCameraPos)).xyz;
+	v3 PixelWorldPos = (InvMicroCameraLookAt * ToV4(PixelCameraPos)).xyz;
 
 	return(Normalized(PixelWorldPos - Camera.Pos));
 }
@@ -247,12 +246,10 @@ float GGXDistributionTerm(float AlphaSqr, float NormalDotHalfDir)
 	return(Result);
 }
 
-float GGXBRDF(v3 Normal, v3 LightDir, v3 HalfDir, v3 ViewDir, float Alpha, float CookTorranceF0)
+float GGXBRDF(v3 Normal, v3 LightDir, v3 HalfDir, float NormalDotViewDir, float Alpha, float CookTorranceF0)
 {
 	float NormalDotHalfDir = DotClamp(Normal, HalfDir);
 	float NormalDotLightDir = DotClamp(Normal, LightDir);
-	float NormalDotViewDir = DotClamp(Normal, ViewDir);
-	//float ViewDirDotHalfDir = DotClamp(ViewDir, HalfDir);
 	float LightDirDotHalfDir = DotClamp(LightDir, HalfDir);
 
 	float AlphaSqr = Alpha * Alpha;
@@ -374,41 +371,47 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 	float WidthInMeters = 2.0f * Camera.NearPlane * Tan(0.5f * Camera.FoV);
 	float PixelsToMeters = WidthInMeters / float(GlobalWindowWidth);
 	float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
+	mat4 InvMicroCameraLookAt = Inverse(LookAt(Camera.Pos, Camera.Target, WorldUp));
 	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 	{
+		// TODO(hugo) : This should be queries from the framebuffer sizes
+		u32* Pixels = (u32*) malloc(sizeof(u32) * GlobalWindowWidth * GlobalWindowHeight);
+		Assert(Pixels);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].FBO);
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		v3 Wo = Normalized(Camera.Pos - MicroCameras[FaceIndex].Pos);
+		float NormalDotWo = DotClamp(Normal, Wo);
+		camera MicroCamera = MicroCameras[FaceIndex];
+		float MicroCameraNearPlaneSqr = MicroCamera.NearPlane * MicroCamera.NearPlane;
+		v3 MicroCameraLookingDir = MicroCamera.Target - MicroCamera.Pos;
+
 		for(u32 PixelX = 0; PixelX < (u32)GlobalWindowWidth; ++PixelX)
 		{
 			for(u32 PixelY = 0; PixelY < (u32)GlobalWindowHeight; ++PixelY)
 			{
-				v3 Wi = ComputeDirectionOfPixel(MicroCameras[FaceIndex], WorldUp, PixelX, PixelY, PixelsToMeters);
+				v3 Wi = ComputeDirectionOfPixel(MicroCamera, WorldUp, PixelX, PixelY, PixelsToMeters, InvMicroCameraLookAt);
 				if(DotClamp(Normal, Wi) > 0.0f)
 				{
-					// TODO(hugo): I would have prefered to query only once for each framebuffer
-					// but for some reason I get a stackoverflow when allocating a basic
-					// 800*600 u32 array on the stack... WTF ??
-					u32 Pixel;
-					glBindFramebuffer(GL_FRAMEBUFFER, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].FBO);
-					glReadBuffer(GL_COLOR_ATTACHMENT0);
-					glReadPixels(PixelX, PixelY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &Pixel);
-					glBindFramebuffer(GL_FRAMEBUFFER, 0);
-					v4 PixelColor = ColorU32ToV4(Pixel);
+					// TODO(hugo) : Check that this is the correct getter and not the other way around
+					// accord to what OpenGL sends us
+					v4 PixelColor = ColorU32ToV4(Pixels[800 * PixelY + PixelX]);
 
 					if(LengthSqr(PixelColor) > 0.0f)
 					{
-						v3 Wo = Normalized(Camera.Pos - MicroCameras[FaceIndex].Pos);
 						v3 H = Normalized(0.5f * (Wi + Wo));
-						float SolidAngle = PixelSurfaceInMeters / (MicroCameras[FaceIndex].NearPlane * MicroCameras[FaceIndex].NearPlane) * Dot(Wi, MicroCameras[FaceIndex].Target - MicroCameras[FaceIndex].Pos);
-						// TODO(hugo) : I need to get back the object color. I cannot
-						// sample from the previous framebuffer because if the object is
-						// black because of some shadows, the resulting indirect lighting 
-						// will also be black. 
-						// I think the best way to do that is to have an albedo map to query from.
-						float BRDF = GGXBRDF(Normal, Wi, H, Wo, State->Alpha, State->CookTorranceF0);
+						float SolidAngle = PixelSurfaceInMeters / (MicroCameraNearPlaneSqr) * Dot(Wi, MicroCameraLookingDir);
+						float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, State->Alpha, State->CookTorranceF0);
 						ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
 					}
 				}
 			}
 		}
+
+		free((void*)Pixels);
 	}
 #endif
 	
