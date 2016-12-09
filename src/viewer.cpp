@@ -217,10 +217,8 @@ void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v
 	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
 }
 
-v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY)
+v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY, float PixelsToMeters)
 {
-	float WidthInMeters = 2.0f * Camera.NearPlane * Tan(0.5f * Camera.FoV);
-	float PixelsToMeters = WidthInMeters / float(GlobalWindowWidth);
 	s32 PixelPosX = s32(PixelX) - 0.5f * float(GlobalWindowWidth);
 	s32 PixelPosY = s32(PixelY) - 0.5f * float(GlobalWindowHeight);
 	v3 PixelCameraPos = {};
@@ -372,13 +370,17 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 	// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
 #if 1
 	v4 ColorBleeding = {};
+
+	float WidthInMeters = 2.0f * Camera.NearPlane * Tan(0.5f * Camera.FoV);
+	float PixelsToMeters = WidthInMeters / float(GlobalWindowWidth);
+	float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
 	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 	{
 		for(u32 PixelX = 0; PixelX < (u32)GlobalWindowWidth; ++PixelX)
 		{
 			for(u32 PixelY = 0; PixelY < (u32)GlobalWindowHeight; ++PixelY)
 			{
-				v3 Wi = ComputeDirectionOfPixel(MicroCameras[FaceIndex], WorldUp, PixelX, PixelY);
+				v3 Wi = ComputeDirectionOfPixel(MicroCameras[FaceIndex], WorldUp, PixelX, PixelY, PixelsToMeters);
 				if(DotClamp(Normal, Wi) > 0.0f)
 				{
 					// TODO(hugo): I would have prefered to query only once for each framebuffer
@@ -395,13 +397,14 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 					{
 						v3 Wo = Normalized(Camera.Pos - MicroCameras[FaceIndex].Pos);
 						v3 H = Normalized(0.5f * (Wi + Wo));
+						float SolidAngle = PixelSurfaceInMeters / (MicroCameras[FaceIndex].NearPlane * MicroCameras[FaceIndex].NearPlane) * Dot(Wi, MicroCameras[FaceIndex].Target - MicroCameras[FaceIndex].Pos);
 						// TODO(hugo) : I need to get back the object color. I cannot
 						// sample from the previous framebuffer because if the object is
 						// black because of some shadows, the resulting indirect lighting 
 						// will also be black. 
 						// I think the best way to do that is to have an albedo map to query from.
 						float BRDF = GGXBRDF(Normal, Wi, H, Wo, State->Alpha, State->CookTorranceF0);
-						ColorBleeding += BRDF * DotClamp(Normal, Wi) * Hadamard(Albedo, PixelColor);
+						ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
 					}
 				}
 			}
