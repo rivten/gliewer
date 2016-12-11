@@ -123,6 +123,8 @@ struct game_state
 	GLuint SkyboxVAO;
 	GLuint SkyboxVBO;
 	GLuint SkyboxTexture;
+
+	u32 DEBUGMicroFoVInDegrees;
 };
 
 #include "viewer.cpp"

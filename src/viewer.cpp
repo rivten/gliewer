@@ -8,7 +8,6 @@ static int GlobalTeapotInstanceCount = 10;
 static u32 GlobalMicrobufferWidth = 128;
 static u32 GlobalMicrobufferHeight = 128;
 
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 u8* LoadImageRGB(const char* Filename, s32* Width, s32* Height)
@@ -345,7 +344,7 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 			MicroCameras[MicroCameraIndex].Pos = MicroCameraPos;
 			MicroCameras[MicroCameraIndex].Target = MicroCameraPos + MicroRenderDir[MicroCameraIndex];
 			MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], WorldUp));
-			MicroCameras[MicroCameraIndex].FoV = State->Camera.FoV;
+			MicroCameras[MicroCameraIndex].FoV = Radians(State->DEBUGMicroFoVInDegrees);
 			MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
 			MicroCameras[MicroCameraIndex].NearPlane = 0.1f * State->Camera.NearPlane;
 			MicroCameras[MicroCameraIndex].FarPlane = 0.3f * State->Camera.FarPlane;
@@ -361,13 +360,19 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 		// TODO(hugo) : Not sure that WorldUp should be the Camera Up since this one should 
 		// be computed according to the normal
 		camera MicroCamera = MicroCameras[FaceIndex];
-		RenderShadowSceneOnFramebuffer(State, MicroCamera.Pos, MicroCamera.Target, WorldUp, MicroCameraProjections[FaceIndex], LightProjectionMatrix, State->HemicubeFramebuffer.MicroBuffers[FaceIndex]);
+		SetViewport(State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
+				State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
+		RenderShadowSceneOnFramebuffer(State, MicroCamera.Pos, MicroCamera.Target, 
+				WorldUp, MicroCameraProjections[FaceIndex], 
+				LightProjectionMatrix, 
+				State->HemicubeFramebuffer.MicroBuffers[FaceIndex]);
 
 	}
+	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
 	RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[0].ScreenTexture);
 
 	// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
-#if 1
+#if 0
 	v4 ColorBleeding = {};
 
 	float MicrobufferWidthInMeters = 2.0f * MicroCameras[0].NearPlane * Tan(0.5f * MicroCameras[0].FoV);
@@ -376,6 +381,7 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 	{
 		gl_geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
+		// TODO(hugo) : Use Casey Muratori's memory framework ? (Temporary Memory here ?)
 		u32* Pixels = (u32*) malloc(sizeof(u32) * Microbuffer.Width * Microbuffer.Height);
 		Assert(Pixels);
 
@@ -515,6 +521,8 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->Alpha = 0.5f;
 		State->Sigma = 0.0f;
 		State->LightIntensity = 4.5f;
+
+		State->DEBUGMicroFoVInDegrees = 45;
 
 		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
 		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
@@ -657,6 +665,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	}
 
 	ImGui::SliderFloat("Light Intensity", (float*)&State->LightIntensity, 0.0f, 10.0f);
+	ImGui::SliderInt("Micro FoV", (int*)&State->DEBUGMicroFoVInDegrees, 0, 90);
 #if 0
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
