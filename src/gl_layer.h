@@ -319,10 +319,12 @@ gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(int BufferWidth, int Buf
 	{
 		u32 Width = BufferWidth;
 		u32 Height = BufferHeight;
+#if 0
 		if(FramebufferIndex > 0)
 		{
 			Height /= 2;
 		}
+#endif
 		Result.MicroBuffers[FramebufferIndex] = CreateGeometryFramebuffer(Width, Height);
 	}
 

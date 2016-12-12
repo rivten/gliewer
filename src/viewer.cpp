@@ -218,7 +218,9 @@ void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v
 	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
 }
 
-v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY, float PixelsToMeters, mat4 InvMicroCameraLookAt, u32 BufferWidth, u32 BufferHeight)
+v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY, 
+		float PixelsToMeters, mat4 InvMicroCameraLookAt, 
+		u32 BufferWidth, u32 BufferHeight)
 {
 	s32 PixelPosX = s32(PixelX) - 0.5f * float(BufferWidth);
 	s32 PixelPosY = s32(PixelY) - 0.5f * float(BufferHeight);
@@ -374,10 +376,14 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 	// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
 #if 0
 	v4 ColorBleeding = {};
+	float DEBUGCosineIntegral = 0.0f;
+	float DEBUGSolidAngleIntegral = 0.0f;
 
+	// NOTE(hugo) : This works because all microbuffers have the same width (but different heights)
 	float MicrobufferWidthInMeters = 2.0f * MicroCameras[0].NearPlane * Tan(0.5f * MicroCameras[0].FoV);
 	float PixelsToMeters = MicrobufferWidthInMeters / float(State->HemicubeFramebuffer.MicroBuffers[0].Width);
 	float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
+
 	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 	{
 		gl_geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
@@ -399,22 +405,37 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 
 		for(u32 PixelX = 0; PixelX < Microbuffer.Width; ++PixelX)
 		{
-			for(u32 PixelY = 0; PixelY < Microbuffer.Height; ++PixelY)
+			u32 PixelY = 0;
+			if(FaceIndex != 0)
 			{
-				v3 Wi = ComputeDirectionOfPixel(MicroCamera, WorldUp, PixelX, PixelY, PixelsToMeters, InvMicroCameraLookAt, Microbuffer.Width, Microbuffer.Height);
-				if(DotClamp(Normal, Wi) > 0.0f)
-				{
-					// TODO(hugo) : Check that this is the correct getter and not the other way around
-					// accord to what OpenGL sends us
-					v4 PixelColor = ColorU32ToV4(Pixels[Microbuffer.Width * PixelY + PixelX]);
+				PixelY = 1 + (Microbuffer.Height / 2);
+			}
+			for(; PixelY < Microbuffer.Height; ++PixelY)
+			{
+				v3 Wi = ComputeDirectionOfPixel(MicroCamera, WorldUp, PixelX, PixelY, 
+						PixelsToMeters, InvMicroCameraLookAt, 
+						Microbuffer.Width, Microbuffer.Height);
+				Assert(DotClamp(Normal, Wi) > 0.0f);
 
-					if(LengthSqr(PixelColor.rgb) > 0.0f)
-					{
-						v3 H = Normalized(0.5f * (Wi + Wo));
-						float SolidAngle = PixelSurfaceInMeters / (MicroCameraNearPlaneSqr) * Dot(Wi, MicroCameraLookingDir);
-						float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, State->Alpha, State->CookTorranceF0);
-						ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
-					}
+				// TODO(hugo) : Check that this is the correct getter and not the other way around
+				// accord to what OpenGL sends us
+				v4 PixelColor = ColorU32ToV4(Pixels[Microbuffer.Width * PixelY + PixelX]);
+
+				if(LengthSqr(PixelColor.rgb) > 0.0f)
+				{
+					v3 H = Normalized(0.5f * (Wi + Wo));
+					float SolidAngle = (PixelSurfaceInMeters / MicroCameraNearPlaneSqr) * Dot(Wi, MicroCameraLookingDir);
+					float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, State->Alpha, State->CookTorranceF0);
+					ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
+					DEBUGCosineIntegral += DotClamp(Normal, Wi) * SolidAngle;
+					DEBUGSolidAngleIntegral += SolidAngle;
+				}
+				else
+				{
+					// TODO(hugo) : a small debug tool to see the pixels i'm integrating on and their SolidAngleValue
+					float DEBUGSolidAngle = (PixelSurfaceInMeters / MicroCameraNearPlaneSqr) * Dot(Wi, MicroCameraLookingDir);
+					DEBUGCosineIntegral += DotClamp(Normal, Wi) * DEBUGSolidAngle;
+					DEBUGSolidAngleIntegral += DEBUGSolidAngle;
 				}
 			}
 		}
