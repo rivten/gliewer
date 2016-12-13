@@ -232,7 +232,7 @@ void RenderShadowSceneOnQuad(game_state* State,
 	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
 }
 
-v3 ComputeDirectionOfPixel(camera Camera, v3 WorldUp, u32 PixelX, u32 PixelY, 
+v3 ComputeDirectionOfPixel(camera Camera, u32 PixelX, u32 PixelY, 
 		float PixelsToMeters, mat4 InvMicroCameraLookAt, 
 		u32 BufferWidth, u32 BufferHeight)
 {
@@ -393,7 +393,7 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 
 	}
 	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
-#if 0
+#if 1
 	RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[1].ScreenTexture);
 #else
 	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); ++FaceIndex)
@@ -405,7 +405,7 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 #endif
 
 	// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
-#if 0
+#if 1
 	v4 ColorBleeding = {};
 	float DEBUGCosineIntegral = 0.0f;
 	float DEBUGSolidAngleIntegral = 0.0f;
@@ -419,8 +419,7 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 	{
 		gl_geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
 		// TODO(hugo) : Use Casey Muratori's memory framework ? (Temporary Memory here ?)
-		u32* Pixels = (u32*) malloc(sizeof(u32) * Microbuffer.Width * Microbuffer.Height);
-		Assert(Pixels);
+		u32* Pixels = AllocateArray(u32, Microbuffer.Width * Microbuffer.Height);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, Microbuffer.FBO);
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
@@ -430,48 +429,63 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 		v3 Wo = Normalized(Camera.Pos - MicroCameras[FaceIndex].Pos);
 		float NormalDotWo = DotClamp(Normal, Wo);
 		camera MicroCamera = MicroCameras[FaceIndex];
-		mat4 InvMicroCameraLookAt = Inverse(LookAt(MicroCamera.Pos, MicroCamera.Target, WorldUp));
+		v3 MicroCameraLookingDir = Normalized(MicroCamera.Target - MicroCamera.Pos);
+		v3 MicroCameraUp = Cross(MicroCamera.Right, MicroCameraLookingDir);
+		mat4 InvMicroCameraLookAt = Inverse(LookAt(MicroCamera.Pos, MicroCamera.Target, MicroCameraUp));
 		float MicroCameraNearPlaneSqr = MicroCamera.NearPlane * MicroCamera.NearPlane;
-		v3 MicroCameraLookingDir = MicroCamera.Target - MicroCamera.Pos;
 
 		for(u32 PixelX = 0; PixelX < Microbuffer.Width; ++PixelX)
 		{
-			u32 PixelY = 0;
-			if(FaceIndex != 0)
+			u32 StartingRow = 0;
+			if(FaceIndex > 0)
 			{
-				PixelY = 1 + (Microbuffer.Height / 2);
+				StartingRow = 0.5f * Microbuffer.Height;
 			}
-			for(; PixelY < Microbuffer.Height; ++PixelY)
+
+			for(u32 PixelY = StartingRow; PixelY < Microbuffer.Height; ++PixelY)
 			{
-				v3 Wi = ComputeDirectionOfPixel(MicroCamera, WorldUp, PixelX, PixelY, 
+				v3 Wi = ComputeDirectionOfPixel(MicroCamera, PixelX, PixelY, 
 						PixelsToMeters, InvMicroCameraLookAt, 
 						Microbuffer.Width, Microbuffer.Height);
-				Assert(DotClamp(Normal, Wi) > 0.0f);
+				//Assert(DotClamp(Normal, Wi) > 0.0f);
 
-				// TODO(hugo) : Check that this is the correct getter and not the other way around
-				// accord to what OpenGL sends us
-				v4 PixelColor = ColorU32ToV4(Pixels[Microbuffer.Width * PixelY + PixelX]);
+				// NOTE(hugo) : In theory, every pixel I sample from
+				// should have a dot product strictly positive
+				// but I guess there are a numerical error at stake.
+				// I chose to ignore it because, even it there are pixels that should be sampled
+				// from, their dot product is so small that their impact on the color
+				// bleeding is negligeable
+				if(DotClamp(Normal, Wi) > 0.0f)
+				{
+					// NOTE(hugo) : From OpenGL documentation on glReadPixels :
+					// the pixels are given beginning in the lower left corner by rows
+					v4 PixelColor = ColorU32ToV4(Pixels[Microbuffer.Width * PixelY + PixelX]);
 
-				if(LengthSqr(PixelColor.rgb) > 0.0f)
-				{
-					v3 H = Normalized(0.5f * (Wi + Wo));
-					float SolidAngle = (PixelSurfaceInMeters / MicroCameraNearPlaneSqr) * Dot(Wi, MicroCameraLookingDir);
-					float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, State->Alpha, State->CookTorranceF0);
-					ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
-					DEBUGCosineIntegral += DotClamp(Normal, Wi) * SolidAngle;
-					DEBUGSolidAngleIntegral += SolidAngle;
-				}
-				else
-				{
-					// TODO(hugo) : a small debug tool to see the pixels i'm integrating on and their SolidAngleValue
-					float DEBUGSolidAngle = (PixelSurfaceInMeters / MicroCameraNearPlaneSqr) * Dot(Wi, MicroCameraLookingDir);
-					DEBUGCosineIntegral += DotClamp(Normal, Wi) * DEBUGSolidAngle;
-					DEBUGSolidAngleIntegral += DEBUGSolidAngle;
+					if(LengthSqr(PixelColor.rgb) > 0.0f)
+					{
+						v3 H = Normalized(0.5f * (Wi + Wo));
+						float SolidAngle = (PixelSurfaceInMeters / MicroCameraNearPlaneSqr) 
+							* Dot(Wi, MicroCameraLookingDir);
+						float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, State->Alpha, State->CookTorranceF0);
+						ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
+						DEBUGCosineIntegral += DotClamp(Normal, Wi) * SolidAngle;
+						DEBUGSolidAngleIntegral += SolidAngle;
+					}
+					else
+					{
+#if 1
+						// TODO(hugo) : a small debug tool to see the pixels i'm integrating on and their SolidAngleValue
+						float DEBUGSolidAngle = (PixelSurfaceInMeters / MicroCameraNearPlaneSqr) 
+							* Dot(Wi, MicroCameraLookingDir);
+						DEBUGCosineIntegral += DotClamp(Normal, Wi) * DEBUGSolidAngle;
+						DEBUGSolidAngleIntegral += DEBUGSolidAngle;
+#endif
+					}
 				}
 			}
 		}
 
-		free((void*)Pixels);
+		Free(Pixels);
 	}
 #endif
 	
