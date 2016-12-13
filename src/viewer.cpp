@@ -184,13 +184,21 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 
 }
 
-void RenderShadowSceneOnFramebuffer(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix, gl_geometry_framebuffer Framebuffer)
+void RenderShadowSceneOnFramebuffer(game_state* State, 
+		v3 CameraPos, v3 CameraTarget, v3 CameraUp, 
+		mat4 ProjectionMatrix, mat4 LightProjectionMatrix, 
+		gl_geometry_framebuffer Framebuffer, 
+		v4 ClearColor = V4(0.0f, 0.0f, 0.0f, 1.0f),
+		bool SkyboxRender = true)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer.FBO);
-	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
+	ClearColorAndDepth(ClearColor);
 	glEnable(GL_DEPTH_TEST);
 
-	RenderSkybox(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix);
+	if(SkyboxRender)
+	{
+		RenderSkybox(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix);
+	}
 	RenderShadowedScene(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix, LightProjectionMatrix);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -212,9 +220,15 @@ void RenderTextureOnQuadScreen(game_state* State, u32 Texture)
 	glBindVertexArray(0);
 }
 
-void RenderShadowSceneOnQuad(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix, gl_geometry_framebuffer Framebuffer)
+void RenderShadowSceneOnQuad(game_state* State, 
+		v3 CameraPos, v3 CameraTarget, v3 CameraUp, 
+		mat4 ProjectionMatrix, mat4 LightProjectionMatrix, 
+		gl_geometry_framebuffer Framebuffer)
 {
-	RenderShadowSceneOnFramebuffer(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix, LightProjectionMatrix, Framebuffer);
+	RenderShadowSceneOnFramebuffer(State, 
+			CameraPos, CameraTarget, CameraUp, 
+			ProjectionMatrix, LightProjectionMatrix, 
+			Framebuffer, V4(1.0f, 0.0f, 0.5f, 1.0f));
 	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
 }
 
@@ -345,7 +359,14 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 		{
 			MicroCameras[MicroCameraIndex].Pos = MicroCameraPos;
 			MicroCameras[MicroCameraIndex].Target = MicroCameraPos + MicroRenderDir[MicroCameraIndex];
-			MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], WorldUp));
+
+			v3 MicroCameraUp = WorldUp;
+			if(MicroCameraIndex != 0)
+			{
+				MicroCameraUp = Normal;
+			}
+
+			MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
 			MicroCameras[MicroCameraIndex].FoV = Radians(State->DEBUGMicroFoVInDegrees);
 			MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
 			MicroCameras[MicroCameraIndex].NearPlane = 0.1f * State->Camera.NearPlane;
@@ -365,13 +386,23 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 		SetViewport(State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
 				State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
 		RenderShadowSceneOnFramebuffer(State, MicroCamera.Pos, MicroCamera.Target, 
-				WorldUp, MicroCameraProjections[FaceIndex], 
+				Cross(MicroCamera.Right, MicroCamera.Target - MicroCamera.Pos), MicroCameraProjections[FaceIndex], 
 				LightProjectionMatrix, 
-				State->HemicubeFramebuffer.MicroBuffers[FaceIndex]);
+				State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
+				V4(0.0f, 0.0f, 0.0f, 1.0f), false);
 
 	}
 	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
-	RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[0].ScreenTexture);
+#if 0
+	RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[1].ScreenTexture);
+#else
+	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); ++FaceIndex)
+	{
+		RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].ScreenTexture);
+		SDL_GL_SwapWindow(GlobalWindow);
+		SDL_Delay(1000);
+	}
+#endif
 
 	// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
 #if 0
