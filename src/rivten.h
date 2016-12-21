@@ -58,11 +58,11 @@ void ZeroSize(memory_index Size, void* Ptr)
 // TODO(hugo) : To get rid of this in order to use only arena framework ?
 // {
 #include <stdlib.h>
-#define ReAllocateArray(Buffer, type, Size) (type *)ReAllocate_(Buffer, Size * sizeof(type))
-#define AllocateArray(type, Size) (type *)Allocate_(Size * sizeof(type))
+#define ReAllocateArray(Buffer, type, Size) (type *)ReAllocate_(Buffer, (Size) * sizeof(type))
+#define AllocateArray(type, Size) (type *)Allocate_((Size) * sizeof(type))
 #define AllocateStruct(type) AllocateArray(type, 1)
 #define Free(Buffer) free(Buffer)
-#define CopyArray(Dest, Source, type, Size) memcpy(Dest, Source, Size * sizeof(type))
+#define CopyArray(Dest, Source, type, Size) memcpy(Dest, Source, (Size) * sizeof(type))
 
 void* Allocate_(size_t Size)
 {
