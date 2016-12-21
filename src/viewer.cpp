@@ -232,7 +232,7 @@ void RenderShadowSceneOnQuad(game_state* State,
 	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
 }
 
-v3 ComputeDirectionOfPixel(camera Camera, u32 PixelX, u32 PixelY, 
+v3 ComputePositionOfPixel(camera Camera, u32 PixelX, u32 PixelY, 
 		float PixelsToMeters, mat4 InvMicroCameraLookAt, 
 		u32 BufferWidth, u32 BufferHeight)
 {
@@ -245,7 +245,7 @@ v3 ComputeDirectionOfPixel(camera Camera, u32 PixelX, u32 PixelY,
 
 	v3 PixelWorldPos = (InvMicroCameraLookAt * ToV4(PixelCameraPos)).xyz;
 
-	return(Normalized(PixelWorldPos - Camera.Pos));
+	return(PixelWorldPos);
 }
 
 float FresnelSchlickFactor(float F0, float LightDirDotHalfDir)
@@ -432,7 +432,6 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 		v3 MicroCameraLookingDir = Normalized(MicroCamera.Target - MicroCamera.Pos);
 		v3 MicroCameraUp = Cross(MicroCamera.Right, MicroCameraLookingDir);
 		mat4 InvMicroCameraLookAt = Inverse(LookAt(MicroCamera.Pos, MicroCamera.Target, MicroCameraUp));
-		float MicroCameraNearPlaneSqr = MicroCamera.NearPlane * MicroCamera.NearPlane;
 
 		for(u32 PixelX = 0; PixelX < Microbuffer.Width; ++PixelX)
 		{
@@ -444,10 +443,12 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 
 			for(u32 PixelY = StartingRow; PixelY < Microbuffer.Height; ++PixelY)
 			{
-				v3 Wi = ComputeDirectionOfPixel(MicroCamera, PixelX, PixelY, 
-						PixelsToMeters, InvMicroCameraLookAt, 
-						Microbuffer.Width, Microbuffer.Height);
+				v3 PixelWorldPos = ComputePositionOfPixel(MicroCamera, PixelX, PixelY, 
+							PixelsToMeters, InvMicroCameraLookAt, 
+							Microbuffer.Width, Microbuffer.Height);
 				//Assert(DotClamp(Normal, Wi) > 0.0f);
+				float DistanceMiroCameraPixelSqr = LengthSqr(MicroCamera.Pos - PixelWorldPos);
+				v3 Wi = (PixelWorldPos - MicroCamera.Pos) / (sqrt(DistanceMiroCameraPixelSqr));
 
 				// NOTE(hugo) : In theory, every pixel I sample from
 				// should have a dot product strictly positive
@@ -464,7 +465,7 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 					if(LengthSqr(PixelColor.rgb) > 0.0f)
 					{
 						v3 H = Normalized(0.5f * (Wi + Wo));
-						float SolidAngle = (PixelSurfaceInMeters / MicroCameraNearPlaneSqr) 
+						float SolidAngle = (PixelSurfaceInMeters / DistanceMiroCameraPixelSqr) 
 							* Dot(Wi, MicroCameraLookingDir);
 						float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, State->Alpha, State->CookTorranceF0);
 						ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
@@ -475,7 +476,7 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 					{
 #if 1
 						// TODO(hugo) : a small debug tool to see the pixels i'm integrating on and their SolidAngleValue
-						float DEBUGSolidAngle = (PixelSurfaceInMeters / MicroCameraNearPlaneSqr) 
+						float DEBUGSolidAngle = (PixelSurfaceInMeters / DistanceMiroCameraPixelSqr) 
 							* Dot(Wi, MicroCameraLookingDir);
 						DEBUGCosineIntegral += DotClamp(Normal, Wi) * DEBUGSolidAngle;
 						DEBUGSolidAngleIntegral += DEBUGSolidAngle;
