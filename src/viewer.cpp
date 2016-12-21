@@ -393,7 +393,7 @@ void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v
 
 	}
 	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
-#if 1
+#if 0
 	RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[1].ScreenTexture);
 #else
 	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); ++FaceIndex)
@@ -588,7 +588,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->Sigma = 0.0f;
 		State->LightIntensity = 4.5f;
 
-		State->DEBUGMicroFoVInDegrees = 45;
+		State->DEBUGMicroFoVInDegrees = 90;
 
 		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
 		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
