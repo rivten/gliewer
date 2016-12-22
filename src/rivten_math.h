@@ -26,6 +26,11 @@ float Clamp(float X, float Min, float Max)
     }
 }
 
+float Clamp01(float X)
+{
+	return(Clamp(X, 0.0f, 1.0f));
+}
+
 float Radians(float Degrees)
 {
     return(PI * Degrees / 180.0f);
@@ -559,6 +564,17 @@ v4 Hadamard(v4 A, v4 B)
 	Result.y = A.y * B.y;
 	Result.z = A.z * B.z;
 	Result.w = A.w * B.w;
+
+	return(Result);
+}
+
+v4 Clamp01(v4 A)
+{
+	v4 Result = {};
+	Result.x = Clamp01(A.x);
+	Result.y = Clamp01(A.y);
+	Result.z = Clamp01(A.z);
+	Result.w = Clamp01(A.w);
 
 	return(Result);
 }
