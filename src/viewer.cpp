@@ -281,6 +281,20 @@ float GGXBRDF(v3 Normal, v3 LightDir, v3 HalfDir, float NormalDotViewDir, float 
 	return(Result);
 }
 
+u32 ColorV4ToU32(v4 Color)
+{
+	u32 Result = 0;
+
+	u8 Red   = Floor(255.0f * Color.r) & 0x000000FF;
+	u8 Green = Floor(255.0f * Color.g) & 0x000000FF;
+	u8 Blue  = Floor(255.0f * Color.b) & 0x000000FF;
+	u8 Alpha = Floor(255.0f * Color.a) & 0x000000FF;
+
+	Result = (Red << 0) | (Green << 8) | (Blue << 16) | (Alpha << 24);
+
+	return(Result);
+}
+
 v4 ColorU32ToV4(u32 Color)
 {
 	v4 Result = {};
@@ -293,207 +307,214 @@ v4 ColorU32ToV4(u32 Color)
 	return(Result);
 }
 
-void ComputeGlobalIllumination(game_state* State, s32 X, s32 Y, camera Camera, v3 CameraUp, mat4 LightProjectionMatrix)
+void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, mat4 LightProjectionMatrix)
 {
-	u32 PixelAlbedo;
-	float PixelDepth;
+	u32* AlbedoPixels = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
+	float* DepthPixels = AllocateArray(float, GlobalWindowWidth * GlobalWindowHeight);
 	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
+
+	u32* IndirectIlluminationBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
 
 	// NOTE(hugo) : Reading depth of touched pixel
 	// Another possibility would be to store the position map in
 	// the GBuffer. This query would take all three composants and would
 	// not require any unprojection. However more space is needed.
 	// I think I prefer unproject pixel for now
-	glReadPixels(X, Y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &PixelDepth);
+	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_DEPTH_COMPONENT, GL_FLOAT, DepthPixels);
 
 	// NOTE(hugo) : Reading albedo of touched pixel
 	glReadBuffer(GL_COLOR_ATTACHMENT2);
-	glReadPixels(X, Y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &PixelAlbedo);
-	v4 Albedo = ColorU32ToV4(PixelAlbedo);
+	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGBA, GL_UNSIGNED_BYTE, AlbedoPixels);
 
 	// NOTE(hugo) : Reading normal of touched pixel
 	glReadBuffer(GL_COLOR_ATTACHMENT1);
-	v3 Normal = {};
-	glReadPixels(X, Y, 1, 1, GL_RGB, GL_FLOAT, &Normal);
+	v3* Normals = AllocateArray(v3, GlobalWindowWidth * GlobalWindowHeight);
+	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGB, GL_FLOAT, Normals);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	float NearPlane = State->Camera.NearPlane;
-	float FarPlane = State->Camera.FarPlane;
-	PixelDepth = 2.0f * PixelDepth - 1.0f;
-	// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
-	PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
-
-	mat4 InvLookAtCamera = Inverse(LookAt(Camera.Pos, Camera.Target, CameraUp));
-
-	Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
-	v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
-
-	// NOTE(hugo) : Render directions are, in order : FRONT / LEFT / RIGHT / TOP / BOTTOM
-	// with FRONT being the direction of the normal previously found;
-	camera MicroCameras[5];
-	mat4 MicroCameraProjections[5];
+	for(u32 Y = 0; Y < (u32)(GlobalWindowHeight); ++Y)
 	{
-		v4 PixelPos = {};
-		PixelPos.z = -PixelDepth;
-		PixelPos.w = 1.0f;
-
-		PixelPos.x = (float)(X) / float(GlobalWindowWidth);
-		PixelPos.y = (float)(Y) / float(GlobalWindowHeight);
-
-		PixelPos.xy = 2.0f * PixelPos.xy - V2(1.0f, 1.0f);
-
-		PixelPos.x = - State->Camera.Aspect * Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.x;
-		PixelPos.y = - Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.y;
-
-		PixelPos = InvLookAtCamera * PixelPos;
-		v3 MicroCameraPos = PixelPos.xyz;
-
-		v3 MicroRenderDir[5];
-		MicroRenderDir[0] = Normal;
-		MicroRenderDir[1] = Cross(Normal, WorldUp);
-		MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
-		MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
-		MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
-		for(u32 MicroCameraIndex = 0; MicroCameraIndex < ArrayCount(MicroCameras); ++MicroCameraIndex)
+		for(u32 X = 0; X < (u32)(GlobalWindowWidth); ++X)
 		{
-			MicroCameras[MicroCameraIndex].Pos = MicroCameraPos;
-			MicroCameras[MicroCameraIndex].Target = MicroCameraPos + MicroRenderDir[MicroCameraIndex];
+			float PixelDepth = DepthPixels[GlobalWindowWidth * Y + X];
+			u32 PixelAlbedo = AlbedoPixels[GlobalWindowWidth * Y + X];
+			v3 Normal = Normals[GlobalWindowWidth * Y + X];
 
-			v3 MicroCameraUp = WorldUp;
-			if(MicroCameraIndex != 0)
+			v4 Albedo = ColorU32ToV4(PixelAlbedo);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+			float NearPlane = State->Camera.NearPlane;
+			float FarPlane = State->Camera.FarPlane;
+			PixelDepth = 2.0f * PixelDepth - 1.0f;
+			// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
+			PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
+
+			mat4 InvLookAtCamera = Inverse(LookAt(Camera.Pos, Camera.Target, CameraUp));
+
+			Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
+			v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
+
+			// NOTE(hugo) : Render directions are, in order : FRONT / LEFT / RIGHT / TOP / BOTTOM
+			// with FRONT being the direction of the normal previously found;
+			camera MicroCameras[5];
+			mat4 MicroCameraProjections[5];
 			{
-				MicroCameraUp = Normal;
-			}
+				v4 PixelPos = {};
+				PixelPos.z = -PixelDepth;
+				PixelPos.w = 1.0f;
 
-			MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
-			MicroCameras[MicroCameraIndex].FoV = Radians(State->DEBUGMicroFoVInDegrees);
-			MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
-			MicroCameras[MicroCameraIndex].NearPlane = 0.1f * State->Camera.NearPlane;
-			MicroCameras[MicroCameraIndex].FarPlane = 0.3f * State->Camera.FarPlane;
+				PixelPos.x = (float)(X) / float(GlobalWindowWidth);
+				PixelPos.y = (float)(Y) / float(GlobalWindowHeight);
 
-			MicroCameraProjections[MicroCameraIndex] = GetCameraPerspective(MicroCameras[MicroCameraIndex]);
-		}
-	}
+				PixelPos.xy = 2.0f * PixelPos.xy - V2(1.0f, 1.0f);
 
+				PixelPos.x = - State->Camera.Aspect * Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.x;
+				PixelPos.y = - Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.y;
 
-#if 1
-	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
-	{
-		// TODO(hugo) : Not sure that WorldUp should be the Camera Up since this one should 
-		// be computed according to the normal
-		camera MicroCamera = MicroCameras[FaceIndex];
-		SetViewport(State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
-				State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
-		RenderShadowSceneOnFramebuffer(State, MicroCamera.Pos, MicroCamera.Target, 
-				Cross(MicroCamera.Right, MicroCamera.Target - MicroCamera.Pos), MicroCameraProjections[FaceIndex], 
-				LightProjectionMatrix, 
-				State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
-				V4(0.0f, 0.0f, 0.0f, 1.0f), false);
+				PixelPos = InvLookAtCamera * PixelPos;
+				v3 MicroCameraPos = PixelPos.xyz;
 
-	}
-	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
-#if 0
-	RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[1].ScreenTexture);
-#else
-	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); ++FaceIndex)
-	{
-		RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].ScreenTexture);
-		SDL_GL_SwapWindow(GlobalWindow);
-		SDL_Delay(1000);
-	}
-#endif
-
-	// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
-#if 1
-	v4 ColorBleeding = {};
-	float DEBUGCosineIntegral = 0.0f;
-	float DEBUGSolidAngleIntegral = 0.0f;
-
-	// NOTE(hugo) : This works because all microbuffers have the same width (but different heights)
-	float MicrobufferWidthInMeters = 2.0f * MicroCameras[0].NearPlane * Tan(0.5f * MicroCameras[0].FoV);
-	float PixelsToMeters = MicrobufferWidthInMeters / float(State->HemicubeFramebuffer.MicroBuffers[0].Width);
-	float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
-
-	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
-	{
-		gl_geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
-		// TODO(hugo) : Use Casey Muratori's memory framework ? (Temporary Memory here ?)
-		u32* Pixels = AllocateArray(u32, Microbuffer.Width * Microbuffer.Height);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, Microbuffer.FBO);
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		glReadPixels(0, 0, Microbuffer.Width, Microbuffer.Height, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		v3 Wo = Normalized(Camera.Pos - MicroCameras[FaceIndex].Pos);
-		float NormalDotWo = DotClamp(Normal, Wo);
-		camera MicroCamera = MicroCameras[FaceIndex];
-		v3 MicroCameraLookingDir = Normalized(MicroCamera.Target - MicroCamera.Pos);
-		v3 MicroCameraUp = Cross(MicroCamera.Right, MicroCameraLookingDir);
-		mat4 InvMicroCameraLookAt = Inverse(LookAt(MicroCamera.Pos, MicroCamera.Target, MicroCameraUp));
-
-		for(u32 PixelX = 0; PixelX < Microbuffer.Width; ++PixelX)
-		{
-			u32 StartingRow = 0;
-			if(FaceIndex > 0)
-			{
-				StartingRow = 0.5f * Microbuffer.Height;
-			}
-
-			for(u32 PixelY = StartingRow; PixelY < Microbuffer.Height; ++PixelY)
-			{
-				v3 PixelWorldPos = ComputePositionOfPixel(MicroCamera, PixelX, PixelY, 
-							PixelsToMeters, InvMicroCameraLookAt, 
-							Microbuffer.Width, Microbuffer.Height);
-				//Assert(DotClamp(Normal, Wi) > 0.0f);
-				float DistanceMiroCameraPixelSqr = LengthSqr(MicroCamera.Pos - PixelWorldPos);
-				v3 Wi = (PixelWorldPos - MicroCamera.Pos) / (sqrt(DistanceMiroCameraPixelSqr));
-
-				// NOTE(hugo) : In theory, every pixel I sample from
-				// should have a dot product strictly positive
-				// but I guess there are a numerical error at stake.
-				// I chose to ignore it because, even it there are pixels that should be sampled
-				// from, their dot product is so small that their impact on the color
-				// bleeding is negligeable
-				if(DotClamp(Normal, Wi) > 0.0f)
+				v3 MicroRenderDir[5];
+				MicroRenderDir[0] = Normal;
+				MicroRenderDir[1] = Cross(Normal, WorldUp);
+				MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
+				MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
+				MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
+				for(u32 MicroCameraIndex = 0; MicroCameraIndex < ArrayCount(MicroCameras); ++MicroCameraIndex)
 				{
-					// NOTE(hugo) : From OpenGL documentation on glReadPixels :
-					// the pixels are given beginning in the lower left corner by rows
-					v4 PixelColor = ColorU32ToV4(Pixels[Microbuffer.Width * PixelY + PixelX]);
+					MicroCameras[MicroCameraIndex].Pos = MicroCameraPos;
+					MicroCameras[MicroCameraIndex].Target = MicroCameraPos + MicroRenderDir[MicroCameraIndex];
 
-					if(LengthSqr(PixelColor.rgb) > 0.0f)
+					v3 MicroCameraUp = WorldUp;
+					if(MicroCameraIndex != 0)
 					{
-						v3 H = Normalized(0.5f * (Wi + Wo));
-						float SolidAngle = (PixelSurfaceInMeters / DistanceMiroCameraPixelSqr) 
-							* Dot(Wi, MicroCameraLookingDir);
-						float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, State->Alpha, State->CookTorranceF0);
-						ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
-						DEBUGCosineIntegral += DotClamp(Normal, Wi) * SolidAngle;
-						DEBUGSolidAngleIntegral += SolidAngle;
+						MicroCameraUp = Normal;
 					}
-					else
-					{
-#if 1
-						// TODO(hugo) : a small debug tool to see the pixels i'm integrating on and their SolidAngleValue
-						float DEBUGSolidAngle = (PixelSurfaceInMeters / DistanceMiroCameraPixelSqr) 
-							* Dot(Wi, MicroCameraLookingDir);
-						DEBUGCosineIntegral += DotClamp(Normal, Wi) * DEBUGSolidAngle;
-						DEBUGSolidAngleIntegral += DEBUGSolidAngle;
-#endif
-					}
+
+					MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
+					MicroCameras[MicroCameraIndex].FoV = Radians(State->DEBUGMicroFoVInDegrees);
+					MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
+					MicroCameras[MicroCameraIndex].NearPlane = 0.1f * State->Camera.NearPlane;
+					MicroCameras[MicroCameraIndex].FarPlane = 0.3f * State->Camera.FarPlane;
+
+					MicroCameraProjections[MicroCameraIndex] = GetCameraPerspective(MicroCameras[MicroCameraIndex]);
 				}
 			}
-		}
 
-		Free(Pixels);
-	}
-#endif
-	
-	SDL_GL_SwapWindow(GlobalWindow);
-	SDL_Delay(2000);
-#endif
+
 #if 1
+			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
+			{
+				// TODO(hugo) : Not sure that WorldUp should be the Camera Up since this one should 
+				// be computed according to the normal
+				camera MicroCamera = MicroCameras[FaceIndex];
+				SetViewport(State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
+						State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
+				RenderShadowSceneOnFramebuffer(State, MicroCamera.Pos, MicroCamera.Target, 
+						Cross(MicroCamera.Right, MicroCamera.Target - MicroCamera.Pos), MicroCameraProjections[FaceIndex], 
+						LightProjectionMatrix, 
+						State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
+						V4(0.0f, 0.0f, 0.0f, 1.0f), false);
+
+			}
+			SetViewport(GlobalWindowWidth, GlobalWindowHeight);
+#if 1
+			RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[1].ScreenTexture);
+#else
+			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); ++FaceIndex)
+			{
+				RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].ScreenTexture);
+				SDL_GL_SwapWindow(GlobalWindow);
+				SDL_Delay(1000);
+			}
+#endif
+
+			// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
+#if 1
+			v4 ColorBleeding = {};
+
+			// NOTE(hugo) : This works because all microbuffers have the same width (but different heights)
+			float MicrobufferWidthInMeters = 2.0f * MicroCameras[0].NearPlane * Tan(0.5f * MicroCameras[0].FoV);
+			float PixelsToMeters = MicrobufferWidthInMeters / float(State->HemicubeFramebuffer.MicroBuffers[0].Width);
+			float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
+
+			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
+			{
+				gl_geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
+				// TODO(hugo) : Use Casey Muratori's memory framework ? (Temporary Memory here ?)
+				u32* Pixels = AllocateArray(u32, Microbuffer.Width * Microbuffer.Height);
+
+				glBindFramebuffer(GL_FRAMEBUFFER, Microbuffer.FBO);
+				glReadBuffer(GL_COLOR_ATTACHMENT0);
+				glReadPixels(0, 0, Microbuffer.Width, Microbuffer.Height, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+				v3 Wo = Normalized(Camera.Pos - MicroCameras[FaceIndex].Pos);
+				float NormalDotWo = DotClamp(Normal, Wo);
+				camera MicroCamera = MicroCameras[FaceIndex];
+				v3 MicroCameraLookingDir = Normalized(MicroCamera.Target - MicroCamera.Pos);
+				v3 MicroCameraUp = Cross(MicroCamera.Right, MicroCameraLookingDir);
+				mat4 InvMicroCameraLookAt = Inverse(LookAt(MicroCamera.Pos, MicroCamera.Target, MicroCameraUp));
+
+				for(u32 PixelX = 0; PixelX < Microbuffer.Width; ++PixelX)
+				{
+					u32 StartingRow = 0;
+					if(FaceIndex > 0)
+					{
+						StartingRow = 0.5f * Microbuffer.Height;
+					}
+
+					for(u32 PixelY = StartingRow; PixelY < Microbuffer.Height; ++PixelY)
+					{
+						v3 PixelWorldPos = ComputePositionOfPixel(MicroCamera, PixelX, PixelY, 
+									PixelsToMeters, InvMicroCameraLookAt, 
+									Microbuffer.Width, Microbuffer.Height);
+						//Assert(DotClamp(Normal, Wi) > 0.0f);
+						float DistanceMiroCameraPixelSqr = LengthSqr(MicroCamera.Pos - PixelWorldPos);
+						v3 Wi = (PixelWorldPos - MicroCamera.Pos) / (sqrt(DistanceMiroCameraPixelSqr));
+
+						// NOTE(hugo) : In theory, every pixel I sample from
+						// should have a dot product strictly positive
+						// but I guess there are a numerical error at stake.
+						// I chose to ignore it because, even it there are pixels that should be sampled
+						// from, their dot product is so small that their impact on the color
+						// bleeding is negligeable
+						if(DotClamp(Normal, Wi) > 0.0f)
+						{
+							// NOTE(hugo) : From OpenGL documentation on glReadPixels :
+							// the pixels are given beginning in the lower left corner by rows
+							v4 PixelColor = ColorU32ToV4(Pixels[Microbuffer.Width * PixelY + PixelX]);
+
+							if(LengthSqr(PixelColor.rgb) > 0.0f)
+							{
+								v3 H = Normalized(0.5f * (Wi + Wo));
+								float SolidAngle = (PixelSurfaceInMeters / DistanceMiroCameraPixelSqr) 
+									* Dot(Wi, MicroCameraLookingDir);
+								float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, State->Alpha, State->CookTorranceF0);
+								ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
+							}
+						}
+					}
+				}
+
+				Free(Pixels);
+			}
+
+			u32 ColorBleedingPixel = ColorV4ToU32(ColorBleeding);
+			IndirectIlluminationBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
+#endif
+			
+			//SDL_GL_SwapWindow(GlobalWindow);
+			//SDL_Delay(2000);
+#endif
+		}
+	}
+
+	Free(Normals);
+	Free(DepthPixels);
+	Free(AlbedoPixels);
+	Free(IndirectIlluminationBuffer);
+#if 0
 	//ImGui::ColorEdit3("Color Picked", ColorFloat.E);
 	ImGui::Value("Depth @ Pixel", PixelDepth);
 	//ImGui::Text("Position pointed at screen : (%f, %f, %f, %f)", PixelPos.x, PixelPos.y, PixelPos.z, PixelPos.w);
@@ -726,9 +747,9 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	if(Input->MouseButtons[2].EndedDown)
 	{
-		s32 MouseX = Input->MouseX;
-		s32 MouseY = GlobalWindowHeight - Input->MouseY;
-		ComputeGlobalIllumination(State, MouseX, MouseY, NextCamera, NextCameraUp, LightProjectionMatrix);
+		//s32 MouseX = Input->MouseX;
+		//s32 MouseY = GlobalWindowHeight - Input->MouseY;
+		ComputeGlobalIllumination(State, NextCamera, NextCameraUp, LightProjectionMatrix);
 	}
 
 	ImGui::SliderFloat("Light Intensity", (float*)&State->LightIntensity, 0.0f, 10.0f);
