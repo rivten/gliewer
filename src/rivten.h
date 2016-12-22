@@ -5,6 +5,7 @@
  */
 
 #include <cstdint>
+#include <string.h> // NOTE(hugo) : for memset
 
 #ifdef __unix__
 #include <sys/types.h>
@@ -68,6 +69,7 @@ void* Allocate_(size_t Size)
 {
 	void* Result = malloc(Size);
 	Assert(Result);
+	memset(Result, 0, Size);
 
 	return(Result);
 }
