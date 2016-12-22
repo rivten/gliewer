@@ -5,8 +5,8 @@
 static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
-static u32 GlobalMicrobufferWidth = 128;
-static u32 GlobalMicrobufferHeight = 128;
+static u32 GlobalMicrobufferWidth = 32;
+static u32 GlobalMicrobufferHeight = 32;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -215,8 +215,11 @@ void RenderTextureOnQuadScreen(game_state* State, u32 Texture)
 	SetUniform(State->DepthDebugQuadShader, State->Sigma, "Sigma");
 	glBindVertexArray(State->QuadVAO);
 	glDisable(GL_DEPTH_TEST);
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, Texture);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glEnable(GL_DEPTH_TEST);
+	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindVertexArray(0);
 }
 
@@ -313,7 +316,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 	float* DepthPixels = AllocateArray(float, GlobalWindowWidth * GlobalWindowHeight);
 	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
 
-	u32* IndirectIlluminationBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
+	State->IndirectIlluminationBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
 
 	// NOTE(hugo) : Reading depth of touched pixel
 	// Another possibility would be to store the position map in
@@ -330,6 +333,11 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 	glReadBuffer(GL_COLOR_ATTACHMENT1);
 	v3* Normals = AllocateArray(v3, GlobalWindowWidth * GlobalWindowHeight);
 	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGB, GL_FLOAT, Normals);
+
+	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	u32* ScreenBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
+	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGBA, GL_UNSIGNED_BYTE, ScreenBuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	for(u32 Y = 0; Y < (u32)(GlobalWindowHeight); ++Y)
 	{
@@ -419,7 +427,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 			}
 			SetViewport(GlobalWindowWidth, GlobalWindowHeight);
 #if 1
-			RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[1].ScreenTexture);
+			//RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[1].ScreenTexture);
 #else
 			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); ++FaceIndex)
 			{
@@ -500,12 +508,28 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 				Free(Pixels);
 			}
 
-			u32 ColorBleedingPixel = ColorV4ToU32(ColorBleeding);
-			IndirectIlluminationBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
+			v4 DirectIlluminationColor = ColorU32ToV4(ScreenBuffer[GlobalWindowWidth * Y + X]);
+			u32 ColorBleedingPixel = ColorV4ToU32(Clamp01(ColorBleeding + ToV4(DirectIlluminationColor.rgb)));
+			//State->IndirectIlluminationBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
+			ScreenBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
 #endif
-			
-			//SDL_GL_SwapWindow(GlobalWindow);
-			//SDL_Delay(2000);
+			glBindTexture(GL_TEXTURE_2D, State->IndirectIlluminationTexture);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 
+					GlobalWindowWidth, GlobalWindowHeight, 
+					0, GL_RGBA, GL_UNSIGNED_BYTE, 
+					//State->IndirectIlluminationBuffer);
+					ScreenBuffer);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glBindTexture(GL_TEXTURE_2D, 0);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			RenderTextureOnQuadScreen(State, 
+					State->IndirectIlluminationTexture);
+
+			SDL_GL_SwapWindow(GlobalWindow);
 #endif
 		}
 	}
@@ -513,7 +537,8 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 	Free(Normals);
 	Free(DepthPixels);
 	Free(AlbedoPixels);
-	Free(IndirectIlluminationBuffer);
+	Free(ScreenBuffer);
+	Free(State->IndirectIlluminationBuffer);
 #if 0
 	//ImGui::ColorEdit3("Color Picked", ColorFloat.E);
 	ImGui::Value("Depth @ Pixel", PixelDepth);
@@ -616,6 +641,9 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
 		State->ScreenFramebuffer = CreateGeometryFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
+
+		State->IndirectIlluminationBuffer = 0;
+		glGenTextures(1, &State->IndirectIlluminationTexture);
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {

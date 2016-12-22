@@ -16,8 +16,8 @@
 #include "rivten_math.h"
 
 global_variable bool GlobalRunning = false;
-global_variable int GlobalWindowWidth = 800;
-global_variable int GlobalWindowHeight = 600;
+global_variable int GlobalWindowWidth = 256;
+global_variable int GlobalWindowHeight = 256;
 global_variable SDL_Window* GlobalWindow = 0;
 
 #include "shader.h"
@@ -188,8 +188,8 @@ int main(int argc, char** argv)
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
 	SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
-	//SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-	//SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
 	SDL_GL_SetSwapInterval(0);
 

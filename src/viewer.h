@@ -125,6 +125,9 @@ struct game_state
 	GLuint SkyboxTexture;
 
 	u32 DEBUGMicroFoVInDegrees;
+
+	GLuint IndirectIlluminationTexture;
+	u32* IndirectIlluminationBuffer;
 };
 
 #include "viewer.cpp"
