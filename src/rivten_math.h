@@ -739,6 +739,7 @@ inline void SetValue(mat4* M, int i, int j, float Value)
 // TODO(hugo) : optims
 v4 operator*(mat4 M, v4 A)
 {
+#if 0
     v4 Result;
     for(int i = 0; i < 4; ++i)
     {
@@ -749,11 +750,32 @@ v4 operator*(mat4 M, v4 A)
         }
     }
     return(Result);
+#else
+	v4 Result = {};
+	for(u32 i = 0; i < 4; ++i)
+	{
+		float MRowI[4];
+		for(u32 k = 0; k < 4; ++k)
+		{
+			MRowI[k] = M.Data_[4 * k + i];
+		}
+
+		float S = 0.0f;
+		for(u32 k = 0; k < 4; ++k)
+		{
+			S += MRowI[k] * A.E[k];
+		}
+		Result.E[i] = S;
+	}
+
+	return(Result);
+#endif
 }
 
 // TODO(hugo) : optims
 mat4 operator*(mat4 A, mat4 B)
 {
+#if 0
     // NOTE(hugo) : This is naive
     mat4 Result = {};
     for(int i = 0; i < 4; ++i)
@@ -768,6 +790,31 @@ mat4 operator*(mat4 A, mat4 B)
         }
     }
     return(Result);
+#else
+	mat4 Result = {};
+	for(u32 j = 0; j < 4; ++j)
+	{
+		for(u32 i = 0; i < 4; ++i)
+		{
+			float ARowI[4];
+			for(u32 k = 0; k < 4; ++k)
+			{
+				ARowI[k] = A.Data_[4 * k + i];
+			}
+
+			float S = 0.0f;
+			for(u32 k = 0; k < 4; ++k)
+			{
+				// NOTE(hugo) : Cij = Sum(t^Aki * Bkj)
+				//S += ATransp.Data_[4 * i + k] * B.Data_[4 * j + k];
+				S += ARowI[k] * B.Data_[4 * j + k];
+			}
+			Result.Data_[4 * j + i] = S;
+		}
+	}
+
+	return(Result);
+#endif
 }
 
 mat4 Identity4(void)
