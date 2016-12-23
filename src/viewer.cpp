@@ -5,8 +5,8 @@
 static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
-static u32 GlobalMicrobufferWidth = 32;
-static u32 GlobalMicrobufferHeight = 32;
+static u32 GlobalMicrobufferWidth = 16;
+static u32 GlobalMicrobufferHeight = 16;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -310,6 +310,44 @@ v4 ColorU32ToV4(u32 Color)
 	return(Result);
 }
 
+v3 NormalizedLInf(v3 A)
+{
+	v3 Result = {};
+	float MaxComponent = 0.0f;
+	for(u32 Index = 0; Index < ArrayCount(A.E); ++Index)
+	{
+		if(Abs(A.E[Index]) > MaxComponent)
+		{
+			MaxComponent = Abs(A.E[Index]);
+		}
+	}
+
+	Assert(MaxComponent != 0.0f);
+
+	Result = A / MaxComponent;
+
+	return(Result);
+}
+
+v4 NormalizedLInf(v4 A)
+{
+	v4 Result = {};
+	float MaxComponent = 0.0f;
+	for(u32 Index = 0; Index < ArrayCount(A.E); ++Index)
+	{
+		if(Abs(A.E[Index]) > MaxComponent)
+		{
+			MaxComponent = Abs(A.E[Index]);
+		}
+	}
+
+	Assert(MaxComponent != 0.0f);
+
+	Result = A / MaxComponent;
+
+	return(Result);
+}
+
 void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, mat4 LightProjectionMatrix)
 {
 	u32* AlbedoPixels = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
@@ -317,6 +355,8 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
 
 	State->IndirectIlluminationBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
+
+	u32* Pixels = AllocateArray(u32, GlobalMicrobufferWidth * GlobalMicrobufferHeight);
 
 	// NOTE(hugo) : Reading depth of touched pixel
 	// Another possibility would be to store the position map in
@@ -449,8 +489,6 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 			{
 				gl_geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
-				// TODO(hugo) : Use Casey Muratori's memory framework ? (Temporary Memory here ?)
-				u32* Pixels = AllocateArray(u32, Microbuffer.Width * Microbuffer.Height);
 
 				glBindFramebuffer(GL_FRAMEBUFFER, Microbuffer.FBO);
 				glReadBuffer(GL_COLOR_ATTACHMENT0);
@@ -505,35 +543,47 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 					}
 				}
 
-				Free(Pixels);
 			}
 
 			v4 DirectIlluminationColor = ColorU32ToV4(ScreenBuffer[GlobalWindowWidth * Y + X]);
-			u32 ColorBleedingPixel = ColorV4ToU32(Clamp01(ColorBleeding + ToV4(DirectIlluminationColor.rgb)));
+			// TODO(hugo) : In which space to properly add colors ?
+			v3 RealColorBleeding = ColorBleeding.rgb + DirectIlluminationColor.rgb;
+			if((RealColorBleeding.r > 1.0f) ||
+					(RealColorBleeding.g > 1.0f) ||
+					(RealColorBleeding.b > 1.0f))
+			{
+				RealColorBleeding = NormalizedLInf(RealColorBleeding);
+			}
+
+			u32 ColorBleedingPixel = ColorV4ToU32(ToV4(RealColorBleeding));
 			//State->IndirectIlluminationBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
 			ScreenBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
 #endif
-			glBindTexture(GL_TEXTURE_2D, State->IndirectIlluminationTexture);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 
-					GlobalWindowWidth, GlobalWindowHeight, 
-					0, GL_RGBA, GL_UNSIGNED_BYTE, 
-					//State->IndirectIlluminationBuffer);
-					ScreenBuffer);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-			glBindTexture(GL_TEXTURE_2D, 0);
+			if(X == 0 && (Y % 5 == 0))
+			{
+				glBindTexture(GL_TEXTURE_2D, State->IndirectIlluminationTexture);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 
+						GlobalWindowWidth, GlobalWindowHeight, 
+						0, GL_RGBA, GL_UNSIGNED_BYTE, 
+						//State->IndirectIlluminationBuffer);
+						ScreenBuffer);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+				glBindTexture(GL_TEXTURE_2D, 0);
 
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			RenderTextureOnQuadScreen(State, 
-					State->IndirectIlluminationTexture);
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+				RenderTextureOnQuadScreen(State, 
+						State->IndirectIlluminationTexture);
 
-			SDL_GL_SwapWindow(GlobalWindow);
+				SDL_GL_SwapWindow(GlobalWindow);
+			}
 #endif
 		}
 	}
 
+	Free(Pixels);
 	Free(Normals);
 	Free(DepthPixels);
 	Free(AlbedoPixels);
@@ -634,6 +684,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->Alpha = 0.5f;
 		State->Sigma = 0.0f;
 		State->LightIntensity = 4.5f;
+		//State->LightIntensity = 2.0f;
 
 		State->DEBUGMicroFoVInDegrees = 90;
 
