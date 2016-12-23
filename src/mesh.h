@@ -90,10 +90,10 @@ void ComputeNormal(mesh* Mesh)
 		v3 v1 = Mesh->Vertices[t.VertexIndices[1]].Position;
 		v3 v2 = Mesh->Vertices[t.VertexIndices[2]].Position;
 
-		// TODO(hugo) : investigate with the angle to see if I do not get a "negative" normal vector
-		// TODO(hugo) : need to normalize N after computation ?
 		v3 CrossProduct = Cross(v2 - v1, v0 - v1);
 		v3 N = V3(0.0f, 0.0f, 0.0f);
+		// TODO(hugo) : In theory, we should never have
+		// LengthSqr(CrossProduct) == 0.0f... or should we ?
 		if(LengthSqr(CrossProduct) != 0.0f)
 		{
 			N = Normalized(CrossProduct);
@@ -163,7 +163,7 @@ u32 GetIndexOfVertexInMesh(vertex V, mesh* Mesh, vertex_hash** VertexHash, u32 H
 				&& (Vertex->V.Position.y == V.Position.y) 
 				&& (Vertex->V.Position.z == V.Position.z))
 		{
-			// TODO(hugo) : This part has not been test because
+			// TODO(hugo) : This part has not been tested because
 			// I did not try big enough meshes
 			Found = Vertex;
 			break;

@@ -23,9 +23,8 @@
 			normal map is the nth color attachment of this framebuffer.
 
 	* PBGI todos
-		- given a cubemap, a position and an orientation, know the direction of a particular cubemap pixel
-		- showing the new lighted image construct pixel by pixel
-		- profile the whole process and analyze the results
+		- do smarter stuff
+		- understand the long call in the profiler
  */
 
 struct camera

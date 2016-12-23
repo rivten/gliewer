@@ -66,7 +66,6 @@ static void SDLProcessDigitalButton(game_button_state* OldButtonState, game_butt
 static void SDLProcessPendingMessages(game_input* Input)
 {
     SDL_Event Event;
-    // TODO(hugo) : Peep or Poll ? 
     while(SDL_PollEvent(&Event))
     {
         switch(Event.type)
@@ -354,8 +353,7 @@ int main(int argc, char** argv)
 
                 thread_context Thread = {};
                 
-                // TODO(hugo) : Get the screen earlier to avoid re-getting each frame ? But how to handle screen redimensionning in this case ?
-
+				// TODO(hugo) : Make sure this is not a perf issue
                 SDL_Surface* Screen = SDL_GetWindowSurface(Window);
 
 				// TODO(hugo) : Make this resolution-independant ?

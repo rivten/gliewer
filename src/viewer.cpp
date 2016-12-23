@@ -453,8 +453,6 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 #if 1
 			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 			{
-				// TODO(hugo) : Not sure that WorldUp should be the Camera Up since this one should 
-				// be computed according to the normal
 				camera MicroCamera = MicroCameras[FaceIndex];
 				SetViewport(State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
 						State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
@@ -688,8 +686,6 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 		State->DEBUGMicroFoVInDegrees = 90;
 
-		// TODO(hugo) : If the window size changes, then this screenbuffer will have wrong dimensions.
-		// Maybe I need to see each frame if the window dim changes. If so, update the screenbuffer.
 		State->ScreenFramebuffer = CreateGeometryFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 
