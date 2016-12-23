@@ -440,7 +440,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 					}
 
 					MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
-					MicroCameras[MicroCameraIndex].FoV = Radians(State->DEBUGMicroFoVInDegrees);
+					MicroCameras[MicroCameraIndex].FoV = Radians(State->MicroFoVInDegrees);
 					MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
 					MicroCameras[MicroCameraIndex].NearPlane = 0.1f * State->Camera.NearPlane;
 					MicroCameras[MicroCameraIndex].FarPlane = 0.3f * State->Camera.FarPlane;
@@ -684,7 +684,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->LightIntensity = 4.5f;
 		//State->LightIntensity = 2.0f;
 
-		State->DEBUGMicroFoVInDegrees = 90;
+		State->MicroFoVInDegrees = 90;
 
 		State->ScreenFramebuffer = CreateGeometryFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
@@ -825,15 +825,12 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	RenderShadowSceneOnQuad(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightProjectionMatrix, State->ScreenFramebuffer);
 	// }
 
-	if(Input->MouseButtons[2].EndedDown)
+	if(ImGui::Button("Compute Indirect Illumination"))
 	{
-		//s32 MouseX = Input->MouseX;
-		//s32 MouseY = GlobalWindowHeight - Input->MouseY;
 		ComputeGlobalIllumination(State, NextCamera, NextCameraUp, LightProjectionMatrix);
 	}
 
 	ImGui::SliderFloat("Light Intensity", (float*)&State->LightIntensity, 0.0f, 10.0f);
-	ImGui::SliderInt("Micro FoV", (int*)&State->DEBUGMicroFoVInDegrees, 0, 90);
 #if 0
 	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
 	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);

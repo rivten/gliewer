@@ -123,7 +123,7 @@ struct game_state
 	GLuint SkyboxVBO;
 	GLuint SkyboxTexture;
 
-	u32 DEBUGMicroFoVInDegrees;
+	u32 MicroFoVInDegrees;
 
 	GLuint IndirectIlluminationTexture;
 	u32* IndirectIlluminationBuffer;
