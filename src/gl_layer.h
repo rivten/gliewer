@@ -296,6 +296,22 @@ gl_geometry_framebuffer CreateGeometryFramebuffer(u32 BufferWidth, u32 BufferHei
 	return(Result);
 }
 
+void UpdateGeometryFramebuffer(gl_geometry_framebuffer* Framebuffer,
+		u32 Width, u32 Height)
+{
+	Assert((Framebuffer->Width != Width) 
+			|| (Framebuffer->Height != Height));
+
+	glDeleteFramebuffers(1, &Framebuffer->FBO);
+	glDeleteTextures(1, &Framebuffer->ScreenTexture);
+	glDeleteTextures(1, &Framebuffer->NormalTexture);
+	glDeleteTextures(1, &Framebuffer->AlbedoTexture);
+
+	glDeleteRenderbuffers(1, &Framebuffer->RBO);
+
+	*Framebuffer = CreateGeometryFramebuffer(Width, Height);
+}
+
 struct gl_hemicube_framebuffer
 {
 	union

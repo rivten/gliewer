@@ -16,8 +16,8 @@
 #include "rivten_math.h"
 
 global_variable bool GlobalRunning = false;
-global_variable int GlobalWindowWidth = 256;
-global_variable int GlobalWindowHeight = 256;
+global_variable u32 GlobalWindowWidth = 256;
+global_variable u32 GlobalWindowHeight = 256;
 global_variable SDL_Window* GlobalWindow = 0;
 
 #include "shader.h"
@@ -193,7 +193,10 @@ int main(int argc, char** argv)
 
 	SDL_GL_SetSwapInterval(0);
 
-    SDL_Window* Window = SDL_CreateWindow("3d viewer @ rivten", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, GlobalWindowWidth, GlobalWindowHeight, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
+    SDL_Window* Window = SDL_CreateWindow("3d viewer @ rivten", 
+			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
+			GlobalWindowWidth, GlobalWindowHeight, 
+			SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 	GlobalWindow = Window;
 
     if(!Window)
@@ -359,8 +362,18 @@ int main(int argc, char** argv)
 				glViewport(0, 0, Screen->w, Screen->h);
 
 				// TODO(hugo) : Formalize this !
-				GlobalWindowWidth = Screen->w;
-				GlobalWindowHeight = Screen->h;
+				if(((u32)(Screen->w) != GlobalWindowWidth) 
+							|| ((u32)(Screen->h) != GlobalWindowHeight))
+				{
+					GlobalWindowWidth = u32(Screen->w);
+					GlobalWindowHeight = u32(Screen->h);
+					NewInput->WindowResized = true;
+				}
+				else
+				{
+					// TODO(hugo) : Not sure if necessary. Check if it is
+					NewInput->WindowResized = false;
+				}
 
 				ImGuiNewFrame(Window, Input);
 

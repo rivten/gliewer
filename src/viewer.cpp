@@ -734,6 +734,11 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	glDepthFunc(GL_LEQUAL);
 	glDepthMask(GL_TRUE);
 
+	if(Input->WindowResized)
+	{
+		UpdateGeometryFramebuffer(&State->ScreenFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
+	}
+
 	State->Camera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
 
 	State->Time += Input->dtForFrame;

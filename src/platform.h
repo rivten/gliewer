@@ -424,6 +424,8 @@ struct game_input
     game_controller_input Controllers[5];
     // NOTE(hugo) : From the SDL doc -- SDL_scancode.h, there is at most 512 keys.
     u8 KeyboardButtons[512];
+
+	bool WindowResized;
 };
 
 bool IsKeyPressed(game_input* Input, scancode Scancode)
