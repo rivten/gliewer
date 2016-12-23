@@ -436,6 +436,7 @@ bool IsKeyPressed(game_input* Input, scancode Scancode)
     return(Result);
 }
 
+struct platform_work_queue;
 struct game_memory
 {
     bool IsInitialized;
@@ -445,6 +446,8 @@ struct game_memory
 
     u64 TransientStorageSize;
     void *TransientStorage;
+
+	platform_work_queue* HighPriorityQueue;
 };
 
 inline game_controller_input* GetController(game_input* Input, u32 ControllerIndex)
