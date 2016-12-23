@@ -880,4 +880,6 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
         ImGui::EndMainMenuBar();
 	}
 #endif
+
+	ImGui::PlotLines("FPS", &DEBUGCounters[0], ArrayCount(DEBUGCounters));
 }

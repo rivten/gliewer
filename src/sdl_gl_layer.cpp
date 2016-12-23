@@ -20,6 +20,9 @@ global_variable u32 GlobalWindowWidth = 256;
 global_variable u32 GlobalWindowHeight = 256;
 global_variable SDL_Window* GlobalWindow = 0;
 
+global_variable float DEBUGCounters[128];
+global_variable u32 DEBUGCurrentCounter = 0;
+
 #include "shader.h"
 #include "mesh.h"
 
@@ -386,8 +389,26 @@ int main(int argc, char** argv)
                 float SecondsElapsedForFrame = WorkSecondsElapsed;
 #if RIVTEN_SLOW
                 char WindowTitleBuffer[128];
-                snprintf(WindowTitleBuffer, sizeof(WindowTitleBuffer), "3d viewer @ rivten - %dms - mouse pos (%d, %d)", (int)(SecondsElapsedForFrame * 1000.0f), Input[1].MouseX, Input[1].MouseY);
+                snprintf(WindowTitleBuffer, 
+						sizeof(WindowTitleBuffer), 
+						"3d viewer @ rivten - %dms - mouse pos (%d, %d)", 
+						(int)(SecondsElapsedForFrame * 1000.0f), 
+						Input[1].MouseX, Input[1].MouseY);
                 SDL_SetWindowTitle(Window, WindowTitleBuffer);
+
+				if(DEBUGCurrentCounter < ArrayCount(DEBUGCounters))
+				{
+					DEBUGCounters[DEBUGCurrentCounter] = SecondsElapsedForFrame * 1000.0f;
+					++DEBUGCurrentCounter;
+				}
+				else
+				{
+					for(u32 CounterIndex = 0; CounterIndex < (ArrayCount(DEBUGCounters) - 1); ++CounterIndex)
+					{
+						DEBUGCounters[CounterIndex] = DEBUGCounters[CounterIndex + 1];
+					}
+					DEBUGCounters[DEBUGCurrentCounter - 1] = SecondsElapsedForFrame * 1000.0f;
+				}
 #endif
                 if(SecondsElapsedForFrame < TargetSecondsPerFrame)
                 {
