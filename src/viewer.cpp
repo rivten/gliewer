@@ -10,17 +10,29 @@ static u32 GlobalMicrobufferHeight = 16;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-u8* LoadImageRGB(const char* Filename, s32* Width, s32* Height)
+
+struct bitmap
 {
-	s32 BitPerPixel;
-	u8* Result = stbi_load(Filename, Width, Height, &BitPerPixel, 3);
-	Assert(Result != 0);
+	s32 Width;
+	s32 Height;
+	u32 BitsPerPixel;
+	u8* Data;
+};
+
+bitmap LoadBitmap(const char* Filename, u32 OutputChannel = 3)
+{
+	bitmap Result = {};
+	s32 BitsPerPixel;
+	Result.Data = stbi_load(Filename, &Result.Width, &Result.Height, &BitsPerPixel, OutputChannel);
+	Result.BitsPerPixel = OutputChannel;
+	Assert(Result.Data);
+
 	return(Result);
 }
 
-void FreeImage(u8* Image)
+void FreeBitmap(bitmap* Bitmap)
 {
-	stbi_image_free(Image);
+	stbi_image_free(Bitmap->Data);
 }
 
 GLuint LoadCubemap(const char** Filenames)
@@ -29,16 +41,13 @@ GLuint LoadCubemap(const char** Filenames)
 	glGenTextures(1, &Texture);
 	glActiveTexture(GL_TEXTURE0);
 
-	s32 Width = 0;
-	s32 Height = 0;
-	u8* Image = 0;
-
 	glBindTexture(GL_TEXTURE_CUBE_MAP, Texture);
 
 	for(u32 FaceIndex = 0; FaceIndex < 6; ++FaceIndex)
 	{
-		Image = LoadImageRGB(Filenames[FaceIndex], &Width, &Height);
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + FaceIndex, 0, GL_RGB, Width, Height, 0, GL_RGB, GL_UNSIGNED_BYTE, Image);
+		bitmap Bitmap = LoadBitmap(Filenames[FaceIndex]);
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + FaceIndex, 0, GL_RGB, Bitmap.Width, Bitmap.Height, 0, GL_RGB, GL_UNSIGNED_BYTE, Bitmap.Data);
+		Free(&Bitmap);
 	}
 
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
