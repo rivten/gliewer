@@ -39,7 +39,7 @@ GLuint LoadCubemap(const char** Filenames)
 {
 	GLuint Texture;
 	glGenTextures(1, &Texture);
-	glActiveTexture(GL_TEXTURE0);
+	//glActiveTexture(GL_TEXTURE0);
 
 	glBindTexture(GL_TEXTURE_CUBE_MAP, Texture);
 
@@ -47,7 +47,7 @@ GLuint LoadCubemap(const char** Filenames)
 	{
 		bitmap Bitmap = LoadBitmap(Filenames[FaceIndex]);
 		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + FaceIndex, 0, GL_RGB, Bitmap.Width, Bitmap.Height, 0, GL_RGB, GL_UNSIGNED_BYTE, Bitmap.Data);
-		Free(&Bitmap);
+		FreeBitmap(&Bitmap);
 	}
 
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
