@@ -125,7 +125,7 @@ struct game_state
 
 	u32 MicroFoVInDegrees;
 
-	GLuint IndirectIlluminationTexture;
+	texture IndirectIlluminationTexture;
 	u32* IndirectIlluminationBuffer;
 };
 

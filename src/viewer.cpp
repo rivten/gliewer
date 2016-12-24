@@ -141,7 +141,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 		strcat(Buffer, "]");
 		glActiveTexture(GL_TEXTURE0 + LightIndex);
 		SetUniform(State->ShadowMappingShader, LightIndex, Buffer);
-		glBindTexture(GL_TEXTURE_2D, State->Lights[LightIndex].DepthFramebuffer.Texture);
+		glBindTexture(GL_TEXTURE_2D, State->Lights[LightIndex].DepthFramebuffer.Texture.ID);
 	}
 
 	SetUniform(State->ShadowMappingShader, State->CookTorranceF0, "CTF0");
@@ -205,8 +205,9 @@ void RenderShadowSceneOnFramebuffer(game_state* State,
 
 }
 
-void RenderTextureOnQuadScreen(game_state* State, u32 Texture)
+void RenderTextureOnQuadScreen(game_state* State, texture Texture)
 {
+	Assert(Texture.IsValid);
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
@@ -216,7 +217,7 @@ void RenderTextureOnQuadScreen(game_state* State, u32 Texture)
 	glBindVertexArray(State->QuadVAO);
 	glDisable(GL_DEPTH_TEST);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, Texture);
+	glBindTexture(GL_TEXTURE_2D, Texture.ID);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glEnable(GL_DEPTH_TEST);
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -559,17 +560,8 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 #endif
 			if(X == 0 && (Y % 5 == 0))
 			{
-				glBindTexture(GL_TEXTURE_2D, State->IndirectIlluminationTexture);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 
-						GlobalWindowWidth, GlobalWindowHeight, 
-						0, GL_RGBA, GL_UNSIGNED_BYTE, 
-						//State->IndirectIlluminationBuffer);
-						ScreenBuffer);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-				glBindTexture(GL_TEXTURE_2D, 0);
+				image_texture_loading_params Params = DefaultImageTextureLoadingParams(GlobalWindowWidth, GlobalWindowHeight, ScreenBuffer);
+				LoadImageToTexture(&State->IndirectIlluminationTexture, Params);
 
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				RenderTextureOnQuadScreen(State, 
@@ -690,7 +682,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 
 		State->IndirectIlluminationBuffer = 0;
-		glGenTextures(1, &State->IndirectIlluminationTexture);
+		State->IndirectIlluminationTexture = CreateTexture();
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {
