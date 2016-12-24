@@ -1,179 +1,120 @@
 #pragma once
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-
-// TODO(hugo) : Use basic C parsing scheme (see OFF parsing in meshrekt)
 struct shader
 {
 	GLuint Program;
 };
 
-shader LoadShader(const GLchar* vertexPath, const GLchar* fragmentPath)
+// TODO(hugo) : Shaders are assets. They should go through the 
+// same pipeline.
+shader LoadShader(const char* VertexPath, const char* FragmentPath)
 {
 	shader Result = {};
-	std::string vertexCode;
-	std::string fragmentCode;
-	std::ifstream vShaderFile;
-	std::ifstream fShaderFile;
 
-	vShaderFile.exceptions(std::ifstream::badbit);
-	fShaderFile.exceptions(std::ifstream::badbit);
-	try
-	{
-		vShaderFile.open(vertexPath);
-		fShaderFile.open(fragmentPath);
-		std::stringstream vShaderStream;
-		std::stringstream fShaderStream;
-		vShaderStream << vShaderFile.rdbuf();
-		fShaderStream << fShaderFile.rdbuf();
-		vShaderFile.close();
-		fShaderFile.close();
-		vertexCode = vShaderStream.str();
-		fragmentCode = fShaderStream.str();
-	}
-	catch (std::ifstream::failure e)
-	{
-		SDL_Log("Error::shader::File not successfully read.\n");
-	}
-	const GLchar* vShaderCode = vertexCode.c_str();
-	const GLchar* fShaderCode = fragmentCode.c_str();
+	char* VertexCode = ReadFileContent(VertexPath);
+	char* FragmentCode = ReadFileContent(FragmentPath);
 
-	GLuint vertex;
-	GLuint fragment;
-	GLint success;
-	GLchar infoLog[512];
+	GLint Success;
+	GLchar InfoLog[512];
 
-	vertex = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertex, 1, &vShaderCode, 0);
-	glCompileShader(vertex);
-	glGetShaderiv(vertex, GL_COMPILE_STATUS, &success);
-	if (!success)
+	GLuint Vertex = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(Vertex, 1, &VertexCode, 0);
+	glCompileShader(Vertex);
+	glGetShaderiv(Vertex, GL_COMPILE_STATUS, &Success);
+	if (!Success)
 	{
-		glGetShaderInfoLog(vertex, 512, 0, infoLog);
-		SDL_Log("%s\n", infoLog);
+		glGetShaderInfoLog(Vertex, 512, 0, InfoLog);
+		SDL_Log("%s\n", InfoLog);
 	}
+	Free(VertexCode);
 
-	fragment = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragment, 1, &fShaderCode, 0);
-	glCompileShader(fragment);
-	glGetShaderiv(fragment, GL_COMPILE_STATUS, &success);
-	if (!success)
+	GLuint Fragment = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(Fragment, 1, &FragmentCode, 0);
+	glCompileShader(Fragment);
+	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &Success);
+	if (!Success)
 	{
-		glGetShaderInfoLog(fragment, 512, 0, infoLog);
-		SDL_Log("%s\n", infoLog);
+		glGetShaderInfoLog(Fragment, 512, 0, InfoLog);
+		SDL_Log("%s\n", InfoLog);
 	}
+	Free(FragmentCode);
 
 	Result.Program = glCreateProgram();
-	glAttachShader(Result.Program, vertex);
-	glAttachShader(Result.Program, fragment);
+	glAttachShader(Result.Program, Vertex);
+	glAttachShader(Result.Program, Fragment);
 	glLinkProgram(Result.Program);
-	glGetProgramiv(Result.Program, GL_LINK_STATUS, &success);
-	if (!success)
+	glGetProgramiv(Result.Program, GL_LINK_STATUS, &Success);
+	if (!Success)
 	{
-		glGetProgramInfoLog(Result.Program, 512, 0, infoLog);
-		SDL_Log("%s\n", infoLog);
+		glGetProgramInfoLog(Result.Program, 512, 0, InfoLog);
+		SDL_Log("%s\n", InfoLog);
 	}
 
-	glDeleteShader(vertex);
-	glDeleteShader(fragment);
+	glDeleteShader(Vertex);
+	glDeleteShader(Fragment);
 
 	return(Result);
 }
 
-shader LoadShader(const GLchar* vertexPath, const GLchar* geometryPath, const GLchar* fragmentPath)
+shader LoadShader(const char* VertexPath, const char* GeometryPath, const char* FragmentPath)
 {
 	shader Result = {};
 
-	std::string vertexCode;
-	std::string geometryCode;
-	std::string fragmentCode;
-	std::ifstream vShaderFile;
-	std::ifstream gShaderFile;
-	std::ifstream fShaderFile;
+	char* VertexCode = ReadFileContent(VertexPath);
+	char* GeometryCode = ReadFileContent(FragmentPath);
+	char* FragmentCode = ReadFileContent(FragmentPath);
 
-	vShaderFile.exceptions(std::ifstream::badbit);
-	gShaderFile.exceptions(std::ifstream::badbit);
-	fShaderFile.exceptions(std::ifstream::badbit);
-	try
-	{
-		vShaderFile.open(vertexPath);
-		gShaderFile.open(geometryPath);
-		fShaderFile.open(fragmentPath);
-		std::stringstream vShaderStream;
-		std::stringstream gShaderStream;
-		std::stringstream fShaderStream;
-		vShaderStream << vShaderFile.rdbuf();
-		gShaderStream << gShaderFile.rdbuf();
-		fShaderStream << fShaderFile.rdbuf();
-		vShaderFile.close();
-		gShaderFile.close();
-		fShaderFile.close();
-		vertexCode = vShaderStream.str();
-		geometryCode = gShaderStream.str();
-		fragmentCode = fShaderStream.str();
-	}
-	catch (std::ifstream::failure e)
-	{
-		SDL_Log("Error::shader::File not successfully read.\n");
-	}
-	const GLchar* vShaderCode = vertexCode.c_str();
-	const GLchar* gShaderCode = geometryCode.c_str();
-	const GLchar* fShaderCode = fragmentCode.c_str();
+	GLint Success;
+	GLchar InfoLog[512];
 
-	GLuint vertex;
-	GLuint geometry;
-	GLuint fragment;
-	GLint success;
-	GLchar infoLog[512];
-
-	vertex = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertex, 1, &vShaderCode, 0);
-	glCompileShader(vertex);
-	glGetShaderiv(vertex, GL_COMPILE_STATUS, &success);
-	if (!success)
+	GLuint Vertex = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(Vertex, 1, &VertexCode, 0);
+	glCompileShader(Vertex);
+	glGetShaderiv(Vertex, GL_COMPILE_STATUS, &Success);
+	if (!Success)
 	{
-		glGetShaderInfoLog(vertex, 512, 0, infoLog);
-		SDL_Log("%s\n", infoLog);
+		glGetShaderInfoLog(Vertex, 512, 0, InfoLog);
+		SDL_Log("%s\n", InfoLog);
 	}
+	Free(VertexCode);
 
-	geometry = glCreateShader(GL_GEOMETRY_SHADER);
-	glShaderSource(geometry, 1, &gShaderCode, 0);
-	glCompileShader(geometry);
-	glGetShaderiv(geometry, GL_COMPILE_STATUS, &success);
-	if (!success)
+	GLuint Geometry = glCreateShader(GL_GEOMETRY_SHADER);
+	glShaderSource(Geometry, 1, &GeometryCode, 0);
+	glCompileShader(Geometry);
+	glGetShaderiv(Geometry, GL_COMPILE_STATUS, &Success);
+	if (!Success)
 	{
-		glGetShaderInfoLog(vertex, 512, 0, infoLog);
-		SDL_Log("%s\n", infoLog);
+		glGetShaderInfoLog(Geometry, 512, 0, InfoLog);
+		SDL_Log("%s\n", InfoLog);
 	}
+	Free(GeometryCode);
 
-	fragment = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragment, 1, &fShaderCode, 0);
-	glCompileShader(fragment);
-	glGetShaderiv(fragment, GL_COMPILE_STATUS, &success);
-	if (!success)
+	GLuint Fragment = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(Fragment, 1, &FragmentCode, 0);
+	glCompileShader(Fragment);
+	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &Success);
+	if (!Success)
 	{
-		glGetShaderInfoLog(fragment, 512, 0, infoLog);
-		SDL_Log("%s\n", infoLog);
+		glGetShaderInfoLog(Fragment, 512, 0, InfoLog);
+		SDL_Log("%s\n", InfoLog);
 	}
+	Free(FragmentCode);
 
 	Result.Program = glCreateProgram();
-	glAttachShader(Result.Program, vertex);
-	glAttachShader(Result.Program, geometry);
-	glAttachShader(Result.Program, fragment);
+	glAttachShader(Result.Program, Vertex);
+	glAttachShader(Result.Program, Geometry);
+	glAttachShader(Result.Program, Fragment);
 	glLinkProgram(Result.Program);
-	glGetProgramiv(Result.Program, GL_LINK_STATUS, &success);
-	if (!success)
+	glGetProgramiv(Result.Program, GL_LINK_STATUS, &Success);
+	if (!Success)
 	{
-		glGetProgramInfoLog(Result.Program, 512, 0, infoLog);
-		SDL_Log("%s\n", infoLog);
+		glGetProgramInfoLog(Result.Program, 512, 0, InfoLog);
+		SDL_Log("%s\n", InfoLog);
 	}
 
-	glDeleteShader(vertex);
-	glDeleteShader(geometry);
-	glDeleteShader(fragment);
+	glDeleteShader(Vertex);
+	glDeleteShader(Geometry);
+	glDeleteShader(Fragment);
 
 	return(Result);
 }

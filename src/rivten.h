@@ -5,6 +5,7 @@
  */
 
 #include <cstdint>
+#include <stdio.h>
 #include <string.h> // NOTE(hugo) : for memset
 
 #ifdef __unix__
@@ -138,3 +139,23 @@ void EndTemporaryMemory(temporary_memory TemporaryMemory)
 	Assert(Arena->TemporaryCount > 0);
 	--Arena->TemporaryCount;
 }
+
+char* ReadFileContent(const char* Filename)
+{
+	FILE* File = 0;
+	fopen_s(&File, Filename, "rb");
+	Assert(File);
+
+	fseek(File, 0, SEEK_END);
+	size_t FileSize = ftell(File);
+	fseek(File, 0, SEEK_SET);
+	char* Content = AllocateArray(char, FileSize + 1);
+	size_t ReadSize = fread(Content, 1, FileSize, File);
+	Assert(ReadSize == FileSize);
+	fclose(File);
+
+	Content[FileSize] = 0;
+
+	return(Content);
+}
+
