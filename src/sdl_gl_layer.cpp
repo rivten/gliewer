@@ -20,8 +20,13 @@ global_variable u32 GlobalWindowWidth = 256;
 global_variable u32 GlobalWindowHeight = 256;
 global_variable SDL_Window* GlobalWindow = 0;
 
-global_variable float DEBUGCounters[128];
+const u32 FrameTrackingCount = 128;
+global_variable float DEBUGCounters[FrameTrackingCount];
 global_variable u32 DEBUGCurrentCounter = 0;
+
+global_variable float DEBUGGLStateChangeCounters[FrameTrackingCount];
+global_variable u32 DEBUGGLCurrentFrameStateChangeCount = 0;
+global_variable u32 DEBUGGLStateChangeCurrentCounter = 0;
 
 #include "shader.h"
 #include "gl_layer.h"
@@ -309,8 +314,10 @@ int main(int argc, char** argv)
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
 	SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
+#ifdef _WIN32
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+#endif
 
 	SDL_GL_SetSwapInterval(0);
 
@@ -341,11 +348,12 @@ int main(int argc, char** argv)
     if(GlewInitResult == GLEW_OK)
     { 
 		ImGuiInit(Window);
-		//glEnable(GL_MULTISAMPLE);
 
-		// TODO(hugo) : Get all the default parameters of OpenGL;
 		opengl_state GLState = CreateDefaultOpenGLState();
 
+#ifdef _WIN32
+		Enable(&GLState, GL_MULTISAMPLE);
+#endif
 		Enable(&GLState, GL_DEPTH_TEST);
 		DepthFunc(&GLState, GL_LEQUAL);
 		DepthMask(&GLState, GL_TRUE);
@@ -535,6 +543,23 @@ int main(int argc, char** argv)
 					}
 					DEBUGCounters[DEBUGCurrentCounter - 1] = SecondsElapsedForFrame * 1000.0f;
 				}
+
+				if(DEBUGGLStateChangeCurrentCounter < ArrayCount(DEBUGGLStateChangeCounters))
+				{
+					DEBUGGLStateChangeCounters[DEBUGGLStateChangeCurrentCounter] = DEBUGGLCurrentFrameStateChangeCount;
+					++DEBUGGLStateChangeCurrentCounter;
+				}
+				else
+				{
+					for(u32 CounterIndex = 0; 
+							CounterIndex < (ArrayCount(DEBUGGLStateChangeCounters) - 1); 
+							++CounterIndex)
+					{
+						DEBUGGLStateChangeCounters[CounterIndex] = DEBUGGLStateChangeCounters[CounterIndex + 1];
+					}
+					DEBUGGLStateChangeCounters[DEBUGGLStateChangeCurrentCounter - 1] = DEBUGGLCurrentFrameStateChangeCount;
+				}
+				DEBUGGLCurrentFrameStateChangeCount = 0;
 #endif
                 if(SecondsElapsedForFrame < TargetSecondsPerFrame)
                 {

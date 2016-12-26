@@ -113,32 +113,32 @@ void ComputeNormal(mesh* Mesh)
 	}
 }
 
-void DrawTriangleMesh(mesh* Mesh)
+void DrawTriangleMesh(opengl_state* State, mesh* Mesh)
 {
-	glBindVertexArray(Mesh->VAO);
+	BindVertexArray(State, Mesh->VAO);
 	glDrawElements(GL_TRIANGLES, (GLsizei)(3 * Mesh->TriangleCount), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
+	BindVertexArray(State, 0);
 }
 
-void DrawWiredTriangleMesh(mesh* Mesh)
+void DrawWiredTriangleMesh(opengl_state* State, mesh* Mesh)
 {
-	glBindVertexArray(Mesh->VAO);
+	BindVertexArray(State, Mesh->VAO);
 	glDrawElements(GL_LINES, (GLsizei)(3 * Mesh->TriangleCount), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
+	BindVertexArray(State, 0);
 }
 
-void DrawTriangleMeshInstances(mesh* Mesh, u32 InstanceCount)
+void DrawTriangleMeshInstances(opengl_state* State, mesh* Mesh, u32 InstanceCount)
 {
-	glBindVertexArray(Mesh->VAO);
+	BindVertexArray(State, Mesh->VAO);
 	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(3 * Mesh->TriangleCount), GL_UNSIGNED_INT, 0, InstanceCount);
-	glBindVertexArray(0);
+	BindVertexArray(State, 0);
 }
 
-void DrawWiredTriangleMeshInstances(mesh* Mesh, u32 InstanceCount)
+void DrawWiredTriangleMeshInstances(opengl_state* State, mesh* Mesh, u32 InstanceCount)
 {
-	glBindVertexArray(Mesh->VAO);
+	BindVertexArray(State, Mesh->VAO);
 	glDrawElementsInstanced(GL_LINES, (GLsizei)(3 * Mesh->TriangleCount), GL_UNSIGNED_INT, 0, InstanceCount);
-	glBindVertexArray(0);
+	BindVertexArray(State, 0);
 }
 
 struct vertex_hash

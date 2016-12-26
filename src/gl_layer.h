@@ -81,6 +81,7 @@ struct opengl_state
 	bool DepthMaskMode;
 	bool DepthTestEnabled;
 	bool CullFaceEnabled;
+	bool MultisampleEnabled;
 
 	v4 ClearColor;
 
@@ -95,6 +96,260 @@ struct texture
 	GLenum RenderTarget;
 	bool IsValid;
 };
+
+opengl_state CreateDefaultOpenGLState(void)
+{
+	// TODO(hugo) : Get all the default parameters of OpenGL;
+	opengl_state Result = {};
+
+	return(Result);
+}
+
+void ClearColorAndDepth(opengl_state* GLState, v4 ClearColor)
+{
+	if(GLState->ClearColor != ClearColor)
+	{
+		GLState->ClearColor = ClearColor;
+		glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void ClearColor(opengl_state* GLState, v4 ClearColor)
+{
+	if(GLState->ClearColor != ClearColor)
+	{
+		GLState->ClearColor = ClearColor;
+		glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+	glClear(GL_COLOR_BUFFER_BIT);
+}
+
+void ClearDepth(void)
+{
+	glClear(GL_DEPTH_BUFFER_BIT);
+}
+
+void SetViewport(opengl_state* GLState, int Width, int Height)
+{
+	if((GLState->Viewport.Size.x != Width) || 
+			(GLState->Viewport.Size.y != Height))
+	{
+		GLState->Viewport.Size = {(float)Width, (float)Height};
+		glViewport(0, 0, Width, Height);
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+}
+
+void BindFramebuffer(opengl_state* State, GLenum Target, u32 FramebufferID)
+{
+	switch(Target)
+	{
+		case GL_FRAMEBUFFER:
+			{
+				if(State->FramebufferID != FramebufferID)
+				{
+					State->FramebufferID = FramebufferID;
+					glBindFramebuffer(Target, State->FramebufferID);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+
+		InvalidDefaultCase;
+	}
+}
+
+void CullFace(opengl_state* State, GLenum CullFaceMode)
+{
+	if(State->CullFaceMode != CullFaceMode)
+	{
+		State->CullFaceMode = CullFaceMode;
+		glCullFace(CullFaceMode);
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+}
+
+void BindTexture(opengl_state* State, GLenum TextureTarget, u32 TextureID)
+{
+	switch(TextureTarget)
+	{
+		case GL_TEXTURE_CUBE_MAP:
+			{
+				if(State->TextureCubeMapID != TextureID)
+				{
+					State->TextureCubeMapID = TextureID;
+					glBindTexture(TextureTarget, State->TextureCubeMapID);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		case GL_TEXTURE_2D:
+			{
+				if(State->Texture2ID != TextureID)
+				{
+					State->Texture2ID = TextureID;
+					glBindTexture(TextureTarget, State->Texture2ID);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		InvalidDefaultCase;
+	}
+}
+
+void DepthMask(opengl_state* State, bool DepthMaskMode)
+{
+	if(State->DepthMaskMode != DepthMaskMode)
+	{
+		State->DepthMaskMode = DepthMaskMode;
+		if(DepthMaskMode)
+		{
+			glDepthMask(GL_TRUE);
+		}
+		else
+		{
+			glDepthMask(GL_FALSE);
+		}
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+}
+
+void BindVertexArray(opengl_state* State, u32 VertexArrayID)
+{
+	if(State->VertexArrayID != VertexArrayID)
+	{
+		State->VertexArrayID = VertexArrayID;
+		glBindVertexArray(State->VertexArrayID);
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+}
+
+void ActiveTexture(opengl_state* State, GLenum Texture)
+{
+	if(State->ActiveTexture != Texture)
+	{
+		State->ActiveTexture = Texture;
+		glActiveTexture(State->ActiveTexture);
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+}
+
+void Enable(opengl_state* State, GLenum Cap)
+{
+	switch(Cap)
+	{
+		case GL_DEPTH_TEST:
+			{
+				if(!State->DepthTestEnabled)
+				{
+					State->DepthTestEnabled = true;
+					glEnable(Cap);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		case GL_CULL_FACE:
+			{
+				if(!State->CullFaceEnabled)
+				{
+					State->CullFaceEnabled = true;
+					glEnable(Cap);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		case GL_MULTISAMPLE:
+			{
+				if(!State->MultisampleEnabled)
+				{
+					State->MultisampleEnabled = true;
+					glEnable(Cap);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		InvalidDefaultCase;
+	}
+}
+
+void Disable(opengl_state* State, GLenum Cap)
+{
+	switch(Cap)
+	{
+		case GL_DEPTH_TEST:
+			{
+				if(State->DepthTestEnabled)
+				{
+					State->DepthTestEnabled = false;
+					glDisable(Cap);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		case GL_CULL_FACE:
+			{
+				if(State->CullFaceEnabled)
+				{
+					State->CullFaceEnabled = false;
+					glDisable(Cap);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		case GL_MULTISAMPLE:
+			{
+				if(State->MultisampleEnabled)
+				{
+					State->MultisampleEnabled = false;
+					glDisable(Cap);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		InvalidDefaultCase;
+	}
+}
+
+void ReadBuffer(opengl_state* State, GLenum Mode)
+{
+	if(State->ColorAttachmentRead != Mode)
+	{
+		State->ColorAttachmentRead = Mode;
+		glReadBuffer(State->ColorAttachmentRead);
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+}
+
+void BindBuffer(opengl_state* State, GLenum Target, u32 BufferID)
+{
+	switch(Target)
+	{
+		case GL_ARRAY_BUFFER:
+			{
+				if(State->ArrayBufferID != BufferID)
+				{
+					State->ArrayBufferID = BufferID;
+					glBindBuffer(Target, State->ArrayBufferID);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		InvalidDefaultCase;
+	}
+}
+
+void DepthFunc(opengl_state* State, GLenum Func)
+{
+	if(State->DepthFunc != Func)
+	{
+		State->DepthFunc = Func;
+		glDepthFunc(State->DepthFunc);
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+}
+
+inline void UseShader(opengl_state* State, shader Shader)
+{
+	if(State->ShaderID != Shader.Program)
+	{
+		State->ShaderID = Shader.Program;
+		glUseProgram(State->ShaderID);
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+}
 
 texture CreateTexture(GLenum RenderTarget = GL_TEXTURE_2D)
 {
@@ -147,9 +402,9 @@ image_texture_loading_params DefaultImageTextureLoadingParams(u32 Width, u32 Hei
 	return(Result);
 }
 
-void LoadImageToTexture(texture* Texture, image_texture_loading_params Params)
+void LoadImageToTexture(opengl_state* State, texture* Texture, image_texture_loading_params Params)
 {
-	glBindTexture(Texture->RenderTarget, Texture->ID);
+	BindTexture(State, Texture->RenderTarget, Texture->ID);
 	glTexImage2D(Texture->RenderTarget, 0, Params.InternalFormat, 
 			Params.Width, Params.Height, 0, 
 			Params.ExternalFormat, Params.ExternalType, 
@@ -159,224 +414,7 @@ void LoadImageToTexture(texture* Texture, image_texture_loading_params Params)
 	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_MIN_FILTER, Params.MagFilter);
 	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_WRAP_S, Params.WrapS);
 	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_WRAP_T, Params.WrapT);
-	glBindTexture(Texture->RenderTarget, 0);
-}
-
-opengl_state CreateDefaultOpenGLState(void)
-{
-	// TODO(hugo) : Get all the default parameters of OpenGL;
-	opengl_state Result = {};
-
-	return(Result);
-}
-
-void ClearColorAndDepth(opengl_state* GLState, v4 ClearColor)
-{
-	if(GLState->ClearColor != ClearColor)
-	{
-		GLState->ClearColor = ClearColor;
-		glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
-	}
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-void ClearColor(opengl_state* GLState, v4 ClearColor)
-{
-	if(GLState->ClearColor != ClearColor)
-	{
-		GLState->ClearColor = ClearColor;
-		glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
-	}
-	glClear(GL_COLOR_BUFFER_BIT);
-}
-
-void ClearDepth(void)
-{
-	glClear(GL_DEPTH_BUFFER_BIT);
-}
-
-void SetViewport(opengl_state* GLState, int Width, int Height)
-{
-	if((GLState->Viewport.Size.x != Width) || 
-			(GLState->Viewport.Size.y != Height))
-	{
-		GLState->Viewport.Size = {(float)Width, (float)Height};
-		glViewport(0, 0, Width, Height);
-	}
-}
-
-void BindFramebuffer(opengl_state* State, GLenum Target, u32 FramebufferID)
-{
-	switch(Target)
-	{
-		case GL_FRAMEBUFFER:
-			{
-				if(State->FramebufferID != FramebufferID)
-				{
-					State->FramebufferID = FramebufferID;
-					glBindFramebuffer(Target, State->FramebufferID);
-				}
-			} break;
-
-		InvalidDefaultCase;
-	}
-}
-
-void CullFace(opengl_state* State, GLenum CullFaceMode)
-{
-	if(State->CullFaceMode != CullFaceMode)
-	{
-		State->CullFaceMode = CullFaceMode;
-		glCullFace(CullFaceMode);
-	}
-}
-
-void BindTexture(opengl_state* State, GLenum TextureTarget, u32 TextureID)
-{
-	switch(TextureTarget)
-	{
-		case GL_TEXTURE_CUBE_MAP:
-			{
-				if(State->TextureCubeMapID != TextureID)
-				{
-					State->TextureCubeMapID = TextureID;
-					glBindTexture(TextureTarget, State->TextureCubeMapID);
-				}
-			} break;
-		case GL_TEXTURE_2D:
-			{
-				if(State->Texture2ID != TextureID)
-				{
-					State->Texture2ID = TextureID;
-					glBindTexture(TextureTarget, State->Texture2ID);
-				}
-			} break;
-		InvalidDefaultCase;
-	}
-}
-
-void DepthMask(opengl_state* State, bool DepthMaskMode)
-{
-	if(State->DepthMaskMode != DepthMaskMode)
-	{
-		State->DepthMaskMode = DepthMaskMode;
-		if(DepthMaskMode)
-		{
-			glDepthMask(GL_TRUE);
-		}
-		else
-		{
-			glDepthMask(GL_FALSE);
-		}
-	}
-}
-
-void BindVertexArray(opengl_state* State, u32 VertexArrayID)
-{
-	if(State->VertexArrayID != VertexArrayID)
-	{
-		State->VertexArrayID = VertexArrayID;
-		glBindVertexArray(State->VertexArrayID);
-	}
-}
-
-void ActiveTexture(opengl_state* State, GLenum Texture)
-{
-	if(State->ActiveTexture != Texture)
-	{
-		State->ActiveTexture = Texture;
-		glActiveTexture(State->ActiveTexture);
-	}
-}
-
-void Enable(opengl_state* State, GLenum Cap)
-{
-	switch(Cap)
-	{
-		case GL_DEPTH_TEST:
-			{
-				if(!State->DepthTestEnabled)
-				{
-					State->DepthTestEnabled = true;
-					glEnable(Cap);
-				}
-			} break;
-		case GL_CULL_FACE:
-			{
-				if(!State->CullFaceEnabled)
-				{
-					State->CullFaceEnabled = true;
-					glEnable(Cap);
-				}
-			} break;
-		InvalidDefaultCase;
-	}
-}
-
-void Disable(opengl_state* State, GLenum Cap)
-{
-	switch(Cap)
-	{
-		case GL_DEPTH_TEST:
-			{
-				if(State->DepthTestEnabled)
-				{
-					State->DepthTestEnabled = false;
-					glDisable(Cap);
-				}
-			} break;
-		case GL_CULL_FACE:
-			{
-				if(State->CullFaceEnabled)
-				{
-					State->CullFaceEnabled = false;
-					glDisable(Cap);
-				}
-			} break;
-		InvalidDefaultCase;
-	}
-}
-
-void ReadBuffer(opengl_state* State, GLenum Mode)
-{
-	if(State->ColorAttachmentRead != Mode)
-	{
-		State->ColorAttachmentRead = Mode;
-		glReadBuffer(State->ColorAttachmentRead);
-	}
-}
-
-void BindBuffer(opengl_state* State, GLenum Target, u32 BufferID)
-{
-	switch(Target)
-	{
-		case GL_ARRAY_BUFFER:
-			{
-				if(State->ArrayBufferID != BufferID)
-				{
-					State->ArrayBufferID = BufferID;
-					glBindBuffer(Target, State->ArrayBufferID);
-				}
-			} break;
-	}
-}
-
-void DepthFunc(opengl_state* State, GLenum Func)
-{
-	if(State->DepthFunc != Func)
-	{
-		State->DepthFunc = Func;
-		glDepthFunc(State->DepthFunc);
-	}
-}
-
-inline void UseShader(opengl_state* State, shader Shader)
-{
-	if(State->ShaderID != Shader.Program)
-	{
-		State->ShaderID = Shader.Program;
-		glUseProgram(State->ShaderID);
-	}
+	BindTexture(State, Texture->RenderTarget, 0);
 }
 
 GLuint GetUniformLocation(shader Shader, const char* VariableName)
@@ -429,7 +467,7 @@ struct gl_screen_framebuffer
 	u32 RBO;
 };
 
-gl_screen_framebuffer CreateScreenFramebuffer(int BufferWidth, int BufferHeight)
+gl_screen_framebuffer CreateScreenFramebuffer(opengl_state* State, int BufferWidth, int BufferHeight)
 {
 	gl_screen_framebuffer Result = {};
 	glGenFramebuffers(1, &Result.FBO);
@@ -439,7 +477,7 @@ gl_screen_framebuffer CreateScreenFramebuffer(int BufferWidth, int BufferHeight)
 	glBindFramebuffer(GL_FRAMEBUFFER, Result.FBO);
 
 	image_texture_loading_params Params = DefaultImageTextureLoadingParams(BufferWidth, BufferHeight, 0);
-	LoadImageToTexture(&Result.Texture, Params);
+	LoadImageToTexture(State, &Result.Texture, Params);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.Texture.ID, 0);
 
 	glGenRenderbuffers(1, &Result.RBO);
@@ -461,14 +499,14 @@ struct gl_depth_framebuffer
 	texture Texture;
 };
 
-gl_depth_framebuffer CreateDepthFramebuffer(int BufferWidth, int BufferHeight)
+gl_depth_framebuffer CreateDepthFramebuffer(opengl_state* State, int BufferWidth, int BufferHeight)
 {
 	gl_depth_framebuffer Result = {};
 	glGenFramebuffers(1, &Result.FBO);
 
 	Result.Texture = CreateTexture();
 
-	glBindFramebuffer(GL_FRAMEBUFFER, Result.FBO);
+	BindFramebuffer(State, GL_FRAMEBUFFER, Result.FBO);
 	image_texture_loading_params Params = DefaultImageTextureLoadingParams(BufferWidth, BufferHeight, 0);
 	Params.InternalFormat = GL_DEPTH_COMPONENT;
 	Params.ExternalFormat = GL_DEPTH_COMPONENT;
@@ -476,13 +514,13 @@ gl_depth_framebuffer CreateDepthFramebuffer(int BufferWidth, int BufferHeight)
 	Params.MinFilter = GL_NEAREST;
 	Params.MagFilter = GL_NEAREST;
 
-	LoadImageToTexture(&Result.Texture, Params);
+	LoadImageToTexture(State, &Result.Texture, Params);
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Result.Texture.ID, 0);
 	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
+	ReadBuffer(State, GL_NONE);
 	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	BindFramebuffer(State, GL_FRAMEBUFFER, 0);
 
 	return(Result);
 }
@@ -550,7 +588,7 @@ struct gl_geometry_framebuffer
 	u32 Height;
 };
 
-gl_geometry_framebuffer CreateGeometryFramebuffer(u32 BufferWidth, u32 BufferHeight)
+gl_geometry_framebuffer CreateGeometryFramebuffer(opengl_state* State, u32 BufferWidth, u32 BufferHeight)
 {
 	gl_geometry_framebuffer Result = {};
 
@@ -563,18 +601,18 @@ gl_geometry_framebuffer CreateGeometryFramebuffer(u32 BufferWidth, u32 BufferHei
 	Result.NormalTexture = CreateTexture();
 	Result.AlbedoTexture = CreateTexture();
 
-	glBindFramebuffer(GL_FRAMEBUFFER, Result.FBO);
+	BindFramebuffer(State, GL_FRAMEBUFFER, Result.FBO);
 
 	image_texture_loading_params Params = DefaultImageTextureLoadingParams(BufferWidth, BufferHeight, 0);
-	LoadImageToTexture(&Result.ScreenTexture, Params);
+	LoadImageToTexture(State, &Result.ScreenTexture, Params);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.ScreenTexture.ID, 0);
 
 	Params.ExternalType = GL_FLOAT;
-	LoadImageToTexture(&Result.NormalTexture, Params);
+	LoadImageToTexture(State, &Result.NormalTexture, Params);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, Result.NormalTexture.ID, 0);
 
 	Params.ExternalType = GL_UNSIGNED_BYTE;
-	LoadImageToTexture(&Result.AlbedoTexture, Params);
+	LoadImageToTexture(State, &Result.AlbedoTexture, Params);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, Result.AlbedoTexture.ID, 0);
 
 	glGenRenderbuffers(1, &Result.RBO);
@@ -588,12 +626,12 @@ gl_geometry_framebuffer CreateGeometryFramebuffer(u32 BufferWidth, u32 BufferHei
 
 	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	BindFramebuffer(State, GL_FRAMEBUFFER, 0);
 
 	return(Result);
 }
 
-void UpdateGeometryFramebuffer(gl_geometry_framebuffer* Framebuffer,
+void UpdateGeometryFramebuffer(opengl_state* State, gl_geometry_framebuffer* Framebuffer,
 		u32 Width, u32 Height)
 {
 	Assert((Framebuffer->Width != Width) 
@@ -606,7 +644,7 @@ void UpdateGeometryFramebuffer(gl_geometry_framebuffer* Framebuffer,
 
 	glDeleteRenderbuffers(1, &Framebuffer->RBO);
 
-	*Framebuffer = CreateGeometryFramebuffer(Width, Height);
+	*Framebuffer = CreateGeometryFramebuffer(State, Width, Height);
 }
 
 struct gl_hemicube_framebuffer
@@ -625,7 +663,7 @@ struct gl_hemicube_framebuffer
 	};
 };
 
-gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(int BufferWidth, int BufferHeight)
+gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(opengl_state* State, int BufferWidth, int BufferHeight)
 {
 	gl_hemicube_framebuffer Result = {};
 	for(u32 FramebufferIndex = 0; FramebufferIndex < ArrayCount(Result.MicroBuffers); ++FramebufferIndex)
@@ -638,7 +676,7 @@ gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(int BufferWidth, int Buf
 			Height /= 2;
 		}
 #endif
-		Result.MicroBuffers[FramebufferIndex] = CreateGeometryFramebuffer(Width, Height);
+		Result.MicroBuffers[FramebufferIndex] = CreateGeometryFramebuffer(State, Width, Height);
 	}
 
 	return(Result);

@@ -159,7 +159,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	for(u32 MeshIndex = 0; MeshIndex < State->MeshCount; ++MeshIndex)
 	{
 		SetUniform(State->ShadowMappingShader, State->Meshes[MeshIndex].Color, "ObjectColor");
-		DrawTriangleMesh(&State->Meshes[MeshIndex]);
+		DrawTriangleMesh(State->GLState, &State->Meshes[MeshIndex]);
 	}
 	ActiveTexture(State->GLState, GL_TEXTURE0);
 
@@ -172,7 +172,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 			UseShader(State->GLState, State->BasicShader);
 			SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 			SetUniform(State->BasicShader, State->Lights[LightIndex].Color, "ObjectColor");
-			DrawTriangleMesh(State->Lights[LightIndex].Mesh);
+			DrawTriangleMesh(State->GLState, State->Lights[LightIndex].Mesh);
 		}
 	}
 }
@@ -187,7 +187,7 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
 	for(u32 MeshIndex = 0; MeshIndex < State->MeshCount; ++MeshIndex)
 	{
-		DrawTriangleMesh(&State->Meshes[MeshIndex]);
+		DrawTriangleMesh(State->GLState, &State->Meshes[MeshIndex]);
 	}
 
 }
@@ -569,7 +569,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 			if(X == 0 && (Y % 5 == 0))
 			{
 				image_texture_loading_params Params = DefaultImageTextureLoadingParams(GlobalWindowWidth, GlobalWindowHeight, ScreenBuffer);
-				LoadImageToTexture(&State->IndirectIlluminationTexture, Params);
+				LoadImageToTexture(State->GLState, &State->IndirectIlluminationTexture, Params);
 
 				BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
 				RenderTextureOnQuadScreen(State, 
@@ -638,7 +638,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		LoadShaders(State);
 
 		light Light = {&State->CubeMesh, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
-		Light.DepthFramebuffer = CreateDepthFramebuffer(GlobalShadowWidth, GlobalShadowHeight);
+		Light.DepthFramebuffer = CreateDepthFramebuffer(State->GLState, GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light);
 		
 		State->LightType = LightType_Perspective;
@@ -687,8 +687,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 
 		State->MicroFoVInDegrees = 90;
 
-		State->ScreenFramebuffer = CreateGeometryFramebuffer(GlobalWindowWidth, GlobalWindowHeight);
-		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
+		State->ScreenFramebuffer = CreateGeometryFramebuffer(State->GLState, GlobalWindowWidth, GlobalWindowHeight);
+		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->GLState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 
 		State->IndirectIlluminationBuffer = 0;
 		State->IndirectIlluminationTexture = CreateTexture();
@@ -733,7 +733,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 
 	if(Input->WindowResized)
 	{
-		UpdateGeometryFramebuffer(&State->ScreenFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
+		UpdateGeometryFramebuffer(State->GLState, &State->ScreenFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
 	}
 
 	State->Camera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
@@ -742,7 +742,6 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 
 	ClearColorAndDepth(State->GLState, V4(0.4f, 0.6f, 0.2f, 1.0f));
 
-	// TODO(hugo) : Smooth MouseWheel camera movement
 	float DeltaMovement = 0.5f;
 	v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
 	State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
@@ -789,7 +788,6 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 
 	// NOTE(hugo) : Direct lighting rendering
 	// {
-	// TODO(hugo) : Get rid of OpenGL in here
 	mat4 LightProjectionMatrix = {};
 	switch(State->LightType)
 	{
@@ -806,7 +804,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 				InvalidCodePath;
 			} break;
 			InvalidDefaultCase;
-	};
+	}
 	SetViewport(State->GLState, GlobalShadowWidth, GlobalShadowHeight);
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
@@ -883,4 +881,5 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 #endif
 
 	ImGui::PlotLines("FPS", &DEBUGCounters[0], ArrayCount(DEBUGCounters));
+	ImGui::PlotLines("OpenGL Stage Changes", &DEBUGGLStateChangeCounters[0], ArrayCount(DEBUGGLStateChangeCounters));
 }
