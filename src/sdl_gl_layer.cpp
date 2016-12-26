@@ -24,9 +24,9 @@ global_variable float DEBUGCounters[128];
 global_variable u32 DEBUGCurrentCounter = 0;
 
 #include "shader.h"
+#include "gl_layer.h"
 #include "mesh.h"
 
-#include "gl_layer.h"
 #include "viewer.h"
 
 struct platform_work_queue;
@@ -343,16 +343,19 @@ int main(int argc, char** argv)
 		ImGuiInit(Window);
 		//glEnable(GL_MULTISAMPLE);
 
-		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_LEQUAL);
-		glDepthMask(GL_TRUE);
+		// TODO(hugo) : Get all the default parameters of OpenGL;
+		opengl_state GLState = CreateDefaultOpenGLState();
+
+		Enable(&GLState, GL_DEPTH_TEST);
+		DepthFunc(&GLState, GL_LEQUAL);
+		DepthMask(&GLState, GL_TRUE);
 
 #ifdef _WIN32
-		glDisable(GL_CULL_FACE);
+		Disable(&GLState, GL_CULL_FACE);
 #else
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
-		glFrontFace(GL_CCW);
+		Enable(&GLState, GL_CULL_FACE);
+		CullFace(&GLState, GL_BACK);
+		FrontFace(&GLState, GL_CCW);
 #endif
 
         GlobalRunning = true;
@@ -479,13 +482,11 @@ int main(int argc, char** argv)
                     }
                 }
 
-                thread_context Thread = {};
-                
 				// TODO(hugo) : Make sure this is not a perf issue
                 SDL_Surface* Screen = SDL_GetWindowSurface(Window);
 
 				// TODO(hugo) : Make this resolution-independant ?
-				glViewport(0, 0, Screen->w, Screen->h);
+				SetViewport(&GLState, Screen->w, Screen->h);
 
 				// TODO(hugo) : Formalize this !
 				if(((u32)(Screen->w) != GlobalWindowWidth) 
@@ -503,7 +504,7 @@ int main(int argc, char** argv)
 
 				ImGuiNewFrame(Window, Input);
 
-                GameUpdateAndRender(&Thread, &GameMemory, NewInput);
+                GameUpdateAndRender(&GameMemory, NewInput, &GLState);
 				ImGui::Render();
                 SDL_GL_SwapWindow(Window);
 

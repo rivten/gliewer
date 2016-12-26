@@ -35,13 +35,12 @@ void FreeBitmap(bitmap* Bitmap)
 	stbi_image_free(Bitmap->Data);
 }
 
-GLuint LoadCubemap(const char** Filenames)
+GLuint LoadCubemap(game_state* State, const char** Filenames)
 {
 	GLuint Texture;
 	glGenTextures(1, &Texture);
-	//glActiveTexture(GL_TEXTURE0);
 
-	glBindTexture(GL_TEXTURE_CUBE_MAP, Texture);
+	BindTexture(State->GLState, GL_TEXTURE_CUBE_MAP, Texture);
 
 	for(u32 FaceIndex = 0; FaceIndex < 6; ++FaceIndex)
 	{
@@ -56,7 +55,7 @@ GLuint LoadCubemap(const char** Filenames)
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	BindTexture(State->GLState, GL_TEXTURE_CUBE_MAP, 0);
 
 	return(Texture);
 }
@@ -80,18 +79,18 @@ void RenderSkybox(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp,
 {
 	// TODO(hugo) : From learnopengl.com, there is an optim 
 	// using the stencil to compute less.
-	glDepthMask(GL_FALSE);
-	UseShader(State->SkyboxShader);
+	DepthMask(State->GLState, false);
+	UseShader(State->GLState, State->SkyboxShader);
 
 	mat4 UntranslatedView = RemoveTranslationPart(LookAt(CameraPos, CameraTarget, CameraUp));
 	SetUniform(State->SkyboxShader, ProjectionMatrix, "Projection");
 	SetUniform(State->SkyboxShader, UntranslatedView, "View");
 
-	glBindVertexArray(State->SkyboxVAO);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, State->SkyboxTexture);
+	BindVertexArray(State->GLState, State->SkyboxVAO);
+	BindTexture(State->GLState, GL_TEXTURE_CUBE_MAP, State->SkyboxTexture);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glBindVertexArray(0);
-	glDepthMask(GL_TRUE);
+	BindVertexArray(State->GLState, 0);
+	DepthMask(State->GLState, true);
 }
 
 // NOTE(hugo) : In order for this function to work, the light depth buffers must have been previously computed
@@ -106,7 +105,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	mat4 NormalObjectMatrix = Transpose(Inverse(ViewMatrix * State->ObjectModelMatrix));
 	mat4 NormalWorldMatrix = Transpose(Inverse(State->ObjectModelMatrix));
 
-	UseShader(State->ShadowMappingShader);
+	UseShader(State->GLState, State->ShadowMappingShader);
 
 	SetUniform(State->ShadowMappingShader, MVPObjectMatrix, "MVPMatrix");
 	SetUniform(State->ShadowMappingShader, NormalObjectMatrix, "NormalMatrix");
@@ -148,9 +147,9 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 		strcpy(Buffer, "ShadowMap[");
 		strcat(Buffer, StringNum);
 		strcat(Buffer, "]");
-		glActiveTexture(GL_TEXTURE0 + LightIndex);
+		ActiveTexture(State->GLState, GL_TEXTURE0 + LightIndex);
 		SetUniform(State->ShadowMappingShader, LightIndex, Buffer);
-		glBindTexture(GL_TEXTURE_2D, State->Lights[LightIndex].DepthFramebuffer.Texture.ID);
+		BindTexture(State->GLState, GL_TEXTURE_2D, State->Lights[LightIndex].DepthFramebuffer.Texture.ID);
 	}
 
 	SetUniform(State->ShadowMappingShader, State->CookTorranceF0, "CTF0");
@@ -162,7 +161,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 		SetUniform(State->ShadowMappingShader, State->Meshes[MeshIndex].Color, "ObjectColor");
 		DrawTriangleMesh(&State->Meshes[MeshIndex]);
 	}
-	glActiveTexture(GL_TEXTURE0);
+	ActiveTexture(State->GLState, GL_TEXTURE0);
 
 	// NOTE(hugo) : Drawing Light Mesh
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
@@ -170,7 +169,7 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 		if(State->Lights[LightIndex].Mesh)
 		{
 			mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Lights[LightIndex]);
-			UseShader(State->BasicShader);
+			UseShader(State->GLState, State->BasicShader);
 			SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 			SetUniform(State->BasicShader, State->Lights[LightIndex].Color, "ObjectColor");
 			DrawTriangleMesh(State->Lights[LightIndex].Mesh);
@@ -183,7 +182,7 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 	mat4 ViewMatrix = LookAt(CameraPos, CameraTarget, CameraUp);
 	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectModelMatrix;
 
-	UseShader(State->BasicShader);
+	UseShader(State->GLState, State->BasicShader);
 	SetUniform(State->BasicShader, MVPObjectMatrix, "MVPMatrix");
 	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
 	for(u32 MeshIndex = 0; MeshIndex < State->MeshCount; ++MeshIndex)
@@ -200,9 +199,9 @@ void RenderShadowSceneOnFramebuffer(game_state* State,
 		v4 ClearColor = V4(0.0f, 0.0f, 0.0f, 1.0f),
 		bool SkyboxRender = true)
 {
-	glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer.FBO);
-	ClearColorAndDepth(ClearColor);
-	glEnable(GL_DEPTH_TEST);
+	BindFramebuffer(State->GLState, GL_FRAMEBUFFER, Framebuffer.FBO);
+	ClearColorAndDepth(State->GLState, ClearColor);
+	Enable(State->GLState, GL_DEPTH_TEST);
 
 	if(SkyboxRender)
 	{
@@ -210,27 +209,27 @@ void RenderShadowSceneOnFramebuffer(game_state* State,
 	}
 	RenderShadowedScene(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix, LightProjectionMatrix);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
 
 }
 
 void RenderTextureOnQuadScreen(game_state* State, texture Texture)
 {
 	Assert(Texture.IsValid);
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	ClearColor(State->GLState, V4(1.0f, 1.0f, 1.0f, 1.0f));
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	// NOTE(hugo) : Quad rendering
-	UseShader(State->DepthDebugQuadShader);
+	UseShader(State->GLState, State->DepthDebugQuadShader);
 	SetUniform(State->DepthDebugQuadShader, State->Sigma, "Sigma");
-	glBindVertexArray(State->QuadVAO);
-	glDisable(GL_DEPTH_TEST);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, Texture.ID);
+	BindVertexArray(State->GLState, State->QuadVAO);
+	Disable(State->GLState, GL_DEPTH_TEST);
+	ActiveTexture(State->GLState, GL_TEXTURE0);
+	BindTexture(State->GLState, GL_TEXTURE_2D, Texture.ID);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
-	glEnable(GL_DEPTH_TEST);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glBindVertexArray(0);
+	Enable(State->GLState, GL_DEPTH_TEST);
+	BindTexture(State->GLState, GL_TEXTURE_2D, 0);
+	BindVertexArray(State->GLState, 0);
 }
 
 void RenderShadowSceneOnQuad(game_state* State, 
@@ -362,7 +361,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 {
 	u32* AlbedoPixels = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
 	float* DepthPixels = AllocateArray(float, GlobalWindowWidth * GlobalWindowHeight);
-	glBindFramebuffer(GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
+	BindFramebuffer(State->GLState, GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
 
 	State->IndirectIlluminationBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
 
@@ -376,18 +375,18 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_DEPTH_COMPONENT, GL_FLOAT, DepthPixels);
 
 	// NOTE(hugo) : Reading albedo of touched pixel
-	glReadBuffer(GL_COLOR_ATTACHMENT2);
+	ReadBuffer(State->GLState, GL_COLOR_ATTACHMENT2);
 	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGBA, GL_UNSIGNED_BYTE, AlbedoPixels);
 
 	// NOTE(hugo) : Reading normal of touched pixel
-	glReadBuffer(GL_COLOR_ATTACHMENT1);
+	ReadBuffer(State->GLState, GL_COLOR_ATTACHMENT1);
 	v3* Normals = AllocateArray(v3, GlobalWindowWidth * GlobalWindowHeight);
 	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGB, GL_FLOAT, Normals);
 
-	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	ReadBuffer(State->GLState, GL_COLOR_ATTACHMENT0);
 	u32* ScreenBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
 	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGBA, GL_UNSIGNED_BYTE, ScreenBuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
 
 	for(u32 Y = 0; Y < (u32)(GlobalWindowHeight); ++Y)
 	{
@@ -399,7 +398,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 
 			v4 Albedo = ColorU32ToV4(PixelAlbedo);
 
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
 
 			float NearPlane = State->Camera.NearPlane;
 			float FarPlane = State->Camera.FarPlane;
@@ -464,7 +463,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 			{
 				camera MicroCamera = MicroCameras[FaceIndex];
-				SetViewport(State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
+				SetViewport(State->GLState, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
 						State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
 				RenderShadowSceneOnFramebuffer(State, MicroCamera.Pos, MicroCamera.Target, 
 						Cross(MicroCamera.Right, MicroCamera.Target - MicroCamera.Pos), MicroCameraProjections[FaceIndex], 
@@ -473,7 +472,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 						V4(0.0f, 0.0f, 0.0f, 1.0f), false);
 
 			}
-			SetViewport(GlobalWindowWidth, GlobalWindowHeight);
+			SetViewport(State->GLState, GlobalWindowWidth, GlobalWindowHeight);
 #if 1
 			//RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[1].ScreenTexture);
 #else
@@ -498,10 +497,10 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 			{
 				gl_geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
 
-				glBindFramebuffer(GL_FRAMEBUFFER, Microbuffer.FBO);
-				glReadBuffer(GL_COLOR_ATTACHMENT0);
+				BindFramebuffer(State->GLState, GL_FRAMEBUFFER, Microbuffer.FBO);
+				ReadBuffer(State->GLState, GL_COLOR_ATTACHMENT0);
 				glReadPixels(0, 0, Microbuffer.Width, Microbuffer.Height, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
-				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+				BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
 
 				v3 Wo = Normalized(Camera.Pos - MicroCameras[FaceIndex].Pos);
 				float NormalDotWo = DotClamp(Normal, Wo);
@@ -572,7 +571,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 				image_texture_loading_params Params = DefaultImageTextureLoadingParams(GlobalWindowWidth, GlobalWindowHeight, ScreenBuffer);
 				LoadImageToTexture(&State->IndirectIlluminationTexture, Params);
 
-				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+				BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
 				RenderTextureOnQuadScreen(State, 
 						State->IndirectIlluminationTexture);
 
@@ -621,12 +620,13 @@ void LoadShaders(game_state* State)
 	State->SkyboxShader = LoadShader("../src/shaders/skybox_v.glsl", "../src/shaders/skybox_f.glsl");
 }
 
-void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input* Input)
+void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* OpenGLState)
 {
 	Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
 	game_state* State = (game_state*)Memory->PermanentStorage;
 	if(!Memory->IsInitialized)
 	{
+		State->GLState = OpenGLState;
 		{
 			std::vector<mesh> Meshes = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
 			for(u32 MeshIndex = 0; MeshIndex < Meshes.size(); ++MeshIndex)
@@ -697,29 +697,29 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 		// {
 		glGenVertexArrays(1, &State->QuadVAO);
 		glGenBuffers(1, &State->QuadVBO);
-		glBindVertexArray(State->QuadVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, State->QuadVBO);
+		BindVertexArray(State->GLState, State->QuadVAO);
+		BindBuffer(State->GLState, GL_ARRAY_BUFFER, State->QuadVBO);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(QuadVertices), &QuadVertices, GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)0);
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid*)(2 * sizeof(GLfloat)));
-		glBindVertexArray(0);
+		BindVertexArray(State->GLState, 0);
 		// }
 
 		// NOTE(hugo) : Initializing Skybox data 
 		// {
 		glGenVertexArrays(1, &State->SkyboxVAO);
 		glGenBuffers(1, &State->SkyboxVBO);
-		glBindVertexArray(State->SkyboxVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, State->SkyboxVBO);
+		BindVertexArray(State->GLState, State->SkyboxVAO);
+		BindBuffer(State->GLState, GL_ARRAY_BUFFER, State->SkyboxVBO);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(SkyboxVertices), &SkyboxVertices, GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-		glBindVertexArray(0);
+		BindVertexArray(State->GLState, 0);
 
 		const char* SkyboxFilenames[6] = {"../models/skybox/right.jpg", "../models/skybox/left.jpg", "../models/skybox/top.jpg", "../models/skybox/bottom.jpg", "../models/skybox/back.jpg", "../models/skybox/front.jpg"};
-		State->SkyboxTexture = LoadCubemap(SkyboxFilenames);
+		State->SkyboxTexture = LoadCubemap(State, SkyboxFilenames);
 		// }
 
 		// NOTE(hugo) : This must be the last command of the initialization of memory
@@ -727,9 +727,9 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 	}
 	// TODO(hugo) : I should not enable the depth test each frame. This is a hack that fixes some issues on Linux (Ubuntu 16.04).
 	// For more information, go to http://stackoverflow.com/questions/24990637/opengl-radeon-driver-seems-to-mess-with-depth-testing
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LEQUAL);
-	glDepthMask(GL_TRUE);
+	Enable(State->GLState, GL_DEPTH_TEST);
+	DepthFunc(State->GLState, GL_LEQUAL);
+	DepthMask(State->GLState, GL_TRUE);
 
 	if(Input->WindowResized)
 	{
@@ -740,7 +740,7 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 
 	State->Time += Input->dtForFrame;
 
-	ClearColorAndDepth(V4(0.4f, 0.6f, 0.2f, 1.0f));
+	ClearColorAndDepth(State->GLState, V4(0.4f, 0.6f, 0.2f, 1.0f));
 
 	// TODO(hugo) : Smooth MouseWheel camera movement
 	float DeltaMovement = 0.5f;
@@ -807,19 +807,19 @@ void GameUpdateAndRender(thread_context* Thread, game_memory* Memory, game_input
 			} break;
 			InvalidDefaultCase;
 	};
-	SetViewport(GlobalShadowWidth, GlobalShadowHeight);
+	SetViewport(State->GLState, GlobalShadowWidth, GlobalShadowHeight);
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
-		glBindFramebuffer(GL_FRAMEBUFFER, State->Lights[LightIndex].DepthFramebuffer.FBO);
+		BindFramebuffer(State->GLState, GL_FRAMEBUFFER, State->Lights[LightIndex].DepthFramebuffer.FBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
-		glCullFace(GL_FRONT);
+		CullFace(State->GLState, GL_FRONT);
 		RenderSimpleScene(State, State->Lights[LightIndex].Pos, State->Lights[LightIndex].Target, V3(0.0f, 1.0f, 0.0f), LightProjectionMatrix);
-		glCullFace(GL_BACK);
+		CullFace(State->GLState, GL_BACK);
 	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
 
-	SetViewport(GlobalWindowWidth, GlobalWindowHeight);
-	ClearColorAndDepth(V4(1.0f, 0.0f, 0.5f, 1.0f));
+	SetViewport(State->GLState, GlobalWindowWidth, GlobalWindowHeight);
+	ClearColorAndDepth(State->GLState, V4(1.0f, 0.0f, 0.5f, 1.0f));
 
 	mat4 ProjectionMatrix = GetCameraPerspective(State->Camera);
 

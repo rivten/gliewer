@@ -127,6 +127,8 @@ struct game_state
 
 	texture IndirectIlluminationTexture;
 	u32* IndirectIlluminationBuffer;
+
+	opengl_state* GLState;
 };
 
 #include "viewer.cpp"

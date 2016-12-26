@@ -56,17 +56,52 @@ static GLfloat SkyboxVertices[] = {
      1.0f, -1.0f,  1.0f
 };
 
+struct rect2
+{
+	v2 TopLeft;
+	v2 Size;
+};
+
+struct opengl_state
+{
+	u32 ShaderID;
+	u32 Texture2ID;
+	u32 TextureCubeMapID;
+	GLenum ActiveTexture;
+
+	u32 VertexArrayID;
+	u32 ArrayBufferID;
+
+	u32 FramebufferID;
+
+	GLenum DepthFunc;
+	GLenum CullFaceMode;
+	GLenum FrontFace;
+
+	bool DepthMaskMode;
+	bool DepthTestEnabled;
+	bool CullFaceEnabled;
+
+	v4 ClearColor;
+
+	GLenum ColorAttachmentRead;
+
+	rect2 Viewport;
+};
+
 struct texture
 {
 	u32 ID;
+	GLenum RenderTarget;
 	bool IsValid;
 };
 
-texture CreateTexture()
+texture CreateTexture(GLenum RenderTarget = GL_TEXTURE_2D)
 {
 	texture Result = {};
 	glGenTextures(1, &Result.ID);
 	Result.IsValid = true;
+	Result.RenderTarget = RenderTarget;
 
 	return(Result);
 }
@@ -114,28 +149,44 @@ image_texture_loading_params DefaultImageTextureLoadingParams(u32 Width, u32 Hei
 
 void LoadImageToTexture(texture* Texture, image_texture_loading_params Params)
 {
-	glBindTexture(GL_TEXTURE_2D, Texture->ID);
-	glTexImage2D(GL_TEXTURE_2D, 0, Params.InternalFormat, 
+	glBindTexture(Texture->RenderTarget, Texture->ID);
+	glTexImage2D(Texture->RenderTarget, 0, Params.InternalFormat, 
 			Params.Width, Params.Height, 0, 
 			Params.ExternalFormat, Params.ExternalType, 
 			Params.Data);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, Params.MinFilter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, Params.MagFilter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, Params.WrapS);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, Params.WrapT);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_MAG_FILTER, Params.MinFilter);
+	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_MIN_FILTER, Params.MagFilter);
+	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_WRAP_S, Params.WrapS);
+	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_WRAP_T, Params.WrapT);
+	glBindTexture(Texture->RenderTarget, 0);
 }
 
-void ClearColorAndDepth(v4 ClearColor)
+opengl_state CreateDefaultOpenGLState(void)
 {
-	glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
+	// TODO(hugo) : Get all the default parameters of OpenGL;
+	opengl_state Result = {};
+
+	return(Result);
+}
+
+void ClearColorAndDepth(opengl_state* GLState, v4 ClearColor)
+{
+	if(GLState->ClearColor != ClearColor)
+	{
+		GLState->ClearColor = ClearColor;
+		glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
+	}
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void ClearColor(v4 ClearColor)
+void ClearColor(opengl_state* GLState, v4 ClearColor)
 {
-	glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
+	if(GLState->ClearColor != ClearColor)
+	{
+		GLState->ClearColor = ClearColor;
+		glClearColor(ClearColor.r, ClearColor.g, ClearColor.b, ClearColor.a);
+	}
 	glClear(GL_COLOR_BUFFER_BIT);
 }
 
@@ -144,9 +195,188 @@ void ClearDepth(void)
 	glClear(GL_DEPTH_BUFFER_BIT);
 }
 
-void SetViewport(int Width, int Height)
+void SetViewport(opengl_state* GLState, int Width, int Height)
 {
-	glViewport(0, 0, Width, Height);
+	if((GLState->Viewport.Size.x != Width) || 
+			(GLState->Viewport.Size.y != Height))
+	{
+		GLState->Viewport.Size = {(float)Width, (float)Height};
+		glViewport(0, 0, Width, Height);
+	}
+}
+
+void BindFramebuffer(opengl_state* State, GLenum Target, u32 FramebufferID)
+{
+	switch(Target)
+	{
+		case GL_FRAMEBUFFER:
+			{
+				if(State->FramebufferID != FramebufferID)
+				{
+					State->FramebufferID = FramebufferID;
+					glBindFramebuffer(Target, State->FramebufferID);
+				}
+			} break;
+
+		InvalidDefaultCase;
+	}
+}
+
+void CullFace(opengl_state* State, GLenum CullFaceMode)
+{
+	if(State->CullFaceMode != CullFaceMode)
+	{
+		State->CullFaceMode = CullFaceMode;
+		glCullFace(CullFaceMode);
+	}
+}
+
+void BindTexture(opengl_state* State, GLenum TextureTarget, u32 TextureID)
+{
+	switch(TextureTarget)
+	{
+		case GL_TEXTURE_CUBE_MAP:
+			{
+				if(State->TextureCubeMapID != TextureID)
+				{
+					State->TextureCubeMapID = TextureID;
+					glBindTexture(TextureTarget, State->TextureCubeMapID);
+				}
+			} break;
+		case GL_TEXTURE_2D:
+			{
+				if(State->Texture2ID != TextureID)
+				{
+					State->Texture2ID = TextureID;
+					glBindTexture(TextureTarget, State->Texture2ID);
+				}
+			} break;
+		InvalidDefaultCase;
+	}
+}
+
+void DepthMask(opengl_state* State, bool DepthMaskMode)
+{
+	if(State->DepthMaskMode != DepthMaskMode)
+	{
+		State->DepthMaskMode = DepthMaskMode;
+		if(DepthMaskMode)
+		{
+			glDepthMask(GL_TRUE);
+		}
+		else
+		{
+			glDepthMask(GL_FALSE);
+		}
+	}
+}
+
+void BindVertexArray(opengl_state* State, u32 VertexArrayID)
+{
+	if(State->VertexArrayID != VertexArrayID)
+	{
+		State->VertexArrayID = VertexArrayID;
+		glBindVertexArray(State->VertexArrayID);
+	}
+}
+
+void ActiveTexture(opengl_state* State, GLenum Texture)
+{
+	if(State->ActiveTexture != Texture)
+	{
+		State->ActiveTexture = Texture;
+		glActiveTexture(State->ActiveTexture);
+	}
+}
+
+void Enable(opengl_state* State, GLenum Cap)
+{
+	switch(Cap)
+	{
+		case GL_DEPTH_TEST:
+			{
+				if(!State->DepthTestEnabled)
+				{
+					State->DepthTestEnabled = true;
+					glEnable(Cap);
+				}
+			} break;
+		case GL_CULL_FACE:
+			{
+				if(!State->CullFaceEnabled)
+				{
+					State->CullFaceEnabled = true;
+					glEnable(Cap);
+				}
+			} break;
+		InvalidDefaultCase;
+	}
+}
+
+void Disable(opengl_state* State, GLenum Cap)
+{
+	switch(Cap)
+	{
+		case GL_DEPTH_TEST:
+			{
+				if(State->DepthTestEnabled)
+				{
+					State->DepthTestEnabled = false;
+					glDisable(Cap);
+				}
+			} break;
+		case GL_CULL_FACE:
+			{
+				if(State->CullFaceEnabled)
+				{
+					State->CullFaceEnabled = false;
+					glDisable(Cap);
+				}
+			} break;
+		InvalidDefaultCase;
+	}
+}
+
+void ReadBuffer(opengl_state* State, GLenum Mode)
+{
+	if(State->ColorAttachmentRead != Mode)
+	{
+		State->ColorAttachmentRead = Mode;
+		glReadBuffer(State->ColorAttachmentRead);
+	}
+}
+
+void BindBuffer(opengl_state* State, GLenum Target, u32 BufferID)
+{
+	switch(Target)
+	{
+		case GL_ARRAY_BUFFER:
+			{
+				if(State->ArrayBufferID != BufferID)
+				{
+					State->ArrayBufferID = BufferID;
+					glBindBuffer(Target, State->ArrayBufferID);
+				}
+			} break;
+	}
+}
+
+void DepthFunc(opengl_state* State, GLenum Func)
+{
+	if(State->DepthFunc != Func)
+	{
+		State->DepthFunc = Func;
+		glDepthFunc(State->DepthFunc);
+	}
+}
+
+inline void UseShader(opengl_state* State, shader Shader)
+{
+	if(State->ShaderID != Shader.Program)
+	{
+		State->ShaderID = Shader.Program;
+		glUseProgram(State->ShaderID);
+	}
 }
 
 GLuint GetUniformLocation(shader Shader, const char* VariableName)

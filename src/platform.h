@@ -2,11 +2,6 @@
 
 #include "rivten.h"
 
-struct thread_context
-{
-    int Placeholder;
-};
-
 struct game_sound_output_buffer
 {
     u32 SamplesPerSecond;

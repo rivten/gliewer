@@ -119,7 +119,3 @@ shader LoadShader(const char* VertexPath, const char* GeometryPath, const char* 
 	return(Result);
 }
 
-inline void UseShader(shader Shader)
-{
-    glUseProgram(Shader.Program);
-}

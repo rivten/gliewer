@@ -185,6 +185,7 @@ u32 GetIndexOfVertexInMesh(vertex V, mesh* Mesh, vertex_hash** VertexHash, u32 H
 	return(Found->VertexIndex);
 }
 
+// TODO(hugo) : Make this go through the open_gl state framework ?
 void GenerateDataBuffer(mesh* Mesh)
 {
 	glGenVertexArrays(1, &Mesh->VAO);

@@ -530,6 +530,22 @@ void v4::operator/=(float Lambda)
     *this = (*this) / Lambda;
 }
 
+bool operator==(v4 A, v4 B)
+{
+	return((A.x == B.x) &&
+			(A.y == A.y) &&
+			(A.z == B.z) &&
+			(A.w == B.w));
+}
+
+bool operator!=(v4 A, v4 B)
+{
+	return((A.x != B.x) ||
+			(A.y != A.y) ||
+			(A.z != B.z) ||
+			(A.w != B.w));
+}
+
 float Dot(v4 A, v4 B)
 {
     return(A.x * B.x + A.y * B.y + A.z * B.z + A.w * B.w);
