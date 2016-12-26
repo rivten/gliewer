@@ -319,7 +319,15 @@ int main(int argc, char** argv)
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 #endif
 
-	SDL_GL_SetSwapInterval(0);
+	{
+		s32 VSyncResult = SDL_GL_SetSwapInterval(1);
+		if(VSyncResult == -1)
+		{
+			VSyncResult = SDL_GL_SetSwapInterval(0);
+			Assert(VSyncResult == 0);
+			SDL_Log("VSync was not enabled.");
+		}
+	}
 
     SDL_Window* Window = SDL_CreateWindow("3d viewer @ rivten", 
 			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
