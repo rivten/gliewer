@@ -77,8 +77,6 @@ mat4 GetCameraPerspective(camera Camera)
 // TODO(hugo) : A lot of render call recompute the LookAt matrix. Factorize this to compute it only once
 void RenderSkybox(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix)
 {
-	// TODO(hugo) : From learnopengl.com, there is an optim 
-	// using the stencil to compute less.
 	DepthMask(State->GLState, false);
 	UseShader(State->GLState, State->SkyboxShader);
 
@@ -203,11 +201,11 @@ void RenderShadowSceneOnFramebuffer(game_state* State,
 	ClearColorAndDepth(State->GLState, ClearColor);
 	Enable(State->GLState, GL_DEPTH_TEST);
 
+	RenderShadowedScene(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix, LightProjectionMatrix);
 	if(SkyboxRender)
 	{
 		RenderSkybox(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix);
 	}
-	RenderShadowedScene(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix, LightProjectionMatrix);
 
 	BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
 
