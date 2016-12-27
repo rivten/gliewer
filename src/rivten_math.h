@@ -415,6 +415,16 @@ v3 Hadamard(v3 A, v3 B)
 	return(Result);
 }
 
+v3 Clamp01(v3 A)
+{
+	v3 Result = {};
+	Result.x = Clamp01(A.x);
+	Result.y = Clamp01(A.y);
+	Result.z = Clamp01(A.z);
+
+	return(Result);
+}
+
 /* ------------------------------
  *           v4 
  * ------------------------------ */

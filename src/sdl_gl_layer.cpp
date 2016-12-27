@@ -369,6 +369,7 @@ int main(int argc, char** argv)
 		Enable(&GLState, GL_DEPTH_TEST);
 		DepthFunc(&GLState, GL_LEQUAL);
 		DepthMask(&GLState, GL_TRUE);
+		Enable(&GLState, GL_FRAMEBUFFER_SRGB);
 
 #ifdef _WIN32
 		Disable(&GLState, GL_CULL_FACE);

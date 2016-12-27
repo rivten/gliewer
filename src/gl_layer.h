@@ -82,6 +82,7 @@ struct opengl_state
 	bool DepthTestEnabled;
 	bool CullFaceEnabled;
 	bool MultisampleEnabled;
+	bool GammaCorrectionOutputEnabled;
 
 	v4 ClearColor;
 
@@ -265,6 +266,15 @@ void Enable(opengl_state* State, GLenum Cap)
 					++DEBUGGLCurrentFrameStateChangeCount;
 				}
 			} break;
+		case GL_FRAMEBUFFER_SRGB:
+			{
+				if(!State->GammaCorrectionOutputEnabled)
+				{
+					State->GammaCorrectionOutputEnabled = true;
+					glEnable(Cap);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
 		InvalidDefaultCase;
 	}
 }
@@ -296,6 +306,15 @@ void Disable(opengl_state* State, GLenum Cap)
 				if(State->MultisampleEnabled)
 				{
 					State->MultisampleEnabled = false;
+					glDisable(Cap);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		case GL_FRAMEBUFFER_SRGB:
+			{
+				if(State->GammaCorrectionOutputEnabled)
+				{
+					State->GammaCorrectionOutputEnabled = false;
 					glDisable(Cap);
 					++DEBUGGLCurrentFrameStateChangeCount;
 				}

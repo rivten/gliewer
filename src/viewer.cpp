@@ -45,7 +45,7 @@ GLuint LoadCubemap(game_state* State, const char** Filenames)
 	for(u32 FaceIndex = 0; FaceIndex < 6; ++FaceIndex)
 	{
 		bitmap Bitmap = LoadBitmap(Filenames[FaceIndex]);
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + FaceIndex, 0, GL_RGB, Bitmap.Width, Bitmap.Height, 0, GL_RGB, GL_UNSIGNED_BYTE, Bitmap.Data);
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + FaceIndex, 0, GL_SRGB, Bitmap.Width, Bitmap.Height, 0, GL_RGB, GL_UNSIGNED_BYTE, Bitmap.Data);
 		FreeBitmap(&Bitmap);
 	}
 
@@ -551,20 +551,23 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 			}
 
 			v4 DirectIlluminationColor = ColorU32ToV4(ScreenBuffer[GlobalWindowWidth * Y + X]);
-			// TODO(hugo) : In which space to properly add colors ?
 			v3 RealColorBleeding = ColorBleeding.rgb + DirectIlluminationColor.rgb;
+#if 0
 			if((RealColorBleeding.r > 1.0f) ||
 					(RealColorBleeding.g > 1.0f) ||
 					(RealColorBleeding.b > 1.0f))
 			{
 				RealColorBleeding = NormalizedLInf(RealColorBleeding);
 			}
+#else
+			RealColorBleeding = Clamp01(RealColorBleeding);
+#endif
 
 			u32 ColorBleedingPixel = ColorV4ToU32(ToV4(RealColorBleeding));
 			//State->IndirectIlluminationBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
 			ScreenBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
 #endif
-			if(X == 0 && (Y % 5 == 0))
+			if(X == 0 && (Y % 1 == 0))
 			{
 				image_texture_loading_params Params = DefaultImageTextureLoadingParams(GlobalWindowWidth, GlobalWindowHeight, ScreenBuffer);
 				LoadImageToTexture(State->GLState, &State->IndirectIlluminationTexture, Params);
@@ -680,8 +683,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		State->CookTorranceM = 0.5f;
 		State->Alpha = 0.5f;
 		State->Sigma = 0.0f;
-		State->LightIntensity = 4.5f;
-		//State->LightIntensity = 2.0f;
+		State->LightIntensity = 1.5f;
 
 		State->MicroFoVInDegrees = 90;
 
