@@ -5,11 +5,13 @@
 static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
-static u32 GlobalMicrobufferWidth = 16;
-static u32 GlobalMicrobufferHeight = 16;
+static u32 GlobalMicrobufferWidth = 128;
+static u32 GlobalMicrobufferHeight = 128;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 struct bitmap
 {
@@ -580,6 +582,27 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 			}
 #endif
 		}
+	}
+
+	// NOTE(hugo) : Saving the computed image to disk.
+	{
+		// NOTE(hugo) : Post-process of screenshot image
+		u32* ScreenshotBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
+		for(u32 Y = 0; Y < GlobalWindowHeight; ++Y)
+		{
+			for(u32 X = 0; X < GlobalWindowWidth; ++X)
+			{
+				v4 UncorrectedColor = ColorU32ToV4(ScreenBuffer[GlobalWindowWidth * (GlobalWindowHeight - Y - 1) + X]);
+				UncorrectedColor = SquareRoot4(UncorrectedColor);
+				ScreenshotBuffer[GlobalWindowWidth * Y + X] = ColorV4ToU32(UncorrectedColor);
+			}
+		}
+
+		u32 Stride = sizeof(u32) * GlobalWindowWidth;
+		stbi_write_png("indirect_illumination.png",
+				GlobalWindowWidth, GlobalWindowHeight,
+				4, ScreenshotBuffer, Stride);
+		Free(ScreenshotBuffer);
 	}
 
 	Free(Pixels);

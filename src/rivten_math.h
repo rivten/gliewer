@@ -605,6 +605,17 @@ v4 Clamp01(v4 A)
 	return(Result);
 }
 
+v4 SquareRoot4(v4 A)
+{
+	v4 Result = {};
+	Result.x = SquareRoot(A.x);
+	Result.y = SquareRoot(A.y);
+	Result.z = SquareRoot(A.z);
+	Result.w = SquareRoot(A.w);
+
+	return(Result);
+}
+
 /* ------------------------------
  *           mat2 
  * ------------------------------ */
