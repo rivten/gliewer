@@ -159,3 +159,44 @@ char* ReadFileContent(const char* Filename)
 	return(Content);
 }
 
+u32 StringLength(char* Str)
+{
+	char* C = Str;
+	u32 Length = 0;
+	while((*C) != '\0')
+	{
+		++Length;
+		++C;
+	}
+	return(Length);
+}
+
+bool IsEmptyString(char* Str)
+{
+	bool Result = (StringLength(Str) == 0);
+	return(Result);
+}
+
+bool AreStringIdentical(char* A, char* B)
+{
+	bool Identical = true;
+	if(StringLength(A) != StringLength(B))
+	{
+		Identical = false;
+	}
+	else
+	{
+		char* CharA = A;
+		char* CharB = B;
+		while(Identical && ((*CharA) != '\0'))
+		{
+			if(*CharA != *CharB)
+			{
+				Identical = false;
+			}
+			++CharA;
+			++CharB;
+		}
+	}
+	return(Identical);
+}
