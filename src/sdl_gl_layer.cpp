@@ -319,16 +319,6 @@ int main(int argc, char** argv)
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 #endif
 
-	{
-		s32 VSyncResult = SDL_GL_SetSwapInterval(1);
-		if(VSyncResult == -1)
-		{
-			VSyncResult = SDL_GL_SetSwapInterval(0);
-			Assert(VSyncResult == 0);
-			SDL_Log("VSync was not enabled.");
-		}
-	}
-
     SDL_Window* Window = SDL_CreateWindow("3d viewer @ rivten", 
 			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
 			GlobalWindowWidth, GlobalWindowHeight, 
@@ -349,6 +339,20 @@ int main(int argc, char** argv)
 
 	SDL_GLContext GLContext = SDL_GL_CreateContext(Window);
 	Assert(GLContext != 0);
+
+	{
+		s32 VSyncResult = SDL_GL_SetSwapInterval(1);
+		if(VSyncResult == -1)
+		{
+			VSyncResult = SDL_GL_SetSwapInterval(0);
+			Assert(VSyncResult == 0);
+			SDL_Log("VSync was not enabled.");
+		}
+		else
+		{
+			SDL_Log("VSync is enabled.");
+		}
+	}
 
     // NOTE(hugo) : Initializating glew
     glewExperimental = GL_TRUE;
