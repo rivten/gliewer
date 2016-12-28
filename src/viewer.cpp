@@ -94,7 +94,11 @@ void RenderSkybox(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp,
 }
 
 // NOTE(hugo) : In order for this function to work, the light depth buffers must have been previously computed
-void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix, mat4 LightProjectionMatrix)
+void RenderShadowedScene(game_state* State, 
+		v3 CameraPos, v3 CameraTarget, v3 CameraUp, 
+		mat4 ProjectionMatrix, 
+		mat4 LightProjectionMatrix, 
+		rect3* FrustumBoundingBox = 0)
 {
 	mat4 LightSpaceMatrix[4];
 
@@ -158,8 +162,17 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 
 	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
 	{
-		SetUniform(State->ShadowMappingShader, State->Objects[ObjectIndex].Albedo, "ObjectColor");
-		DrawTriangleObject(State->GLState, &State->Objects[ObjectIndex]);
+		object* Object = State->Objects + ObjectIndex;
+		bool ShouldDraw = true;
+		if(FrustumBoundingBox)
+		{
+			ShouldDraw = Intersect3(*FrustumBoundingBox, Object->BoundingBox);
+		}
+		if(ShouldDraw)
+		{
+			SetUniform(State->ShadowMappingShader, Object->Albedo, "ObjectColor");
+			DrawTriangleObject(State->GLState, Object);
+		}
 	}
 	ActiveTexture(State->GLState, GL_TEXTURE0);
 
@@ -196,13 +209,18 @@ void RenderShadowSceneOnFramebuffer(game_state* State,
 		mat4 ProjectionMatrix, mat4 LightProjectionMatrix, 
 		gl_geometry_framebuffer Framebuffer, 
 		v4 ClearColor = V4(0.0f, 0.0f, 0.0f, 1.0f),
-		bool SkyboxRender = true)
+		bool SkyboxRender = true,
+		rect3* FrustumBoundingBox = 0)
 {
 	BindFramebuffer(State->GLState, GL_FRAMEBUFFER, Framebuffer.FBO);
 	ClearColorAndDepth(State->GLState, ClearColor);
 	Enable(State->GLState, GL_DEPTH_TEST);
 
-	RenderShadowedScene(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix, LightProjectionMatrix);
+	RenderShadowedScene(State, 
+			CameraPos, CameraTarget, CameraUp, 
+			ProjectionMatrix, 
+			LightProjectionMatrix, 
+			FrustumBoundingBox);
 	if(SkyboxRender)
 	{
 		RenderSkybox(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix);
@@ -234,12 +252,15 @@ void RenderTextureOnQuadScreen(game_state* State, texture Texture)
 void RenderShadowSceneOnQuad(game_state* State, 
 		v3 CameraPos, v3 CameraTarget, v3 CameraUp, 
 		mat4 ProjectionMatrix, mat4 LightProjectionMatrix, 
-		gl_geometry_framebuffer Framebuffer)
+		gl_geometry_framebuffer Framebuffer,
+		rect3* FrustumBoundingBox = 0)
 {
 	RenderShadowSceneOnFramebuffer(State, 
 			CameraPos, CameraTarget, CameraUp, 
 			ProjectionMatrix, LightProjectionMatrix, 
-			Framebuffer, V4(1.0f, 0.0f, 0.5f, 1.0f));
+			Framebuffer, V4(1.0f, 0.0f, 0.5f, 1.0f), 
+			true,
+			FrustumBoundingBox);
 	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
 }
 
@@ -643,6 +664,26 @@ void LoadShaders(game_state* State)
 	State->SkyboxShader = LoadShader("../src/shaders/skybox_v.glsl", "../src/shaders/skybox_f.glsl");
 }
 
+rect3 GetFrustumBoundingBox(camera Camera)
+{
+	rect3 Result = {};
+	Result.Max.x = Camera.FarPlane * Tan(0.5f * Camera.FoV);
+	Result.Max.y = Camera.Aspect * Result.Max.x;
+	Result.Max.z = -Camera.NearPlane;
+
+	Result.Min.x = -Result.Max.x;
+	Result.Min.y = -Result.Max.y;
+	Result.Min.z = -Camera.FarPlane;
+
+	mat4 InvLookAt = Inverse(LookAt(Camera.Pos, 
+				Camera.Target, 
+				V3(0.0f, 1.0f, 0.0f)));
+	Result.Max = (InvLookAt * ToV4(Result.Max)).xyz;
+	Result.Min = (InvLookAt * ToV4(Result.Min)).xyz;
+
+	return(Result);
+}
+
 void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* OpenGLState)
 {
 	Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
@@ -729,6 +770,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		float Epsilon = 0.2f;
 		State->Camera.NearPlane = (1.0f - Epsilon) * Abs(State->Camera.Pos.z - Box.Max.z);
 		State->Camera.FarPlane = (1.0f + Epsilon) * Abs(State->Camera.Pos.z - Box.Min.z);
+		State->FrustumBoundingBox = GetFrustumBoundingBox(State->Camera);
 
 		State->MouseXInitial = 0;
 		State->MouseYInitial = 0;
@@ -833,6 +875,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		NextCamera.Right = (Rotation(-Sign(Dot(WorldUp, NextCameraUp)) * Radians(DeltaX), V3(0.0f, 1.0f, 0.0f)) * Rotation(-Radians(DeltaY), NextCamera.Right) * ToV4(State->Camera.Right)).xyz;
 		v3 LookingDir = Normalized(State->Camera.Target - NextCamera.Pos);
 		NextCameraUp = Cross(NextCamera.Right, LookingDir);
+
+		State->FrustumBoundingBox = GetFrustumBoundingBox(NextCamera);
 	}
 
 	if(State->MouseDragging && !(Input->MouseButtons[0].EndedDown))
@@ -877,7 +921,12 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 
 	mat4 ProjectionMatrix = GetCameraPerspective(State->Camera);
 
-	RenderShadowSceneOnQuad(State, NextCamera.Pos, NextCamera.Target, NextCameraUp, ProjectionMatrix, LightProjectionMatrix, State->ScreenFramebuffer);
+	RenderShadowSceneOnQuad(State, 
+			NextCamera.Pos, NextCamera.Target, NextCameraUp, 
+			ProjectionMatrix, 
+			LightProjectionMatrix, 
+			State->ScreenFramebuffer,
+			&State->FrustumBoundingBox);
 	// }
 
 	if(ImGui::Button("Compute Indirect Illumination"))

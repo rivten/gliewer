@@ -122,6 +122,21 @@ rect3 BoundingBox(mesh* Mesh)
 	return(Box);
 }
 
+bool Intersect3(rect3 A, rect3 B)
+{
+	// TODO(hugo) : check this
+	bool Result = !(
+			(A.Max.x < B.Min.x) ||
+			(A.Max.y < B.Min.y) ||
+			(A.Max.z < B.Min.z) ||
+			(A.Min.x > B.Max.x) ||
+			(A.Min.y > B.Max.y) ||
+			(A.Min.z > B.Max.z)
+			);
+
+	return(Result);
+}
+
 void PushVertex(mesh* Mesh, vertex V)
 {
 	if(Mesh->VertexCount == Mesh->VertexPoolSize)

@@ -127,6 +127,7 @@ struct game_state
 	u32* IndirectIlluminationBuffer;
 
 	opengl_state* GLState;
+	rect3 FrustumBoundingBox;
 };
 
 #include "viewer.cpp"
