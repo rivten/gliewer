@@ -84,38 +84,43 @@ rect3 MaxBoundingBox(void)
 	return(Result);
 }
 
+void AddPointToBoundingBox(rect3* Box, v3 P)
+{
+	if(P.x > Box->Max.x)
+	{
+		Box->Max.x = P.x;
+	}
+	if(P.x < Box->Min.x)
+	{
+		Box->Min.x = P.x;
+	}
+
+	if(P.y > Box->Max.y)
+	{
+		Box->Max.y = P.y;
+	}
+	if(P.y < Box->Min.y)
+	{
+		Box->Min.y = P.y;
+	}
+
+	if(P.z > Box->Max.z)
+	{
+		Box->Max.z = P.z;
+	}
+	if(P.z < Box->Min.z)
+	{
+		Box->Min.z = P.z;
+	}
+}
+
 rect3 BoundingBox(mesh* Mesh)
 {
 	rect3 Box = MaxBoundingBox();
 	for(u32 VertexIndex = 0; VertexIndex < Mesh->VertexCount; ++VertexIndex)
 	{
 		v3 Pos = Mesh->Vertices[VertexIndex].P;
-		if(Pos.x > Box.Max.x)
-		{
-			Box.Max.x = Pos.x;
-		}
-		if(Pos.x < Box.Min.x)
-		{
-			Box.Min.x = Pos.x;
-		}
-
-		if(Pos.y > Box.Max.y)
-		{
-			Box.Max.y = Pos.y;
-		}
-		if(Pos.y < Box.Min.y)
-		{
-			Box.Min.y = Pos.y;
-		}
-
-		if(Pos.z > Box.Max.z)
-		{
-			Box.Max.z = Pos.z;
-		}
-		if(Pos.z < Box.Min.z)
-		{
-			Box.Min.z = Pos.z;
-		}
+		AddPointToBoundingBox(&Box, Pos);
 	}
 
 	Assert(IsRect3Valid(Box));

@@ -674,19 +674,47 @@ void LoadShaders(game_state* State)
 rect3 GetFrustumBoundingBox(camera Camera)
 {
 	rect3 Result = {};
-	Result.Max.x = Camera.FarPlane * Tan(0.5f * Camera.FoV);
-	Result.Max.y = Camera.Aspect * Result.Max.x;
-	Result.Max.z = -Camera.NearPlane;
+	v3 P[8];
 
-	Result.Min.x = -Result.Max.x;
-	Result.Min.y = -Result.Max.y;
-	Result.Min.z = -Camera.FarPlane;
+	P[0] = {};
+	P[0].x = Camera.FarPlane * Tan(0.5f * Camera.FoV);
+	P[0].y = Camera.Aspect * P[0].x;
+	P[0].z = -Camera.FarPlane;
 
+	P[1] = P[0];
+	P[1].x = -P[1].x;
+
+	P[2] = P[0];
+	P[2].y = -P[2].y;
+
+	P[3] = P[0];
+	P[3].x = -P[3].x;
+	P[3].y = -P[3].y;
+
+	P[4] = {};
+	P[4].x = Camera.NearPlane * Tan(0.5f * Camera.FoV);
+	P[4].y = Camera.Aspect * P[4].x;
+	P[4].z = -Camera.NearPlane;
+
+	P[5] = P[4];
+	P[5].x = -P[5].x;
+
+	P[6] = P[4];
+	P[6].y = -P[6].y;
+
+	P[7] = P[4];
+	P[7].x = -P[7].x;
+	P[7].y = -P[7].y;
+
+	v3 CameraUp = Cross(Camera.Right, Normalized(Camera.Target - Camera.Pos));
 	mat4 InvLookAt = Inverse(LookAt(Camera.Pos, 
 				Camera.Target, 
-				V3(0.0f, 1.0f, 0.0f)));
-	Result.Max = (InvLookAt * ToV4(Result.Max)).xyz;
-	Result.Min = (InvLookAt * ToV4(Result.Min)).xyz;
+				CameraUp));
+
+	for(u32 PointIndex = 0; PointIndex < ArrayCount(P); ++PointIndex)
+	{
+		AddPointToBoundingBox(&Result, (InvLookAt * ToV4(P[PointIndex])).xyz);
+	}
 
 	return(Result);
 }
