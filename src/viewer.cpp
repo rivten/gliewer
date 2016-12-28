@@ -156,23 +156,23 @@ void RenderShadowedScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Ca
 	SetUniform(State->ShadowMappingShader, State->CookTorranceM, "CTM");
 
 
-	for(u32 MeshIndex = 0; MeshIndex < State->MeshCount; ++MeshIndex)
+	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
 	{
-		SetUniform(State->ShadowMappingShader, State->Meshes[MeshIndex].Color, "ObjectColor");
-		DrawTriangleMesh(State->GLState, &State->Meshes[MeshIndex]);
+		SetUniform(State->ShadowMappingShader, State->Objects[ObjectIndex].Albedo, "ObjectColor");
+		DrawTriangleObject(State->GLState, &State->Objects[ObjectIndex]);
 	}
 	ActiveTexture(State->GLState, GL_TEXTURE0);
 
 	// NOTE(hugo) : Drawing Light Mesh
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
-		if(State->Lights[LightIndex].Mesh)
+		if(State->Lights[LightIndex].Object)
 		{
 			mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Lights[LightIndex]);
 			UseShader(State->GLState, State->BasicShader);
 			SetUniform(State->BasicShader, MVPLightMatrix, "MVPMatrix");
 			SetUniform(State->BasicShader, State->Lights[LightIndex].Color, "ObjectColor");
-			DrawTriangleMesh(State->GLState, State->Lights[LightIndex].Mesh);
+			DrawTriangleObject(State->GLState, State->Lights[LightIndex].Object);
 		}
 	}
 }
@@ -185,11 +185,10 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 	UseShader(State->GLState, State->BasicShader);
 	SetUniform(State->BasicShader, MVPObjectMatrix, "MVPMatrix");
 	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
-	for(u32 MeshIndex = 0; MeshIndex < State->MeshCount; ++MeshIndex)
+	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
 	{
-		DrawTriangleMesh(State->GLState, &State->Meshes[MeshIndex]);
+		DrawTriangleObject(State->GLState, &State->Objects[ObjectIndex]);
 	}
-
 }
 
 void RenderShadowSceneOnFramebuffer(game_state* State, 
@@ -620,12 +619,12 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 #endif
 }
 
-void PushMesh(game_state* State, mesh* Mesh)
+void PushObject(game_state* State, object* Object)
 {
-	Assert(State->MeshCount < ArrayCount(State->Meshes));
+	Assert(State->ObjectCount < ArrayCount(State->Objects));
 
-	State->Meshes[State->MeshCount] = *Mesh;
-	State->MeshCount++;
+	State->Objects[State->ObjectCount] = *Object;
+	State->ObjectCount++;
 }
 
 void PushLight(game_state* State, light Light)
@@ -652,16 +651,16 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 	{
 		State->GLState = OpenGLState;
 		{
-			std::vector<mesh> Meshes = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
-			for(u32 MeshIndex = 0; MeshIndex < Meshes.size(); ++MeshIndex)
+			std::vector<object> Objects = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
+			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
 			{
-				PushMesh(State, &Meshes[MeshIndex]);
+				PushObject(State, &Objects[ObjectIndex]);
 			}
 		}
 		State->ObjectModelMatrix = Identity4();
 		LoadShaders(State);
 
-		light Light = {&State->CubeMesh, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(State->GLState, GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light);
 		

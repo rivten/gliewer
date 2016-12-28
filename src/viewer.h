@@ -67,8 +67,8 @@ struct projection_parameters
 
 struct light
 {
-	// NOTE(hugo) : If Mesh = NULL, then the light must not be rendered
-	mesh* Mesh;
+	// NOTE(hugo) : If Object = NULL, then the light must not be rendered
+	object* Object;
 	v3 Pos;
 	v4 Color;
 	v3 Target;
@@ -78,11 +78,9 @@ struct light
 
 struct game_state
 {
-	mesh Meshes[10];
-	u32 MeshCount;
+	object Objects[10];
+	u32 ObjectCount;
 	mat4 ObjectModelMatrix;
-
-	mesh CubeMesh;
 
 	light Lights[4];
 	u32 LightCount;

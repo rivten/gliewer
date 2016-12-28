@@ -16,8 +16,7 @@
  */
 struct vertex
 {
-	// NOTE(hugo): float or GLfloat or v3/4 ?
-	v3 Position;
+	v3 P;
 	v3 Normal;
 	v2 Texture;
 };
@@ -38,12 +37,6 @@ struct triangle
 
 struct mesh
 {
-    // NOTE(hugo) : OpenGL Buffers
-	GLuint VAO;
-	GLuint VBO;
-	GLuint EBO;
-
-    // NOTE(hugo) : Mesh Data
 	vertex* Vertices;
 	u32 VertexCount;
 	u32 VertexPoolSize;
@@ -51,9 +44,18 @@ struct mesh
 	triangle* Triangles;
 	u32 TriangleCount;
 	u32 TrianglePoolSize;
+};
 
-	v4 Color;
-	std::string Name;
+struct object
+{
+	u32 VertexArrayID;
+	u32 VertexBufferID;
+	u32 ElementBufferID;
+
+	v4 Albedo;
+	char Name[100];
+
+	mesh Mesh;
 };
 
 void PushVertex(mesh* Mesh, vertex V)
@@ -86,9 +88,9 @@ void ComputeNormal(mesh* Mesh)
 	for (u32 TriangleIndex = 0; TriangleIndex < Mesh->TriangleCount; ++TriangleIndex)
 	{
 		triangle t = Mesh->Triangles[TriangleIndex];
-		v3 v0 = Mesh->Vertices[t.VertexIndices[0]].Position;
-		v3 v1 = Mesh->Vertices[t.VertexIndices[1]].Position;
-		v3 v2 = Mesh->Vertices[t.VertexIndices[2]].Position;
+		v3 v0 = Mesh->Vertices[t.VertexIndices[0]].P;
+		v3 v1 = Mesh->Vertices[t.VertexIndices[1]].P;
+		v3 v2 = Mesh->Vertices[t.VertexIndices[2]].P;
 
 		v3 CrossProduct = Cross(v2 - v1, v0 - v1);
 		v3 N = V3(0.0f, 0.0f, 0.0f);
@@ -113,31 +115,31 @@ void ComputeNormal(mesh* Mesh)
 	}
 }
 
-void DrawTriangleMesh(opengl_state* State, mesh* Mesh)
+void DrawTriangleObject(opengl_state* State, object* Object)
 {
-	BindVertexArray(State, Mesh->VAO);
-	glDrawElements(GL_TRIANGLES, (GLsizei)(3 * Mesh->TriangleCount), GL_UNSIGNED_INT, 0);
+	BindVertexArray(State, Object->VertexArrayID);
+	glDrawElements(GL_TRIANGLES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0);
 	BindVertexArray(State, 0);
 }
 
-void DrawWiredTriangleMesh(opengl_state* State, mesh* Mesh)
+void DrawWiredTriangleObject(opengl_state* State, object* Object)
 {
-	BindVertexArray(State, Mesh->VAO);
-	glDrawElements(GL_LINES, (GLsizei)(3 * Mesh->TriangleCount), GL_UNSIGNED_INT, 0);
+	BindVertexArray(State, Object->VertexArrayID);
+	glDrawElements(GL_LINES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0);
 	BindVertexArray(State, 0);
 }
 
-void DrawTriangleMeshInstances(opengl_state* State, mesh* Mesh, u32 InstanceCount)
+void DrawTriangleObjectInstances(opengl_state* State, object* Object, u32 InstanceCount)
 {
-	BindVertexArray(State, Mesh->VAO);
-	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(3 * Mesh->TriangleCount), GL_UNSIGNED_INT, 0, InstanceCount);
+	BindVertexArray(State, Object->VertexArrayID);
+	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0, InstanceCount);
 	BindVertexArray(State, 0);
 }
 
-void DrawWiredTriangleMeshInstances(opengl_state* State, mesh* Mesh, u32 InstanceCount)
+void DrawWiredTriangleObjectInstances(opengl_state* State, object* Object, u32 InstanceCount)
 {
-	BindVertexArray(State, Mesh->VAO);
-	glDrawElementsInstanced(GL_LINES, (GLsizei)(3 * Mesh->TriangleCount), GL_UNSIGNED_INT, 0, InstanceCount);
+	BindVertexArray(State, Object->VertexArrayID);
+	glDrawElementsInstanced(GL_LINES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0, InstanceCount);
 	BindVertexArray(State, 0);
 }
 
@@ -153,15 +155,15 @@ struct vertex_hash
 u32 GetIndexOfVertexInMesh(vertex V, mesh* Mesh, vertex_hash** VertexHash, u32 HashBucketCount)
 {
 	// TODO(hugo) : Better hash functions !
-	u32 Hash = *(u32*)(void*)(&V.Position.x);
+	u32 Hash = *(u32*)(void*)(&V.P.x);
 	u32 HashBucket = Hash & (HashBucketCount - 1);
 	vertex_hash* Found = 0;
 
 	for(vertex_hash* Vertex = VertexHash[HashBucket]; Vertex; Vertex = Vertex->NextInHash)
 	{
-		if((Vertex->V.Position.x == V.Position.x) 
-				&& (Vertex->V.Position.y == V.Position.y) 
-				&& (Vertex->V.Position.z == V.Position.z))
+		if((Vertex->V.P.x == V.P.x) 
+				&& (Vertex->V.P.y == V.P.y) 
+				&& (Vertex->V.P.z == V.P.z))
 		{
 			// TODO(hugo) : This part has not been tested because
 			// I did not try big enough meshes
@@ -186,20 +188,20 @@ u32 GetIndexOfVertexInMesh(vertex V, mesh* Mesh, vertex_hash** VertexHash, u32 H
 }
 
 // TODO(hugo) : Make this go through the open_gl state framework ?
-void GenerateDataBuffer(mesh* Mesh)
+void GenerateDataBuffer(object* Object)
 {
-	glGenVertexArrays(1, &Mesh->VAO);
+	glGenVertexArrays(1, &Object->VertexArrayID);
 
-	glGenBuffers(1, &Mesh->VBO);
+	glGenBuffers(1, &Object->VertexBufferID);
 
-	glGenBuffers(1, &Mesh->EBO);
+	glGenBuffers(1, &Object->ElementBufferID);
 
-	glBindVertexArray(Mesh->VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, Mesh->VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertex) * Mesh->VertexCount, (GLuint*)Mesh->Vertices, GL_STATIC_DRAW);
+	glBindVertexArray(Object->VertexArrayID);
+	glBindBuffer(GL_ARRAY_BUFFER, Object->VertexBufferID);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertex) * Object->Mesh.VertexCount, (GLuint*)Object->Mesh.Vertices, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Mesh->EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(triangle) * Mesh->TriangleCount, (GLuint*)Mesh->Triangles, GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Object->ElementBufferID);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(triangle) * Object->Mesh.TriangleCount, (GLuint*)Object->Mesh.Triangles, GL_STATIC_DRAW);
 	
 	// NOTE(hugo) : Vertex positions
 	glEnableVertexAttribArray(0);
@@ -222,9 +224,9 @@ void GenerateDataBuffer(mesh* Mesh)
 
 #include "tiny_obj_loader.h"
 
-std::vector<mesh> LoadOBJ(const std::string BaseDir, const std::string Filename)
+std::vector<object> LoadOBJ(const std::string BaseDir, const std::string Filename)
 {
-	std::vector<mesh> Result;
+	std::vector<object> Result;
 	tinyobj::attrib_t Attributes;
 	std::vector<tinyobj::shape_t> Shapes;
 	std::vector<tinyobj::material_t> Materials;
@@ -234,28 +236,28 @@ std::vector<mesh> LoadOBJ(const std::string BaseDir, const std::string Filename)
 
 	for(u32 ShapeIndex = 0; ShapeIndex < Shapes.size(); ++ShapeIndex)
 	{
-		mesh Mesh = {};
-		Mesh.VertexCount = 0;
-		Mesh.VertexPoolSize = 1;
-		Mesh.Vertices = AllocateArray(vertex, Mesh.VertexPoolSize);
-		Mesh.TriangleCount = 0;
-		Mesh.TrianglePoolSize = 1;
-		Mesh.Triangles = AllocateArray(triangle, Mesh.TrianglePoolSize);
-		Mesh.Name = Shapes[ShapeIndex].name;
-		Mesh.Color = V4(1.0f, 1.0f, 1.0f, 1.0f);
+		object Object = {};
+		Object.Mesh.VertexCount = 0;
+		Object.Mesh.VertexPoolSize = 1;
+		Object.Mesh.Vertices = AllocateArray(vertex, Object.Mesh.VertexPoolSize);
+		Object.Mesh.TriangleCount = 0;
+		Object.Mesh.TrianglePoolSize = 1;
+		Object.Mesh.Triangles = AllocateArray(triangle, Object.Mesh.TrianglePoolSize);
+		CopyArray(Object.Name, Shapes[ShapeIndex].name.c_str(), char, StringLength((char*)(Shapes[ShapeIndex].name.c_str())) + 1);
+		Object.Albedo = V4(1.0f, 1.0f, 1.0f, 1.0f);
 		for(u32 MaterialIndex = 0; MaterialIndex < Materials.size(); ++MaterialIndex)
 		{
-			if(!Mesh.Name.empty() && Materials[MaterialIndex].name == Mesh.Name)
+			if(!IsEmptyString(Object.Name) && AreStringIdentical((char*)Materials[MaterialIndex].name.c_str(), Object.Name))
 			{
 				tinyobj::material_t MeshMaterial = Materials[MaterialIndex];
-				Mesh.Color = V4(MeshMaterial.ambient[0], MeshMaterial.ambient[1], MeshMaterial.ambient[2], 1.0f);
+				Object.Albedo = V4(MeshMaterial.ambient[0], MeshMaterial.ambient[1], MeshMaterial.ambient[2], 1.0f);
 				break;
 			}
-			else if(Materials[MaterialIndex].name == Mesh.Name && Mesh.Name == "light")
+			else if(AreStringIdentical((char*)Materials[MaterialIndex].name.c_str(), Object.Name) && AreStringIdentical(Object.Name, "light"))
 			{
 				// TODO(hugo) : Handle lights as meshes
 				tinyobj::material_t MeshMaterial = Materials[MaterialIndex];
-				Mesh.Color = V4(MeshMaterial.emission[0], MeshMaterial.emission[1], MeshMaterial.emission[2], 1.0f);
+				Object.Albedo = V4(MeshMaterial.emission[0], MeshMaterial.emission[1], MeshMaterial.emission[2], 1.0f);
 				break;
 			}
 		}
@@ -274,7 +276,7 @@ std::vector<mesh> LoadOBJ(const std::string BaseDir, const std::string Filename)
 				u32 VertexIndex = Shapes[ShapeIndex].mesh.indices[3 * TriangleIndex + i].vertex_index;
 				if(VertexIndex != -1)
 				{
-					V.Position = V3(Attributes.vertices[3 * VertexIndex + 0],
+					V.P = V3(Attributes.vertices[3 * VertexIndex + 0],
 							Attributes.vertices[3 * VertexIndex + 1],
 							Attributes.vertices[3 * VertexIndex + 2]);
 				}
@@ -298,10 +300,10 @@ std::vector<mesh> LoadOBJ(const std::string BaseDir, const std::string Filename)
 							Attributes.texcoords[2 * TextureIndex + 1]);
 				}
 
-				u32 VertexIndexInMesh = GetIndexOfVertexInMesh(V, &Mesh, VertexHash, ArrayCount(VertexHash));
+				u32 VertexIndexInMesh = GetIndexOfVertexInMesh(V, &Object.Mesh, VertexHash, ArrayCount(VertexHash));
 				Triangle.VertexIndices[i] = VertexIndexInMesh;
 			}
-			PushTriangle(&Mesh, Triangle);
+			PushTriangle(&Object.Mesh, Triangle);
 		}
 
 		// TODO(hugo) : Freeing vertex hash. Am I sure there is not a memory leak ??
@@ -318,11 +320,11 @@ std::vector<mesh> LoadOBJ(const std::string BaseDir, const std::string Filename)
 
 		if(!NormalsComputed)
 		{
-			ComputeNormal(&Mesh);
+			ComputeNormal(&Object.Mesh);
 		}
 
-		GenerateDataBuffer(&Mesh);
-		Result.push_back(Mesh);
+		GenerateDataBuffer(&Object);
+		Result.push_back(Object);
 	}
 
 
