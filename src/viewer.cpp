@@ -988,6 +988,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		ImGui::SliderFloat("FoV", &State->Camera.FoV, 0.0f, 3.1415f);
 		ImGui::SliderFloat("NearPlane", &State->Camera.NearPlane, 0.0f, 100.0f);
 		ImGui::SliderFloat("FarPlane", &State->Camera.FarPlane, State->Camera.NearPlane, 200.0f);
+
+		ImGui::Text("Frustum Bounding Box Min: (%f, %f, %f)", State->FrustumBoundingBox.Min.x, State->FrustumBoundingBox.Min.y, State->FrustumBoundingBox.Min.z);
+		ImGui::Text("Frustum Bounding Box Max: (%f, %f, %f)", State->FrustumBoundingBox.Max.x, State->FrustumBoundingBox.Max.y, State->FrustumBoundingBox.Max.z);
 	}
 
 	if(ImGui::CollapsingHeader("Objects Data"))
@@ -1014,8 +1017,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 				ImGui::ColorEdit3("Albedo", Object->Albedo.E);
 				ImGui::Text("Vertex Count: %d", Object->Mesh.VertexCount);
 				ImGui::Text("Triangle Count: %d", Object->Mesh.TriangleCount);
-				ImGui::Text("Bounding Box Min: (%f, %f, %f)", Object->BoundingBox.Min.x, Object->BoundingBox.Min.y, Object->BoundingBox.Min.y);
-				ImGui::Text("Bounding Box Max: (%f, %f, %f)", Object->BoundingBox.Max.x, Object->BoundingBox.Max.y, Object->BoundingBox.Max.y);
+				ImGui::Text("Bounding Box Min: (%f, %f, %f)", Object->BoundingBox.Min.x, Object->BoundingBox.Min.y, Object->BoundingBox.Min.z);
+				ImGui::Text("Bounding Box Max: (%f, %f, %f)", Object->BoundingBox.Max.x, Object->BoundingBox.Max.y, Object->BoundingBox.Max.z);
 				ImGui::TreePop();
 			}
 		}
