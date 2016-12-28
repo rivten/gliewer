@@ -13,6 +13,67 @@ static u32 GlobalMicrobufferHeight = 128;
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+struct rect3
+{
+	v3 Min;
+	v3 Max;
+};
+
+bool IsRect3Valid(rect3 Rect)
+{
+	bool Result = ((Rect.Min.x <= Rect.Max.x) 
+			&& (Rect.Min.y <= Rect.Max.y) 
+			&& (Rect.Min.z <= Rect.Max.z));
+
+	return(Result);
+}
+
+rect3 MaxBoundingBox(void)
+{
+	rect3 Result;
+	Result.Min = {MAX_REAL, MAX_REAL, MAX_REAL};
+	Result.Max = {MIN_REAL, MIN_REAL, MIN_REAL};
+	return(Result);
+}
+
+rect3 BoundingBox(mesh* Mesh)
+{
+	rect3 Box = MaxBoundingBox();
+	for(u32 VertexIndex = 0; VertexIndex < Mesh->VertexCount; ++VertexIndex)
+	{
+		v3 Pos = Mesh->Vertices[VertexIndex].P;
+		if(Pos.x > Box.Max.x)
+		{
+			Box.Max.x = Pos.x;
+		}
+		if(Pos.x < Box.Min.x)
+		{
+			Box.Min.x = Pos.x;
+		}
+
+		if(Pos.y > Box.Max.y)
+		{
+			Box.Max.y = Pos.y;
+		}
+		if(Pos.y < Box.Min.y)
+		{
+			Box.Min.y = Pos.y;
+		}
+
+		if(Pos.z > Box.Max.z)
+		{
+			Box.Max.z = Pos.z;
+		}
+		if(Pos.z < Box.Min.z)
+		{
+			Box.Min.z = Pos.z;
+		}
+	}
+
+	Assert(IsRect3Valid(Box));
+	return(Box);
+}
+
 struct bitmap
 {
 	s32 Width;
@@ -650,14 +711,45 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 	if(!Memory->IsInitialized)
 	{
 		State->GLState = OpenGLState;
+		rect3 Box = MaxBoundingBox();
 		{
 			std::vector<object> Objects = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
 			//std::vector<object> Objects = LoadOBJ("../models/house/", "house.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
 			{
 				PushObject(State, &Objects[ObjectIndex]);
+
+				// NOTE(hugo) : Computing bounding box
+				rect3 ObjectBox = BoundingBox(&State->Objects[ObjectIndex].Mesh);
+				if(ObjectBox.Max.x > Box.Max.x)
+				{
+					Box.Max.x = ObjectBox.Max.x;
+				}
+				if(ObjectBox.Min.x < Box.Min.x)
+				{
+					Box.Min.x = ObjectBox.Min.x;
+				}
+
+				if(ObjectBox.Max.y > Box.Max.y)
+				{
+					Box.Max.y = ObjectBox.Max.y;
+				}
+				if(ObjectBox.Min.y < Box.Min.y)
+				{
+					Box.Min.y = ObjectBox.Min.y;
+				}
+
+				if(ObjectBox.Max.z > Box.Max.z)
+				{
+					Box.Max.z = ObjectBox.Max.z;
+				}
+				if(ObjectBox.Min.z < Box.Min.z)
+				{
+					Box.Min.z = ObjectBox.Min.z;
+				}
 			}
 		}
+
 		State->ObjectModelMatrix = Identity4();
 		LoadShaders(State);
 
@@ -687,15 +779,16 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		State->Time = 0.0f;
 
 		State->Camera = {};
-		State->Camera.Pos = V3(0.0f, 0.0f, 5.0f);
-		State->Camera.Target = V3(0.0f, 1.0f, 0.0f);
+		State->Camera.Pos = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
+		State->Camera.Target = 0.5f * (Box.Max + Box.Min);
 		v3 LookingDir = State->Camera.Target - State->Camera.Pos;
 		v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
 		State->Camera.Right = Normalized(Cross(LookingDir, WorldUp));
 		State->Camera.FoV = Radians(45);
 		State->Camera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
-		State->Camera.NearPlane = 0.5f;
-		State->Camera.FarPlane = 10.0f;
+		float Epsilon = 0.2f;
+		State->Camera.NearPlane = (1.0f - Epsilon) * Abs(State->Camera.Pos.z - Box.Max.z);
+		State->Camera.FarPlane = (1.0f + Epsilon) * Abs(State->Camera.Pos.z - Box.Min.z);
 
 		State->MouseXInitial = 0;
 		State->MouseYInitial = 0;

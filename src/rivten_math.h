@@ -2,6 +2,9 @@
 #include <cmath>
 
 #define PI 3.141592653f
+#include <cfloat>
+#define MAX_REAL FLT_MAX
+#define MIN_REAL -FLT_MAX
 
 float Square(float X)
 {
