@@ -3,19 +3,46 @@
 /*
    TODO(hugo)
      * Basic GLiewer todos
-	    - split the viewer.cpp code into several files
+		- chose Microbuffer size in GUI
+		- get rid of ImGui / camera interference
+		- clean Camera code
 	    - different type of camera (FPS camera)
+		- proper SDL-ImGui layer
 	    - texture support
+		- asset streaming
+		- shader as assets (having a structure, uniforms, etc.. ==> glsl parsing ??)
+	    - split the viewer.cpp code into several files
+		- light attenuation
+		- material handling when OBJ parsing
+		- normal mapping
+		- motion blur
 	    - mesh code cleanup
-	    - SDL code cleanup (cleaner layer, e.g. use of DLL for the main "game", etc...)
 	    - ambient occlusion (SSAO ?)
+		- possibility to see light depth buffer from GUI
+		- light handling has objects having an emissivity
+		- check memory footprint
+		- sorting objects by bounding box for rendering (to avoid too many
+			fragment computations) ?
+		- logging system
+		- ray tracing ability
+	    - SDL code cleanup (cleaner layer, e.g. use of DLL for the main "game", etc...)
+		- clean OpenGL layer (no more gl_..., get rid of glew ??)
 	    - proper OBJ loading
 	    - profiling
+		- Mouse Wheel clean up
 	    - bloom
-	    - gamma correction
 	    - automatic reloading of shaders (as in http://swarminglogic.com/jotting/2013_10_gamedev01)
 		- automatic shader gestion I/O to chain easily shaders
-		- logging system
+		- BHV if ever necessary
+		- BRDF visualisation
+		- GBuffer pipeline
+		- cascade shadow mapping
+		- voxelisation
+		- lighting shader code cleanup (use structure)
+		- SIMD BRDF integration
+		- subsurface scattering
+		- mesh parametrization
+		- mesh simplification
 
 	* Some ideas
 		- framebuffer have an OpenGL structure that I could exploit (with color attachment). For example, 
