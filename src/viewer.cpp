@@ -163,15 +163,18 @@ void RenderShadowedScene(game_state* State,
 	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
 	{
 		object* Object = State->Objects + ObjectIndex;
-		bool ShouldDraw = true;
-		if(FrustumBoundingBox)
+		if(Object->Visible)
 		{
-			ShouldDraw = Intersect3(*FrustumBoundingBox, Object->BoundingBox);
-		}
-		if(ShouldDraw)
-		{
-			SetUniform(State->ShadowMappingShader, Object->Albedo, "ObjectColor");
-			DrawTriangleObject(State->GLState, Object);
+			bool ShouldDraw = true;
+			if(FrustumBoundingBox)
+			{
+				ShouldDraw = Intersect3(*FrustumBoundingBox, Object->BoundingBox);
+			}
+			if(ShouldDraw)
+			{
+				SetUniform(State->ShadowMappingShader, Object->Albedo, "ObjectColor");
+				DrawTriangleObject(State->GLState, Object);
+			}
 		}
 	}
 	ActiveTexture(State->GLState, GL_TEXTURE0);
@@ -200,7 +203,11 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 	//DrawTriangleMeshInstances(&State->ObjectMesh, GlobalTeapotInstanceCount);
 	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
 	{
-		DrawTriangleObject(State->GLState, &State->Objects[ObjectIndex]);
+		object* Object = State->Objects + ObjectIndex;
+		if(Object->Visible)
+		{
+			DrawTriangleObject(State->GLState, Object);
+		}
 	}
 }
 
@@ -1003,7 +1010,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 				{
 					ImGui::Text("Name: %s", Object->Name);
 				}
-				ImGui::Checkbox("Visible", &Object->IsDrawn);
+				ImGui::Checkbox("Visible", &Object->Visible);
 				ImGui::ColorEdit3("Albedo", Object->Albedo.E);
 				ImGui::Text("Vertex Count: %d", Object->Mesh.VertexCount);
 				ImGui::Text("Triangle Count: %d", Object->Mesh.TriangleCount);
