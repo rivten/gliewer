@@ -13,67 +13,6 @@ static u32 GlobalMicrobufferHeight = 128;
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-struct rect3
-{
-	v3 Min;
-	v3 Max;
-};
-
-bool IsRect3Valid(rect3 Rect)
-{
-	bool Result = ((Rect.Min.x <= Rect.Max.x) 
-			&& (Rect.Min.y <= Rect.Max.y) 
-			&& (Rect.Min.z <= Rect.Max.z));
-
-	return(Result);
-}
-
-rect3 MaxBoundingBox(void)
-{
-	rect3 Result;
-	Result.Min = {MAX_REAL, MAX_REAL, MAX_REAL};
-	Result.Max = {MIN_REAL, MIN_REAL, MIN_REAL};
-	return(Result);
-}
-
-rect3 BoundingBox(mesh* Mesh)
-{
-	rect3 Box = MaxBoundingBox();
-	for(u32 VertexIndex = 0; VertexIndex < Mesh->VertexCount; ++VertexIndex)
-	{
-		v3 Pos = Mesh->Vertices[VertexIndex].P;
-		if(Pos.x > Box.Max.x)
-		{
-			Box.Max.x = Pos.x;
-		}
-		if(Pos.x < Box.Min.x)
-		{
-			Box.Min.x = Pos.x;
-		}
-
-		if(Pos.y > Box.Max.y)
-		{
-			Box.Max.y = Pos.y;
-		}
-		if(Pos.y < Box.Min.y)
-		{
-			Box.Min.y = Pos.y;
-		}
-
-		if(Pos.z > Box.Max.z)
-		{
-			Box.Max.z = Pos.z;
-		}
-		if(Pos.z < Box.Min.z)
-		{
-			Box.Min.z = Pos.z;
-		}
-	}
-
-	Assert(IsRect3Valid(Box));
-	return(Box);
-}
-
 struct bitmap
 {
 	s32 Width;
@@ -715,12 +654,13 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		{
 			std::vector<object> Objects = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
 			//std::vector<object> Objects = LoadOBJ("../models/house/", "house.obj");
+			//std::vector<object> Objects = LoadOBJ("../models/sponza/", "sponza.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
 			{
 				PushObject(State, &Objects[ObjectIndex]);
 
 				// NOTE(hugo) : Computing bounding box
-				rect3 ObjectBox = BoundingBox(&State->Objects[ObjectIndex].Mesh);
+				rect3 ObjectBox = State->Objects[ObjectIndex].BoundingBox;
 				if(ObjectBox.Max.x > Box.Max.x)
 				{
 					Box.Max.x = ObjectBox.Max.x;
@@ -858,7 +798,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 
 	ClearColorAndDepth(State->GLState, V4(0.4f, 0.6f, 0.2f, 1.0f));
 
-	float DeltaMovement = 0.5f;
+	float DeltaMovement = 5.0f * 0.5f;
 	v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
 	State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
 
@@ -1018,6 +958,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 				ImGui::ColorEdit3("Albedo", Object->Albedo.E);
 				ImGui::Text("Vertex Count: %d", Object->Mesh.VertexCount);
 				ImGui::Text("Triangle Count: %d", Object->Mesh.TriangleCount);
+				ImGui::Text("Bounding Box Min: (%f, %f, %f)", Object->BoundingBox.Min.x, Object->BoundingBox.Min.y, Object->BoundingBox.Min.y);
+				ImGui::Text("Bounding Box Max: (%f, %f, %f)", Object->BoundingBox.Max.x, Object->BoundingBox.Max.y, Object->BoundingBox.Max.y);
 				ImGui::TreePop();
 			}
 		}

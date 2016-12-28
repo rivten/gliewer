@@ -46,6 +46,12 @@ struct mesh
 	u32 TrianglePoolSize;
 };
 
+struct rect3
+{
+	v3 Min;
+	v3 Max;
+};
+
 struct object
 {
 	u32 VertexArrayID;
@@ -58,7 +64,63 @@ struct object
 	bool IsDrawn;
 
 	mesh Mesh;
+	rect3 BoundingBox;
 };
+
+bool IsRect3Valid(rect3 Rect)
+{
+	bool Result = ((Rect.Min.x <= Rect.Max.x) 
+			&& (Rect.Min.y <= Rect.Max.y) 
+			&& (Rect.Min.z <= Rect.Max.z));
+
+	return(Result);
+}
+
+rect3 MaxBoundingBox(void)
+{
+	rect3 Result;
+	Result.Min = {MAX_REAL, MAX_REAL, MAX_REAL};
+	Result.Max = {MIN_REAL, MIN_REAL, MIN_REAL};
+	return(Result);
+}
+
+rect3 BoundingBox(mesh* Mesh)
+{
+	rect3 Box = MaxBoundingBox();
+	for(u32 VertexIndex = 0; VertexIndex < Mesh->VertexCount; ++VertexIndex)
+	{
+		v3 Pos = Mesh->Vertices[VertexIndex].P;
+		if(Pos.x > Box.Max.x)
+		{
+			Box.Max.x = Pos.x;
+		}
+		if(Pos.x < Box.Min.x)
+		{
+			Box.Min.x = Pos.x;
+		}
+
+		if(Pos.y > Box.Max.y)
+		{
+			Box.Max.y = Pos.y;
+		}
+		if(Pos.y < Box.Min.y)
+		{
+			Box.Min.y = Pos.y;
+		}
+
+		if(Pos.z > Box.Max.z)
+		{
+			Box.Max.z = Pos.z;
+		}
+		if(Pos.z < Box.Min.z)
+		{
+			Box.Min.z = Pos.z;
+		}
+	}
+
+	Assert(IsRect3Valid(Box));
+	return(Box);
+}
 
 void PushVertex(mesh* Mesh, vertex V)
 {
@@ -337,6 +399,8 @@ std::vector<object> LoadOBJ(const std::string BaseDir, const std::string Filenam
 		{
 			ComputeNormal(&Object.Mesh);
 		}
+
+		Object.BoundingBox = BoundingBox(&Object.Mesh);
 
 		GenerateDataBuffer(&Object);
 		Result.push_back(Object);

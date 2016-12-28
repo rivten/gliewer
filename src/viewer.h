@@ -78,7 +78,7 @@ struct light
 
 struct game_state
 {
-	object Objects[300];
+	object Objects[512];
 	u32 ObjectCount;
 	mat4 ObjectModelMatrix;
 
