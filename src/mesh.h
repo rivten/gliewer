@@ -55,6 +55,8 @@ struct object
 	v4 Albedo;
 	char Name[100];
 
+	bool IsDrawn;
+
 	mesh Mesh;
 };
 
@@ -117,30 +119,42 @@ void ComputeNormal(mesh* Mesh)
 
 void DrawTriangleObject(opengl_state* State, object* Object)
 {
-	BindVertexArray(State, Object->VertexArrayID);
-	glDrawElements(GL_TRIANGLES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0);
-	BindVertexArray(State, 0);
+	if(Object->IsDrawn)
+	{
+		BindVertexArray(State, Object->VertexArrayID);
+		glDrawElements(GL_TRIANGLES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0);
+		BindVertexArray(State, 0);
+	}
 }
 
 void DrawWiredTriangleObject(opengl_state* State, object* Object)
 {
-	BindVertexArray(State, Object->VertexArrayID);
-	glDrawElements(GL_LINES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0);
-	BindVertexArray(State, 0);
+	if(Object->IsDrawn)
+	{
+		BindVertexArray(State, Object->VertexArrayID);
+		glDrawElements(GL_LINES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0);
+		BindVertexArray(State, 0);
+	}
 }
 
 void DrawTriangleObjectInstances(opengl_state* State, object* Object, u32 InstanceCount)
 {
-	BindVertexArray(State, Object->VertexArrayID);
-	glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0, InstanceCount);
-	BindVertexArray(State, 0);
+	if(Object->IsDrawn)
+	{
+		BindVertexArray(State, Object->VertexArrayID);
+		glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0, InstanceCount);
+		BindVertexArray(State, 0);
+	}
 }
 
 void DrawWiredTriangleObjectInstances(opengl_state* State, object* Object, u32 InstanceCount)
 {
-	BindVertexArray(State, Object->VertexArrayID);
-	glDrawElementsInstanced(GL_LINES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0, InstanceCount);
-	BindVertexArray(State, 0);
+	if(Object->IsDrawn)
+	{
+		BindVertexArray(State, Object->VertexArrayID);
+		glDrawElementsInstanced(GL_LINES, (GLsizei)(3 * Object->Mesh.TriangleCount), GL_UNSIGNED_INT, 0, InstanceCount);
+		BindVertexArray(State, 0);
+	}
 }
 
 struct vertex_hash
@@ -243,6 +257,7 @@ std::vector<object> LoadOBJ(const std::string BaseDir, const std::string Filenam
 		Object.Mesh.TriangleCount = 0;
 		Object.Mesh.TrianglePoolSize = 1;
 		Object.Mesh.Triangles = AllocateArray(triangle, Object.Mesh.TrianglePoolSize);
+		Object.IsDrawn = true;
 		CopyArray(Object.Name, Shapes[ShapeIndex].name.c_str(), char, StringLength((char*)(Shapes[ShapeIndex].name.c_str())) + 1);
 		Object.Albedo = V4(1.0f, 1.0f, 1.0f, 1.0f);
 		for(u32 MaterialIndex = 0; MaterialIndex < Materials.size(); ++MaterialIndex)

@@ -652,6 +652,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		State->GLState = OpenGLState;
 		{
 			std::vector<object> Objects = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
+			//std::vector<object> Objects = LoadOBJ("../models/house/", "house.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
 			{
 				PushObject(State, &Objects[ObjectIndex]);
@@ -851,16 +852,19 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		ComputeGlobalIllumination(State, NextCamera, NextCameraUp, LightProjectionMatrix);
 	}
 
-	ImGui::SliderFloat("Light Intensity", (float*)&State->LightIntensity, 0.0f, 10.0f);
-#if 0
-	//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
-	ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
-	ImGui::SliderFloat("Cook-Torrance M", (float*)&State->CookTorranceM, 0.0f, 1.0f);
-	ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.0f, 50.0f);
-	ImGui::SliderFloat("Alpha", (float*)&State->Alpha, 0.0f, 1.0f);
+#if 1
+	if(ImGui::CollapsingHeader("BRDF Data"))
+	{
+		//ImGui::SliderInt("Blinn-Phong Shininess", (int*)&State->BlinnPhongShininess, 1, 256);
+		ImGui::SliderFloat("Cook-Torrance F0", (float*)&State->CookTorranceF0, 0.0f, 1.0f);
+		ImGui::SliderFloat("Cook-Torrance M", (float*)&State->CookTorranceM, 0.0f, 1.0f);
+		ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.0f, 50.0f);
+		ImGui::SliderFloat("Alpha", (float*)&State->Alpha, 0.0f, 1.0f);
+	}
 
 	if(ImGui::CollapsingHeader("Light Data"))
 	{
+		ImGui::SliderFloat("Light Intensity", (float*)&State->LightIntensity, 0.0f, 10.0f);
 		ImGui::SliderFloat3("Light Position", State->Lights[0].Pos.E, -3.0f, 3.0f);
 		switch(State->LightType)
 		{
@@ -886,19 +890,44 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		}
 	}
 
-	if(ImGui::BeginMainMenuBar())
+	if(ImGui::CollapsingHeader("Camera Data"))
 	{
-		if(ImGui::BeginMenu("Menu"))
+		ImGui::Text("Pos = (%f, %f, %f)", NextCamera.Pos.x, NextCamera.Pos.y, NextCamera.Pos.z);
+		ImGui::Text("Target = (%f, %f, %f)", NextCamera.Target.x, NextCamera.Target.y, NextCamera.Target.z);
+		ImGui::Text("Right = (%f, %f, %f)", NextCamera.Right.x, NextCamera.Right.y, NextCamera.Right.z);
+		ImGui::Text("Aspect = %f", State->Camera.Aspect);
+		ImGui::SliderFloat("FoV", &State->Camera.FoV, 0.0f, 3.1415f);
+		ImGui::SliderFloat("NearPlane", &State->Camera.NearPlane, 0.0f, 100.0f);
+		ImGui::SliderFloat("FarPlane", &State->Camera.FarPlane, State->Camera.NearPlane, 200.0f);
+	}
+
+	if(ImGui::CollapsingHeader("Objects Data"))
+	{
+		for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
 		{
-			ImGui::MenuItem("(dummy menu)", NULL, false, true);
-			ImGui::EndMenu();
+			object* Object = State->Objects + ObjectIndex;
+			char Buffer[64];
+			if(IsEmptyString(Object->Name))
+			{
+				sprintf(Buffer, "Object #%i", ObjectIndex);
+			}
+			else
+			{
+				sprintf(Buffer, "Object #%i (%s)", ObjectIndex, Object->Name);
+			}
+			if(ImGui::TreeNode(Buffer))
+			{
+				if(!IsEmptyString(Object->Name))
+				{
+					ImGui::Text("Name: %s", Object->Name);
+				}
+				ImGui::Checkbox("Visible", &Object->IsDrawn);
+				ImGui::ColorEdit3("Albedo", Object->Albedo.E);
+				ImGui::Text("Vertex Count: %d", Object->Mesh.VertexCount);
+				ImGui::Text("Triangle Count: %d", Object->Mesh.TriangleCount);
+				ImGui::TreePop();
+			}
 		}
-		if(ImGui::BeginMenu("About"))
-		{
-            ImGui::MenuItem("Main menu bar", NULL, false, true);
-			ImGui::EndMenu();
-		}
-        ImGui::EndMainMenuBar();
 	}
 #endif
 
