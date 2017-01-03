@@ -3,7 +3,6 @@
 /*
    TODO(hugo)
      * Basic GLiewer todos
-		- chose Microbuffer size in GUI
 		- get rid of ImGui / camera interference
 		- clean Camera code
 	    - different type of camera (FPS camera)

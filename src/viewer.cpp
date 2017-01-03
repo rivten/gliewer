@@ -386,6 +386,11 @@ v4 NormalizedLInf(v4 A)
 
 void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, mat4 LightProjectionMatrix)
 {
+	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
+			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
+	{
+		UpdateHemicubeScreenFramebuffer(State->GLState, &State->HemicubeFramebuffer, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
+	}
 	u32* AlbedoPixels = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
 	float* DepthPixels = AllocateArray(float, GlobalWindowWidth * GlobalWindowHeight);
 	BindFramebuffer(State->GLState, GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
@@ -875,7 +880,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 
 	ClearColorAndDepth(State->GLState, V4(0.4f, 0.6f, 0.2f, 1.0f));
 
-	float DeltaMovement = 5.0f * 0.5f;
+	float DeltaMovement = 1.0f * 0.5f;
 	v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
 	State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
 
@@ -977,6 +982,11 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 		ImGui::SliderFloat("Cook-Torrance M", (float*)&State->CookTorranceM, 0.0f, 1.0f);
 		ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.0f, 50.0f);
 		ImGui::SliderFloat("Alpha", (float*)&State->Alpha, 0.0f, 1.0f);
+		ImGui::SliderInt("Microbuffer Pixel Size", (int*)&GlobalMicrobufferWidth, 0, 128);
+		if(GlobalMicrobufferHeight != GlobalMicrobufferWidth)
+		{
+			GlobalMicrobufferHeight = GlobalMicrobufferWidth;
+		}
 	}
 
 	if(ImGui::CollapsingHeader("Light Data"))

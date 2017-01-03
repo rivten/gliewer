@@ -680,11 +680,15 @@ struct gl_hemicube_framebuffer
 		};
 		gl_geometry_framebuffer MicroBuffers[5];
 	};
+	u32 Width;
+	u32 Height;
 };
 
 gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(opengl_state* State, int BufferWidth, int BufferHeight)
 {
 	gl_hemicube_framebuffer Result = {};
+	Result.Width = BufferWidth;
+	Result.Height = BufferHeight;
 	for(u32 FramebufferIndex = 0; FramebufferIndex < ArrayCount(Result.MicroBuffers); ++FramebufferIndex)
 	{
 		u32 Width = BufferWidth;
@@ -699,4 +703,17 @@ gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(opengl_state* State, int
 	}
 
 	return(Result);
+}
+
+void UpdateHemicubeScreenFramebuffer(opengl_state* State, gl_hemicube_framebuffer* Framebuffer,
+		u32 Width, u32 Height)
+{
+	Assert((Framebuffer->Width != Width) || (Framebuffer->Height != Height));
+	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(Framebuffer->MicroBuffers); ++FaceIndex)
+	{
+		gl_geometry_framebuffer* FaceBuffer = Framebuffer->MicroBuffers + FaceIndex;
+		UpdateGeometryFramebuffer(State, FaceBuffer, Width, Height);
+	}
+	Framebuffer->Width = Width;
+	Framebuffer->Height = Height;
 }
