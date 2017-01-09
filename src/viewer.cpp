@@ -491,7 +491,6 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 			}
 
 
-#if 1
 			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 			{
 				camera MicroCamera = MicroCameras[FaceIndex];
@@ -505,9 +504,8 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 
 			}
 			SetViewport(State->GLState, GlobalWindowWidth, GlobalWindowHeight);
-#if 1
-			//RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[1].ScreenTexture);
-#else
+
+#if 0
 			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); ++FaceIndex)
 			{
 				RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].ScreenTexture);
@@ -517,7 +515,6 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 #endif
 
 			// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
-#if 1
 			v4 ColorBleeding = {};
 
 			// NOTE(hugo) : This works because all microbuffers have the same width (but different heights)
@@ -576,6 +573,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 								float SolidAngle = (PixelSurfaceInMeters / DistanceMiroCameraPixelSqr) 
 									* Dot(Wi, MicroCameraLookingDir);
 								float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, State->Alpha, State->CookTorranceF0);
+								// TODO(hugo) : Check earlier if Albedo.rgb == 0
 								ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
 							}
 						}
@@ -586,21 +584,11 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 
 			v4 DirectIlluminationColor = ColorU32ToV4(ScreenBuffer[GlobalWindowWidth * Y + X]);
 			v3 RealColorBleeding = ColorBleeding.rgb + DirectIlluminationColor.rgb;
-#if 0
-			if((RealColorBleeding.r > 1.0f) ||
-					(RealColorBleeding.g > 1.0f) ||
-					(RealColorBleeding.b > 1.0f))
-			{
-				RealColorBleeding = NormalizedLInf(RealColorBleeding);
-			}
-#else
 			RealColorBleeding = Clamp01(RealColorBleeding);
-#endif
 
 			u32 ColorBleedingPixel = ColorV4ToU32(ToV4(RealColorBleeding));
 			//State->IndirectIlluminationBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
 			ScreenBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
-#endif
 			if(X == 0 && (Y % 1 == 0))
 			{
 				image_texture_loading_params Params = DefaultImageTextureLoadingParams(GlobalWindowWidth, GlobalWindowHeight, ScreenBuffer);
@@ -612,7 +600,6 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 
 				SDL_GL_SwapWindow(GlobalWindow);
 			}
-#endif
 		}
 	}
 
@@ -652,6 +639,320 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 #endif
 }
 
+v4 UnprojectPixel(float PixelDepth, u32 X, u32 Y, u32 Width, u32 Height,
+		camera Camera, mat4 InvLookAtCamera)
+{
+	v4 PixelPos = {};
+	PixelPos.z = -PixelDepth;
+	PixelPos.w = 1.0f;
+
+	PixelPos.x = (float)(X) / float(Width);
+	PixelPos.y = (float)(Y) / float(Height);
+
+	PixelPos.xy = 2.0f * PixelPos.xy - V2(1.0f, 1.0f);
+
+	PixelPos.x = - Camera.Aspect * Tan(0.5f * Camera.FoV) * PixelPos.z * PixelPos.x;
+	PixelPos.y = - Tan(0.5f * Camera.FoV) * PixelPos.z * PixelPos.y;
+
+	PixelPos = InvLookAtCamera * PixelPos;
+	return(PixelPos);
+}
+
+void ComputeGlobalIlluminationWithPatch(game_state* State, 
+		camera Camera, 
+		v3 CameraUp, 
+		mat4 LightProjectionMatrix,
+		u32 PatchSizeInPixels = 32)
+{
+	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
+			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
+	{
+		UpdateHemicubeScreenFramebuffer(State->GLState, &State->HemicubeFramebuffer, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
+	}
+
+	u32 PatchXCount = Ceil(GlobalWindowWidth / (float)PatchSizeInPixels);
+	u32 PatchYCount = Ceil(GlobalWindowHeight / (float)PatchSizeInPixels);
+
+	u32 PatchSizeInPixelsSqr = PatchSizeInPixels * PatchSizeInPixels;
+
+	float MicroCameraNearPlane = 0.2f;
+	// NOTE(hugo) : This works because all microbuffers have the same width (but different heights)
+	float MicrobufferWidthInMeters = 2.0f * MicroCameraNearPlane * Tan(0.5f * Radians(90));
+	float PixelsToMeters = MicrobufferWidthInMeters / float(State->HemicubeFramebuffer.Width);
+	float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
+
+	for(u32 PatchY = 0; PatchY < PatchYCount; ++PatchY)
+	{
+		for(u32 PatchX = 0; PatchX < PatchXCount; ++PatchX)
+		{
+			u32* ScreenPatch = AllocateArray(u32, PatchSizeInPixelsSqr);
+			v3* Normals = AllocateArray(v3, PatchSizeInPixelsSqr);
+			u32* AlbedoPixels = AllocateArray(u32, PatchSizeInPixelsSqr);
+			float* Depths = AllocateArray(float, PatchSizeInPixelsSqr);
+
+			BindFramebuffer(State->GLState, GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
+			glReadPixels(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchSizeInPixels, PatchSizeInPixels,
+					GL_DEPTH_COMPONENT, GL_FLOAT, Depths);
+
+			ReadBuffer(State->GLState, GL_COLOR_ATTACHMENT0);
+			glReadPixels(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchSizeInPixels, PatchSizeInPixels,
+					GL_RGBA, GL_UNSIGNED_BYTE, ScreenPatch);
+
+			ReadBuffer(State->GLState, GL_COLOR_ATTACHMENT1);
+			glReadPixels(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchSizeInPixels, PatchSizeInPixels,
+					GL_RGB, GL_FLOAT, Normals);
+
+			ReadBuffer(State->GLState, GL_COLOR_ATTACHMENT2);
+			glReadPixels(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchSizeInPixels, PatchSizeInPixels,
+					GL_RGBA, GL_UNSIGNED_BYTE, AlbedoPixels);
+
+			mat4 InvLookAtCamera = Inverse(LookAt(Camera.Pos, Camera.Target, CameraUp));
+#if 0
+			v4* WorldPositionPatch = AllocateArray(v4, PatchSizeInPixelsSqr);
+			for(u32 Y = 0; Y < PatchSizeInPixels; ++Y)
+			{
+				for(u32 X = 0; X < PatchSizeInPixels; ++X)
+				{
+					float PixelDepth = Depths[Y * PatchSizeInPixels + X];
+					PixelDepth = 2.0f * PixelDepth - 1.0f;
+					// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
+					float NearPlane = State->Camera.NearPlane;
+					float FarPlane = State->Camera.FarPlane;
+					PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
+					v4 UnprojectedPixel = UnprojectPixel(PixelDepth,
+							X + PatchX * PatchSizeInPixels, Y + PatchY * PatchSizeInPixels,
+							GlobalWindowWidth, GlobalWindowHeight, 
+							State->Camera, InvLookAtCamera);
+					WorldPositionPatch[Y * PatchSizeInPixels + X] = UnprojectedPixel;
+				}
+			}
+#endif
+
+			// NOTE(hugo) : Create textures
+			texture NormalPatchTexture = CreateTexture();
+			image_texture_loading_params Params = DefaultImageTextureLoadingParams(
+					PatchSizeInPixels, PatchSizeInPixels, Normals);
+			Params.ExternalFormat = GL_RGB;
+			Params.ExternalType = GL_FLOAT;
+			Params.MinFilter = GL_LINEAR;
+			Params.MagFilter = GL_LINEAR;
+			LoadImageToTexture(State->GLState, &NormalPatchTexture, Params);
+
+			texture AlbedoPatchTexture = CreateTexture();
+			Params = DefaultImageTextureLoadingParams(
+					PatchSizeInPixels, PatchSizeInPixels, AlbedoPixels);
+			Params.MinFilter = GL_LINEAR;
+			Params.MagFilter = GL_LINEAR;
+			LoadImageToTexture(State->GLState, &AlbedoPatchTexture, Params);
+
+			SetViewport(State->GLState, PatchSizeInPixels, PatchSizeInPixels);
+			BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
+			RenderTextureOnQuadScreen(State, AlbedoPatchTexture);
+			SDL_GL_SwapWindow(GlobalWindow);
+
+#if 0
+			texture WorldPositionPatchTexture = CreateTexture();
+			Params = DefaultImageTextureLoadingParams(
+					PatchSizeInPixels, PatchSizeInPixels, WorldPositionPatch);
+			Params.ExternalType = GL_FLOAT;
+			LoadImageToTexture(State->GLState, &WorldPositionPatchTexture, Params);
+#else
+			texture DepthPatchTexture = CreateTexture();
+			Params = DefaultImageTextureLoadingParams(
+					PatchSizeInPixels, PatchSizeInPixels, Depths);
+			Params.InternalFormat = GL_DEPTH_COMPONENT;
+			Params.ExternalFormat = GL_DEPTH_COMPONENT;
+			Params.ExternalType = GL_FLOAT;
+			Params.MinFilter = GL_LINEAR;
+			Params.MagFilter = GL_LINEAR;
+			LoadImageToTexture(State->GLState, &DepthPatchTexture, Params);
+#endif
+
+			u32* MegaTexture = AllocateArray(u32, PatchSizeInPixels * PatchSizeInPixels * GlobalMicrobufferWidth * GlobalMicrobufferHeight * 5);
+			u32* MegaTexturePixel = MegaTexture;
+			v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
+
+			float NearPlane = Camera.NearPlane;
+			float FarPlane = Camera.FarPlane;
+			// TODO(hugo) : Make sure you don't go too far off the screen
+			for(u32 Y = 0; Y < PatchSizeInPixels; ++Y)
+			{
+				for(u32 X = 0; X < PatchSizeInPixels; ++X)
+				{
+					//u32 PixelIndex = X + PatchX * PatchSizeInPixels + (Y + PatchY * PatchSizeInPixels) * GlobalWindowWidth;
+					u32 PixelIndex = X + PatchSizeInPixels * Y;
+					float PixelDepth = Depths[PixelIndex];
+					u32 PixelAlbedo = AlbedoPixels[PixelIndex];
+					v3 Normal = Normals[PixelIndex];
+
+					v4 Albedo = ColorU32ToV4(PixelAlbedo);
+
+					PixelDepth = 2.0f * PixelDepth - 1.0f;
+					// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
+					PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
+
+					mat4 InvLookAtCamera = Inverse(LookAt(Camera.Pos, Camera.Target, CameraUp));
+
+					Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
+
+					// NOTE(hugo) : Render directions are, in order : FRONT / LEFT / RIGHT / TOP / BOTTOM
+					// with FRONT being the direction of the normal previously found;
+					camera MicroCameras[5];
+					mat4 MicroCameraProjections[5];
+					{
+						v4 PixelPos = UnprojectPixel(PixelDepth, 
+								X + PatchX * PatchSizeInPixels, Y + PatchY * PatchSizeInPixels,
+								GlobalWindowWidth, GlobalWindowHeight,
+								Camera, InvLookAtCamera);
+						v3 MicroCameraPos = PixelPos.xyz;
+
+						v3 MicroRenderDir[5];
+						MicroRenderDir[0] = Normal;
+						MicroRenderDir[1] = Cross(Normal, WorldUp);
+						MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
+						MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
+						MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
+						for(u32 MicroCameraIndex = 0; MicroCameraIndex < ArrayCount(MicroCameras); ++MicroCameraIndex)
+						{
+							MicroCameras[MicroCameraIndex].Pos = MicroCameraPos;
+							MicroCameras[MicroCameraIndex].Target = MicroCameraPos + MicroRenderDir[MicroCameraIndex];
+
+							v3 MicroCameraUp = WorldUp;
+							if(MicroCameraIndex != 0)
+							{
+								MicroCameraUp = Normal;
+							}
+
+							MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
+							MicroCameras[MicroCameraIndex].FoV = Radians(State->MicroFoVInDegrees);
+							MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
+							// TODO(hugo) : Make the micro near/far plane parametrable
+							MicroCameras[MicroCameraIndex].NearPlane = MicroCameraNearPlane;
+							MicroCameras[MicroCameraIndex].FarPlane = 2.2f;
+
+							MicroCameraProjections[MicroCameraIndex] = GetCameraPerspective(MicroCameras[MicroCameraIndex]);
+						}
+					}
+
+					for(u32 FaceIndex = 0; 
+							FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); 
+							++FaceIndex)
+					{
+						camera MicroCamera = MicroCameras[FaceIndex];
+						SetViewport(State->GLState, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
+								State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
+						RenderShadowSceneOnFramebuffer(State, MicroCamera.Pos, MicroCamera.Target, 
+								Cross(MicroCamera.Right, MicroCamera.Target - MicroCamera.Pos), MicroCameraProjections[FaceIndex], 
+								LightProjectionMatrix, 
+								State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
+								V4(0.0f, 0.0f, 0.0f, 1.0f), false);
+
+						BindFramebuffer(State->GLState, 
+								GL_FRAMEBUFFER, 
+								State->HemicubeFramebuffer.MicroBuffers[FaceIndex].FBO);
+
+						u32* FaceRenderedPixels = AllocateArray(u32, 
+								State->HemicubeFramebuffer.Width * State->HemicubeFramebuffer.Height);
+						glReadPixels(0, 0, State->HemicubeFramebuffer.Width,
+								State->HemicubeFramebuffer.Height,
+								GL_RGBA, GL_UNSIGNED_BYTE,
+								FaceRenderedPixels);
+						BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
+
+						for(u32 PixelIndex = 0; 
+								PixelIndex < State->HemicubeFramebuffer.Width * State->HemicubeFramebuffer.Height; 
+								++PixelIndex)
+						{
+							*MegaTexturePixel = *(FaceRenderedPixels + PixelIndex);
+							++MegaTexturePixel;
+						}
+
+						Free(FaceRenderedPixels);
+					}
+				}
+			}
+
+			texture Mega = CreateTexture();
+			Params = DefaultImageTextureLoadingParams(
+					PatchSizeInPixels * PatchSizeInPixels * GlobalMicrobufferWidth * GlobalMicrobufferHeight * 5, 
+					1,
+					MegaTexture);
+			Params.MinFilter = GL_NEAREST;
+			LoadImageToTexture(State->GLState, &Mega, Params);
+
+			// NOTE(hugo) : The megatexture is full ! Now we apply the shader
+			UseShader(State->GLState, State->BRDFConvShader);
+
+			ActiveTexture(State->GLState, GL_TEXTURE0);
+			SetUniform(State->BRDFConvShader, (u32)0, "MegaTexture");
+			BindTexture(State->GLState, GL_TEXTURE_2D, Mega.ID);
+			
+#if 0
+			ActiveTexture(State->GLState, GL_TEXTURE1);
+			SetUniform(State->BRDFConvShader, (u32)1, "WorldPositionPatch");
+			BindTexture(State->GLState, GL_TEXTURE_2D, WorldPositionPatchTexture.ID);
+#else
+			ActiveTexture(State->GLState, GL_TEXTURE1);
+			SetUniform(State->BRDFConvShader, (u32)1, "DepthPatch");
+			BindTexture(State->GLState, GL_TEXTURE_2D, DepthPatchTexture.ID);
+#endif
+
+			ActiveTexture(State->GLState, GL_TEXTURE2);
+			SetUniform(State->BRDFConvShader, (u32)2, "NormalPatch");
+			BindTexture(State->GLState, GL_TEXTURE_2D, NormalPatchTexture.ID);
+
+			ActiveTexture(State->GLState, GL_TEXTURE3);
+			SetUniform(State->BRDFConvShader, (u32)3, "AlbedoPatch");
+			BindTexture(State->GLState, GL_TEXTURE_2D, AlbedoPatchTexture.ID);
+
+			// TODO(hugo) : Check that every uniform has been set
+			SetUniform(State->BRDFConvShader, PatchSizeInPixels, "PatchSizeInPixels");
+			SetUniform(State->BRDFConvShader, PatchX, "PatchX");
+			SetUniform(State->BRDFConvShader, PatchY, "PatchY");
+			SetUniform(State->BRDFConvShader, State->HemicubeFramebuffer.Width, "MicrobufferWidth");
+			SetUniform(State->BRDFConvShader, State->HemicubeFramebuffer.Height, "MicrobufferHeight");
+			SetUniform(State->BRDFConvShader, Camera.Pos, "CameraPos");
+			SetUniform(State->BRDFConvShader, PixelSurfaceInMeters, "PixelSurfaceInMeters");
+			SetUniform(State->BRDFConvShader, PixelsToMeters, "PixelsToMeters");
+			SetUniform(State->BRDFConvShader, State->Alpha, "Alpha");
+			SetUniform(State->BRDFConvShader, State->CookTorranceF0, "CookTorranceF0");
+			SetUniform(State->BRDFConvShader, MicroCameraNearPlane, "MicroCameraNearPlane");
+			SetUniform(State->BRDFConvShader, WorldUp, "WorldUp");
+			SetUniform(State->BRDFConvShader, Camera.Aspect, "MainCameraAspect");
+			SetUniform(State->BRDFConvShader, Camera.FoV, "MainCameraFoV");
+			SetUniform(State->BRDFConvShader, Camera.NearPlane, "MainCameraNearPlane");
+			SetUniform(State->BRDFConvShader, Camera.FarPlane, "MainCameraFarPlane");
+			SetUniform(State->BRDFConvShader, InvLookAtCamera, "InvLookAtCamera");
+			SetUniform(State->BRDFConvShader, GlobalWindowWidth, "WindowWidth");
+			SetUniform(State->BRDFConvShader, GlobalWindowHeight, "WindowHeight");
+
+			SetViewport(State->GLState, PatchSizeInPixels, PatchSizeInPixels);
+			BindFramebuffer(State->GLState, GL_FRAMEBUFFER, 0);
+			BindVertexArray(State->GLState, State->QuadVAO);
+			Disable(State->GLState, GL_DEPTH_TEST);
+			//ActiveTexture(State->GLState, GL_TEXTURE0);
+			//BindTexture(State->GLState, GL_TEXTURE_2D, Mega.ID);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			Enable(State->GLState, GL_DEPTH_TEST);
+			//BindTexture(State->GLState, GL_TEXTURE_2D, 0);
+			BindVertexArray(State->GLState, 0);
+
+			SDL_GL_SwapWindow(GlobalWindow);
+
+			DeleteTexture(&NormalPatchTexture);
+			DeleteTexture(&AlbedoPatchTexture);
+			DeleteTexture(&DepthPatchTexture);
+			DeleteTexture(&Mega);
+			Free(MegaTexture);
+
+			Free(Depths);
+			Free(AlbedoPixels);
+			Free(Normals);
+			Free(ScreenPatch);
+		}
+	}
+}
+
 void PushObject(game_state* State, object* Object)
 {
 	Assert(State->ObjectCount < ArrayCount(State->Objects));
@@ -674,6 +975,7 @@ void LoadShaders(game_state* State)
 	State->DepthDebugQuadShader = LoadShader("../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl");
 	State->ShadowMappingShader = LoadShader("../src/shaders/shadow_mapping_v.glsl", "../src/shaders/shadow_mapping_f.glsl");
 	State->SkyboxShader = LoadShader("../src/shaders/skybox_v.glsl", "../src/shaders/skybox_f.glsl");
+	State->BRDFConvShader = LoadShader("../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/brdf_conv_f.glsl");
 }
 
 rect3 GetFrustumBoundingBox(camera Camera)
@@ -971,7 +1273,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* O
 
 	if(ImGui::Button("Compute Indirect Illumination"))
 	{
-		ComputeGlobalIllumination(State, NextCamera, NextCameraUp, LightProjectionMatrix);
+		ComputeGlobalIlluminationWithPatch(State, NextCamera, NextCameraUp, LightProjectionMatrix);
 	}
 
 #if 1

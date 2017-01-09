@@ -395,7 +395,8 @@ int main(int argc, char** argv)
 
         game_memory GameMemory = {};
         GameMemory.PermanentStorageSize = Megabytes(256);
-        GameMemory.TransientStorageSize = Gigabytes(1);
+        //GameMemory.TransientStorageSize = Gigabytes(1);
+		GameMemory.TransientStorageSize = 1;
 
         memory_index TotalMemorySize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
         void* GameMemoryBlock = malloc(TotalMemorySize);

@@ -118,6 +118,7 @@ struct game_state
 	shader DepthDebugQuadShader;
 	shader ShadowMappingShader;
 	shader SkyboxShader;
+	shader BRDFConvShader;
 
 	camera Camera;
 	float Time;

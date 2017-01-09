@@ -52,6 +52,13 @@ int Floor(float X)
     return(Result);
 }
 
+int Ceil(float X)
+{
+	int Result;
+	Result = (int)ceil(X);
+	return(Result);
+}
+
 float Abs(float X)
 {
     float Result;
