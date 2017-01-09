@@ -311,7 +311,7 @@ void GenerateDataBuffer(object* Object)
 
 #include "tiny_obj_loader.h"
 
-std::vector<object> LoadOBJ(const std::string BaseDir, const std::string Filename)
+std::vector<object> LoadOBJ(render_state* RenderState, const std::string BaseDir, const std::string Filename)
 {
 	std::vector<object> Result;
 	tinyobj::attrib_t Attributes;
@@ -321,7 +321,7 @@ std::vector<object> LoadOBJ(const std::string BaseDir, const std::string Filenam
 	bool LoadingWorked = tinyobj::LoadObj(&Attributes, &Shapes, &Materials, &Error, (BaseDir + Filename).c_str(), BaseDir.c_str());
 	Assert(LoadingWorked);
 
-	for(u32 ShapeIndex = 0; ShapeIndex < Shapes.size(); ++ShapeIndex)
+	for(u32 ShapeIndex = 3; ShapeIndex < min(13, Shapes.size()); ++ShapeIndex)
 	{
 		object Object = {};
 		Object.Mesh.VertexCount = 0;
@@ -333,12 +333,19 @@ std::vector<object> LoadOBJ(const std::string BaseDir, const std::string Filenam
 		Object.Visible = true;
 		CopyArray(Object.Name, Shapes[ShapeIndex].name.c_str(), char, StringLength((char*)(Shapes[ShapeIndex].name.c_str())) + 1);
 		Object.Albedo = V4(1.0f, 1.0f, 1.0f, 1.0f);
+#if 0
 		for(u32 MaterialIndex = 0; MaterialIndex < Materials.size(); ++MaterialIndex)
 		{
 			if(!IsEmptyString(Object.Name) && AreStringIdentical((char*)Materials[MaterialIndex].name.c_str(), Object.Name))
 			{
 				tinyobj::material_t MeshMaterial = Materials[MaterialIndex];
 				Object.Albedo = V4(MeshMaterial.ambient[0], MeshMaterial.ambient[1], MeshMaterial.ambient[2], 1.0f);
+				
+				// TODO(hugo) : Maybe separate objects and material since different 
+				// objects can use the same material and we should not copy the data twice
+				char TextureMapPath[128];
+				sprintf(TextureMapPath, "..\\models\\sponza\\%s", MeshMaterial.ambient_texname.c_str());
+				Object.TextureMap = CreateTextureFromFile(RenderState, TextureMapPath);
 				break;
 			}
 			else if(AreStringIdentical((char*)Materials[MaterialIndex].name.c_str(), Object.Name) && AreStringIdentical(Object.Name, "light"))
@@ -349,6 +356,21 @@ std::vector<object> LoadOBJ(const std::string BaseDir, const std::string Filenam
 				break;
 			}
 		}
+#else
+		// TODO(hugo) : Implement several materials per objects (which
+		// is actually the real case scenario but a little harder to handle)
+		if(Shapes[ShapeIndex].mesh.material_ids.size() > 0)
+		{
+			tinyobj::material_t ObjectMaterial = Materials[Shapes[ShapeIndex].mesh.material_ids[0]];
+			Object.Albedo = V4(ObjectMaterial.ambient[0], ObjectMaterial.ambient[1], ObjectMaterial.ambient[2], 1.0f);
+			
+			// TODO(hugo) : Maybe separate objects and material since different 
+			// objects can use the same material and we should not copy the data twice
+			char TextureMapPath[128];
+			sprintf(TextureMapPath, "%s%s", BaseDir.c_str(), ObjectMaterial.ambient_texname.c_str());
+			Object.TextureMap = CreateTextureFromFile(RenderState, TextureMapPath);
+		}
+#endif
 
 		bool NormalsComputed = true;
 

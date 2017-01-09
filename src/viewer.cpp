@@ -8,35 +8,6 @@ static int GlobalTeapotInstanceCount = 10;
 static u32 GlobalMicrobufferWidth = 128;
 static u32 GlobalMicrobufferHeight = 128;
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
-
-struct bitmap
-{
-	s32 Width;
-	s32 Height;
-	u32 BitsPerPixel;
-	u8* Data;
-};
-
-bitmap LoadBitmap(const char* Filename, u32 OutputChannel = 3)
-{
-	bitmap Result = {};
-	s32 BitsPerPixel;
-	Result.Data = stbi_load(Filename, &Result.Width, &Result.Height, &BitsPerPixel, OutputChannel);
-	Result.BitsPerPixel = OutputChannel;
-	Assert(Result.Data);
-
-	return(Result);
-}
-
-void FreeBitmap(bitmap* Bitmap)
-{
-	stbi_image_free(Bitmap->Data);
-}
-
 GLuint LoadCubemap(game_state* State, const char** Filenames)
 {
 	GLuint Texture;
@@ -176,7 +147,7 @@ void RenderShadowedScene(game_state* State,
 				{
 					ActiveTexture(State->RenderState, GL_TEXTURE4);
 					SetUniform(State->ShadowMappingShader, (u32)4, "TextureMap");
-					BindTexture(State->RenderState, GL_TEXTURE_2D, State->BasicTexture.ID);
+					BindTexture(State->RenderState, GL_TEXTURE_2D, Object->TextureMap.ID);
 				}
 				DrawTriangleObject(State->RenderState, Object);
 			}
@@ -1044,22 +1015,11 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->RenderState = RenderState;
 		rect3 Box = MaxBoundingBox();
 		{
-			{
-				// TODO(hugo) : Maybe I can only load it as RGB not RGBA
-				bitmap BasicBitmap = LoadBitmap("../models/container.jpg", 4);
-				State->BasicTexture = CreateTexture();
-				image_texture_loading_params Params = DefaultImageTextureLoadingParams(BasicBitmap.Width, BasicBitmap.Height, BasicBitmap.Data);
-				Params.InternalFormat = GL_SRGB; // NOTE(hugo) : Loading gamma corrected
-				LoadImageToTexture(State->RenderState, &State->BasicTexture, Params);
-				FreeBitmap(&BasicBitmap);
-			}
-
 			//std::vector<object> Objects = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
 			//std::vector<object> Objects = LoadOBJ("../models/house/", "house.obj");
-			std::vector<object> Objects = LoadOBJ("../models/sponza/", "sponza.obj");
+			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
 			{
-				Objects[ObjectIndex].TextureMap = State->BasicTexture;
 				PushObject(State, &Objects[ObjectIndex]);
 
 				// NOTE(hugo) : Computing bounding box

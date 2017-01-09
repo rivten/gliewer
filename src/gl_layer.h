@@ -436,6 +436,49 @@ void LoadImageToTexture(render_state* State, texture* Texture, image_texture_loa
 	BindTexture(State, Texture->RenderTarget, 0);
 }
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+struct bitmap
+{
+	s32 Width;
+	s32 Height;
+	u32 BitsPerPixel;
+	u8* Data;
+};
+
+bitmap LoadBitmap(const char* Filename, u32 OutputChannel = 3)
+{
+	bitmap Result = {};
+	s32 BitsPerPixel;
+	Result.Data = stbi_load(Filename, &Result.Width, &Result.Height, &BitsPerPixel, OutputChannel);
+	Result.BitsPerPixel = OutputChannel;
+	Assert(Result.Data);
+
+	return(Result);
+}
+
+void FreeBitmap(bitmap* Bitmap)
+{
+	stbi_image_free(Bitmap->Data);
+}
+
+texture CreateTextureFromFile(render_state* State, const char* Filename)
+{
+	// TODO(hugo) : Maybe I can only load it as RGB not RGBA
+	bitmap Bitmap = LoadBitmap(Filename, 4);
+	texture Result = CreateTexture();
+	image_texture_loading_params Params = 
+		DefaultImageTextureLoadingParams(Bitmap.Width, Bitmap.Height, Bitmap.Data);
+	Params.InternalFormat = GL_SRGB; // NOTE(hugo) : Loading gamma corrected
+	LoadImageToTexture(State, &Result, Params);
+	FreeBitmap(&Bitmap);
+
+	return(Result);
+}
+
 GLuint GetUniformLocation(shader Shader, const char* VariableName)
 {
 	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
