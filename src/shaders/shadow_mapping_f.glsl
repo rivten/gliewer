@@ -19,7 +19,6 @@ uniform mat4 ViewMatrix;
 uniform vec4 ObjectColor;
 uniform int BlinnPhongShininess;
 uniform float CTF0;
-uniform float CTM;
 uniform float Alpha;
 uniform float LightIntensity;
 

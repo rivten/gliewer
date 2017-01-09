@@ -439,7 +439,7 @@ void LoadImageToTexture(render_state* State, texture* Texture, image_texture_loa
 GLuint GetUniformLocation(shader Shader, const char* VariableName)
 {
 	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
-	//Assert(Location != -1);
+	Assert(Location != -1);
 	return(Location);
 }
 

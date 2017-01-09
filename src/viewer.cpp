@@ -157,8 +157,6 @@ void RenderShadowedScene(game_state* State,
 	}
 
 	SetUniform(State->ShadowMappingShader, State->CookTorranceF0, "CTF0");
-	SetUniform(State->ShadowMappingShader, State->CookTorranceM, "CTM");
-
 
 	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
 	{
