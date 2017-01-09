@@ -99,7 +99,7 @@ struct light
 	v4 Color;
 	v3 Target;
 
-	gl_depth_framebuffer DepthFramebuffer;
+	depth_framebuffer DepthFramebuffer;
 };
 
 struct game_state
@@ -137,8 +137,8 @@ struct game_state
 	float LightIntensity;
 	// }
 
-	gl_geometry_framebuffer ScreenFramebuffer;
-	gl_hemicube_framebuffer HemicubeFramebuffer;
+	geometry_framebuffer ScreenFramebuffer;
+	hemicube_framebuffer HemicubeFramebuffer;
 
 	GLuint RBO;
 	GLuint QuadVAO;
@@ -153,7 +153,7 @@ struct game_state
 	texture IndirectIlluminationTexture;
 	u32* IndirectIlluminationBuffer;
 
-	opengl_state* GLState;
+	render_state* GLState;
 	rect3 FrustumBoundingBox;
 };
 

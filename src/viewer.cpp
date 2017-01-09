@@ -214,7 +214,7 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 void RenderShadowSceneOnFramebuffer(game_state* State, 
 		v3 CameraPos, v3 CameraTarget, v3 CameraUp, 
 		mat4 ProjectionMatrix, mat4 LightProjectionMatrix, 
-		gl_geometry_framebuffer Framebuffer, 
+		geometry_framebuffer Framebuffer, 
 		v4 ClearColor = V4(0.0f, 0.0f, 0.0f, 1.0f),
 		bool SkyboxRender = true,
 		rect3* FrustumBoundingBox = 0)
@@ -259,7 +259,7 @@ void RenderTextureOnQuadScreen(game_state* State, texture Texture)
 void RenderShadowSceneOnQuad(game_state* State, 
 		v3 CameraPos, v3 CameraTarget, v3 CameraUp, 
 		mat4 ProjectionMatrix, mat4 LightProjectionMatrix, 
-		gl_geometry_framebuffer Framebuffer,
+		geometry_framebuffer Framebuffer,
 		rect3* FrustumBoundingBox = 0)
 {
 	RenderShadowSceneOnFramebuffer(State, 
@@ -524,7 +524,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 
 			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
 			{
-				gl_geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
+				geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
 
 				BindFramebuffer(State->GLState, GL_FRAMEBUFFER, Microbuffer.FBO);
 				ReadBuffer(State->GLState, GL_COLOR_ATTACHMENT0);
@@ -1026,7 +1026,7 @@ rect3 GetFrustumBoundingBox(camera Camera)
 	return(Result);
 }
 
-void GameUpdateAndRender(game_memory* Memory, game_input* Input, opengl_state* OpenGLState)
+void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* OpenGLState)
 {
 	Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
 	game_state* State = (game_state*)Memory->PermanentStorage;

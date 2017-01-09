@@ -361,7 +361,7 @@ int main(int argc, char** argv)
     { 
 		ImGuiInit(Window);
 
-		opengl_state GLState = CreateDefaultOpenGLState();
+		render_state GLState = CreateDefaultRenderState();
 
 #ifdef _WIN32
 		Enable(&GLState, GL_MULTISAMPLE);

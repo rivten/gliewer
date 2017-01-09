@@ -62,7 +62,7 @@ struct rect2
 	v2 Size;
 };
 
-struct opengl_state
+struct render_state
 {
 	u32 ShaderID;
 	u32 Texture2ID;
@@ -98,15 +98,15 @@ struct texture
 	bool IsValid;
 };
 
-opengl_state CreateDefaultOpenGLState(void)
+render_state CreateDefaultRenderState(void)
 {
 	// TODO(hugo) : Get all the default parameters of OpenGL;
-	opengl_state Result = {};
+	render_state Result = {};
 
 	return(Result);
 }
 
-void ClearColorAndDepth(opengl_state* GLState, v4 ClearColor)
+void ClearColorAndDepth(render_state* GLState, v4 ClearColor)
 {
 	if(GLState->ClearColor != ClearColor)
 	{
@@ -117,7 +117,7 @@ void ClearColorAndDepth(opengl_state* GLState, v4 ClearColor)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void ClearColor(opengl_state* GLState, v4 ClearColor)
+void ClearColor(render_state* GLState, v4 ClearColor)
 {
 	if(GLState->ClearColor != ClearColor)
 	{
@@ -133,7 +133,7 @@ void ClearDepth(void)
 	glClear(GL_DEPTH_BUFFER_BIT);
 }
 
-void SetViewport(opengl_state* GLState, int Width, int Height)
+void SetViewport(render_state* GLState, int Width, int Height)
 {
 	if((GLState->Viewport.Size.x != Width) || 
 			(GLState->Viewport.Size.y != Height))
@@ -144,7 +144,7 @@ void SetViewport(opengl_state* GLState, int Width, int Height)
 	}
 }
 
-void BindFramebuffer(opengl_state* State, GLenum Target, u32 FramebufferID)
+void BindFramebuffer(render_state* State, GLenum Target, u32 FramebufferID)
 {
 	switch(Target)
 	{
@@ -162,7 +162,7 @@ void BindFramebuffer(opengl_state* State, GLenum Target, u32 FramebufferID)
 	}
 }
 
-void CullFace(opengl_state* State, GLenum CullFaceMode)
+void CullFace(render_state* State, GLenum CullFaceMode)
 {
 	if(State->CullFaceMode != CullFaceMode)
 	{
@@ -172,7 +172,7 @@ void CullFace(opengl_state* State, GLenum CullFaceMode)
 	}
 }
 
-void BindTexture(opengl_state* State, GLenum TextureTarget, u32 TextureID)
+void BindTexture(render_state* State, GLenum TextureTarget, u32 TextureID)
 {
 	switch(TextureTarget)
 	{
@@ -198,7 +198,7 @@ void BindTexture(opengl_state* State, GLenum TextureTarget, u32 TextureID)
 	}
 }
 
-void DepthMask(opengl_state* State, bool DepthMaskMode)
+void DepthMask(render_state* State, bool DepthMaskMode)
 {
 	if(State->DepthMaskMode != DepthMaskMode)
 	{
@@ -215,7 +215,7 @@ void DepthMask(opengl_state* State, bool DepthMaskMode)
 	}
 }
 
-void BindVertexArray(opengl_state* State, u32 VertexArrayID)
+void BindVertexArray(render_state* State, u32 VertexArrayID)
 {
 	if(State->VertexArrayID != VertexArrayID)
 	{
@@ -225,7 +225,7 @@ void BindVertexArray(opengl_state* State, u32 VertexArrayID)
 	}
 }
 
-void ActiveTexture(opengl_state* State, GLenum Texture)
+void ActiveTexture(render_state* State, GLenum Texture)
 {
 	if(State->ActiveTexture != Texture)
 	{
@@ -235,7 +235,7 @@ void ActiveTexture(opengl_state* State, GLenum Texture)
 	}
 }
 
-void Enable(opengl_state* State, GLenum Cap)
+void Enable(render_state* State, GLenum Cap)
 {
 	switch(Cap)
 	{
@@ -279,7 +279,7 @@ void Enable(opengl_state* State, GLenum Cap)
 	}
 }
 
-void Disable(opengl_state* State, GLenum Cap)
+void Disable(render_state* State, GLenum Cap)
 {
 	switch(Cap)
 	{
@@ -323,7 +323,7 @@ void Disable(opengl_state* State, GLenum Cap)
 	}
 }
 
-void ReadBuffer(opengl_state* State, GLenum Mode)
+void ReadBuffer(render_state* State, GLenum Mode)
 {
 	if(State->ColorAttachmentRead != Mode)
 	{
@@ -333,7 +333,7 @@ void ReadBuffer(opengl_state* State, GLenum Mode)
 	}
 }
 
-void BindBuffer(opengl_state* State, GLenum Target, u32 BufferID)
+void BindBuffer(render_state* State, GLenum Target, u32 BufferID)
 {
 	switch(Target)
 	{
@@ -350,7 +350,7 @@ void BindBuffer(opengl_state* State, GLenum Target, u32 BufferID)
 	}
 }
 
-void DepthFunc(opengl_state* State, GLenum Func)
+void DepthFunc(render_state* State, GLenum Func)
 {
 	if(State->DepthFunc != Func)
 	{
@@ -360,7 +360,7 @@ void DepthFunc(opengl_state* State, GLenum Func)
 	}
 }
 
-inline void UseShader(opengl_state* State, shader Shader)
+inline void UseShader(render_state* State, shader Shader)
 {
 	if(State->ShaderID != Shader.Program)
 	{
@@ -421,7 +421,7 @@ image_texture_loading_params DefaultImageTextureLoadingParams(u32 Width, u32 Hei
 	return(Result);
 }
 
-void LoadImageToTexture(opengl_state* State, texture* Texture, image_texture_loading_params Params)
+void LoadImageToTexture(render_state* State, texture* Texture, image_texture_loading_params Params)
 {
 	BindTexture(State, Texture->RenderTarget, Texture->ID);
 	glTexImage2D(Texture->RenderTarget, 0, Params.InternalFormat, 
@@ -479,16 +479,16 @@ void SetUniform(shader Shader, v4 V, const char* VariableName)
 	glUniform4f(Location, V.x, V.y, V.z, V.w); 
 }
 
-struct gl_screen_framebuffer
+struct screen_framebuffer
 {
 	u32 FBO;
 	texture Texture;
 	u32 RBO;
 };
 
-gl_screen_framebuffer CreateScreenFramebuffer(opengl_state* State, int BufferWidth, int BufferHeight)
+screen_framebuffer CreateScreenFramebuffer(render_state* State, int BufferWidth, int BufferHeight)
 {
-	gl_screen_framebuffer Result = {};
+	screen_framebuffer Result = {};
 	glGenFramebuffers(1, &Result.FBO);
 
 	Result.Texture = CreateTexture();
@@ -512,15 +512,15 @@ gl_screen_framebuffer CreateScreenFramebuffer(opengl_state* State, int BufferWid
 	return(Result);
 }
 
-struct gl_depth_framebuffer
+struct depth_framebuffer
 {
 	u32 FBO;
 	texture Texture;
 };
 
-gl_depth_framebuffer CreateDepthFramebuffer(opengl_state* State, int BufferWidth, int BufferHeight)
+depth_framebuffer CreateDepthFramebuffer(render_state* State, int BufferWidth, int BufferHeight)
 {
-	gl_depth_framebuffer Result = {};
+	depth_framebuffer Result = {};
 	glGenFramebuffers(1, &Result.FBO);
 
 	Result.Texture = CreateTexture();
@@ -545,7 +545,7 @@ gl_depth_framebuffer CreateDepthFramebuffer(opengl_state* State, int BufferWidth
 }
 
 #if 0
-struct gl_screen_normal_framebuffer
+struct screen_normal_framebuffer
 {
 	u32 FBO;
 	u32 ScreenTexture;
@@ -553,9 +553,9 @@ struct gl_screen_normal_framebuffer
 	u32 RBO;
 };
 
-gl_screen_normal_framebuffer CreateScreenNormalFramebuffer(int BufferWidth, int BufferHeight)
+screen_normal_framebuffer CreateScreenNormalFramebuffer(int BufferWidth, int BufferHeight)
 {
-	gl_screen_normal_framebuffer Result = {};
+	screen_normal_framebuffer Result = {};
 	glGenFramebuffers(1, &Result.FBO);
 
 	glGenTextures(1, &Result.ScreenTexture);
@@ -595,7 +595,7 @@ gl_screen_normal_framebuffer CreateScreenNormalFramebuffer(int BufferWidth, int 
 // NOTE(hugo) : If we wanted to do a real GBuffer, we
 // would need to store the world position as well. Not need for that
 // here at the moment.
-struct gl_geometry_framebuffer
+struct geometry_framebuffer
 {
 	GLuint FBO;
 	texture ScreenTexture;
@@ -607,9 +607,9 @@ struct gl_geometry_framebuffer
 	u32 Height;
 };
 
-gl_geometry_framebuffer CreateGeometryFramebuffer(opengl_state* State, u32 BufferWidth, u32 BufferHeight)
+geometry_framebuffer CreateGeometryFramebuffer(render_state* State, u32 BufferWidth, u32 BufferHeight)
 {
-	gl_geometry_framebuffer Result = {};
+	geometry_framebuffer Result = {};
 
 	Result.Width = BufferWidth;
 	Result.Height = BufferHeight;
@@ -650,7 +650,7 @@ gl_geometry_framebuffer CreateGeometryFramebuffer(opengl_state* State, u32 Buffe
 	return(Result);
 }
 
-void UpdateGeometryFramebuffer(opengl_state* State, gl_geometry_framebuffer* Framebuffer,
+void UpdateGeometryFramebuffer(render_state* State, geometry_framebuffer* Framebuffer,
 		u32 Width, u32 Height)
 {
 	Assert((Framebuffer->Width != Width) 
@@ -666,27 +666,27 @@ void UpdateGeometryFramebuffer(opengl_state* State, gl_geometry_framebuffer* Fra
 	*Framebuffer = CreateGeometryFramebuffer(State, Width, Height);
 }
 
-struct gl_hemicube_framebuffer
+struct hemicube_framebuffer
 {
 	union
 	{
 		struct
 		{
-			gl_geometry_framebuffer FrontMicroBuffers;
-			gl_geometry_framebuffer LeftMicroBuffers;
-			gl_geometry_framebuffer RightMicroBuffers;
-			gl_geometry_framebuffer TopMicroBuffers;
-			gl_geometry_framebuffer BottomMicroBuffers;
+			geometry_framebuffer FrontMicroBuffers;
+			geometry_framebuffer LeftMicroBuffers;
+			geometry_framebuffer RightMicroBuffers;
+			geometry_framebuffer TopMicroBuffers;
+			geometry_framebuffer BottomMicroBuffers;
 		};
-		gl_geometry_framebuffer MicroBuffers[5];
+		geometry_framebuffer MicroBuffers[5];
 	};
 	u32 Width;
 	u32 Height;
 };
 
-gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(opengl_state* State, int BufferWidth, int BufferHeight)
+hemicube_framebuffer CreateHemicubeScreenFramebuffer(render_state* State, int BufferWidth, int BufferHeight)
 {
-	gl_hemicube_framebuffer Result = {};
+	hemicube_framebuffer Result = {};
 	Result.Width = BufferWidth;
 	Result.Height = BufferHeight;
 	for(u32 FramebufferIndex = 0; FramebufferIndex < ArrayCount(Result.MicroBuffers); ++FramebufferIndex)
@@ -705,13 +705,13 @@ gl_hemicube_framebuffer CreateHemicubeScreenFramebuffer(opengl_state* State, int
 	return(Result);
 }
 
-void UpdateHemicubeScreenFramebuffer(opengl_state* State, gl_hemicube_framebuffer* Framebuffer,
+void UpdateHemicubeScreenFramebuffer(render_state* State, hemicube_framebuffer* Framebuffer,
 		u32 Width, u32 Height)
 {
 	Assert((Framebuffer->Width != Width) || (Framebuffer->Height != Height));
 	for(u32 FaceIndex = 0; FaceIndex < ArrayCount(Framebuffer->MicroBuffers); ++FaceIndex)
 	{
-		gl_geometry_framebuffer* FaceBuffer = Framebuffer->MicroBuffers + FaceIndex;
+		geometry_framebuffer* FaceBuffer = Framebuffer->MicroBuffers + FaceIndex;
 		UpdateGeometryFramebuffer(State, FaceBuffer, Width, Height);
 	}
 	Framebuffer->Width = Width;
