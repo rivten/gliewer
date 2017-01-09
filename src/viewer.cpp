@@ -1099,18 +1099,20 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 		State->Time = 0.0f;
 
-		State->Camera = {};
-		State->Camera.Pos = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
-		State->Camera.Target = 0.5f * (Box.Max + Box.Min);
-		v3 LookingDir = State->Camera.Target - State->Camera.Pos;
+		State->ReferenceCamera = {};
+		State->ReferenceCamera.Pos = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
+		State->ReferenceCamera.Target = 0.5f * (Box.Max + Box.Min);
+		v3 LookingDir = State->ReferenceCamera.Target - State->ReferenceCamera.Pos;
 		v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
-		State->Camera.Right = Normalized(Cross(LookingDir, WorldUp));
-		State->Camera.FoV = Radians(45);
-		State->Camera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
+		State->ReferenceCamera.Right = Normalized(Cross(LookingDir, WorldUp));
+		State->ReferenceCamera.FoV = Radians(45);
+		State->ReferenceCamera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
 		float Epsilon = 0.2f;
-		State->Camera.NearPlane = (1.0f - Epsilon) * Abs(State->Camera.Pos.z - Box.Max.z);
-		State->Camera.FarPlane = (1.0f + Epsilon) * Abs(State->Camera.Pos.z - Box.Min.z);
-		State->FrustumBoundingBox = GetFrustumBoundingBox(State->Camera);
+		State->ReferenceCamera.NearPlane = (1.0f - Epsilon) * Abs(State->ReferenceCamera.Pos.z - Box.Max.z);
+		State->ReferenceCamera.FarPlane = (1.0f + Epsilon) * Abs(State->ReferenceCamera.Pos.z - Box.Min.z);
+		State->FrustumBoundingBox = GetFrustumBoundingBox(State->ReferenceCamera);
+
+		State->Camera = State->ReferenceCamera;
 
 		State->MouseXInitial = 0;
 		State->MouseYInitial = 0;
@@ -1174,15 +1176,15 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		UpdateGeometryFramebuffer(State->RenderState, &State->ScreenFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
 	}
 
-	State->Camera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
+	State->ReferenceCamera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
 
 	State->Time += Input->dtForFrame;
 
 	ClearColorAndDepth(State->RenderState, V4(0.4f, 0.6f, 0.2f, 1.0f));
 
 	float DeltaMovement = 1.0f * 0.5f;
-	v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
-	State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
+	v3 LookingDir = Normalized(State->ReferenceCamera.Target - State->ReferenceCamera.Pos);
+	State->ReferenceCamera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
 
 	// NOTE(hugo) : Live shader reloading
 	if(IsKeyPressed(Input, SCANCODE_SPACE))
@@ -1204,25 +1206,25 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		}
 	}
 
-	camera NextCamera = State->Camera;
-	v3 NextCameraUp = Cross(State->Camera.Right, Normalized(State->Camera.Target - State->Camera.Pos));
+	State->Camera = State->ReferenceCamera;
+	v3 CameraUp = Cross(State->ReferenceCamera.Right, Normalized(State->ReferenceCamera.Target - State->ReferenceCamera.Pos));
 	if(State->MouseDragging)
 	{
 		s32 DeltaX = Input->MouseX - State->MouseXInitial;
 		s32 DeltaY = Input->MouseY - State->MouseYInitial;
 		v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
-		NextCamera.Pos = (Rotation(-Sign(Dot(WorldUp, NextCameraUp)) * Radians(DeltaX), WorldUp) * Rotation(-Radians(DeltaY), NextCamera.Right) * ToV4(State->Camera.Pos)).xyz;
-		NextCamera.Right = (Rotation(-Sign(Dot(WorldUp, NextCameraUp)) * Radians(DeltaX), V3(0.0f, 1.0f, 0.0f)) * Rotation(-Radians(DeltaY), NextCamera.Right) * ToV4(State->Camera.Right)).xyz;
-		v3 LookingDir = Normalized(State->Camera.Target - NextCamera.Pos);
-		NextCameraUp = Cross(NextCamera.Right, LookingDir);
+		State->Camera.Pos = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), WorldUp) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->ReferenceCamera.Pos)).xyz;
+		State->Camera.Right = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), V3(0.0f, 1.0f, 0.0f)) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->ReferenceCamera.Right)).xyz;
+		v3 LookingDir = Normalized(State->ReferenceCamera.Target - State->Camera.Pos);
+		CameraUp = Cross(State->Camera.Right, LookingDir);
 
-		State->FrustumBoundingBox = GetFrustumBoundingBox(NextCamera);
+		State->FrustumBoundingBox = GetFrustumBoundingBox(State->Camera);
 	}
 
 	if(State->MouseDragging && !(Input->MouseButtons[0].EndedDown))
 	{
-		State->Camera.Pos = NextCamera.Pos;
-		State->Camera.Right = NextCamera.Right;
+		State->ReferenceCamera.Pos = State->Camera.Pos;
+		State->ReferenceCamera.Right = State->Camera.Right;
 		State->MouseDragging = false;
 	}
 
@@ -1262,7 +1264,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	mat4 ProjectionMatrix = GetCameraPerspective(State->Camera);
 
 	RenderShadowSceneOnQuad(State, 
-			NextCamera.Pos, NextCamera.Target, NextCameraUp, 
+			State->Camera.Pos, State->Camera.Target, CameraUp, 
 			ProjectionMatrix, 
 			LightProjectionMatrix, 
 			State->ScreenFramebuffer,
@@ -1271,7 +1273,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	if(ImGui::Button("Compute Indirect Illumination"))
 	{
-		ComputeGlobalIlluminationWithPatch(State, NextCamera, NextCameraUp, LightProjectionMatrix);
+		ComputeGlobalIlluminationWithPatch(State, State->Camera, CameraUp, LightProjectionMatrix);
 	}
 
 #if 1
@@ -1319,9 +1321,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	if(ImGui::CollapsingHeader("Camera Data"))
 	{
-		ImGui::Text("Pos = (%f, %f, %f)", NextCamera.Pos.x, NextCamera.Pos.y, NextCamera.Pos.z);
-		ImGui::Text("Target = (%f, %f, %f)", NextCamera.Target.x, NextCamera.Target.y, NextCamera.Target.z);
-		ImGui::Text("Right = (%f, %f, %f)", NextCamera.Right.x, NextCamera.Right.y, NextCamera.Right.z);
+		ImGui::Text("Pos = (%f, %f, %f)", State->Camera.Pos.x, State->Camera.Pos.y, State->Camera.Pos.z);
+		ImGui::Text("Target = (%f, %f, %f)", State->Camera.Target.x, State->Camera.Target.y, State->Camera.Target.z);
+		ImGui::Text("Right = (%f, %f, %f)", State->Camera.Right.x, State->Camera.Right.y, State->Camera.Right.z);
 		ImGui::Text("Aspect = %f", State->Camera.Aspect);
 		ImGui::SliderFloat("FoV", &State->Camera.FoV, 0.0f, 3.1415f);
 		ImGui::SliderFloat("NearPlane", &State->Camera.NearPlane, 0.0f, 100.0f);

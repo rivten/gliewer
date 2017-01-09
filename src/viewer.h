@@ -120,6 +120,7 @@ struct game_state
 	shader SkyboxShader;
 	shader BRDFConvShader;
 
+	camera ReferenceCamera;
 	camera Camera;
 	float Time;
 
