@@ -357,6 +357,7 @@ int main(int argc, char** argv)
     // NOTE(hugo) : Initializating glew
     glewExperimental = GL_TRUE;
     GLenum GlewInitResult = glewInit();
+	DetectErrors("Known bug of GLEW");
     if(GlewInitResult == GLEW_OK)
     { 
 		ImGuiInit(Window);

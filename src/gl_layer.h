@@ -717,3 +717,55 @@ void UpdateHemicubeScreenFramebuffer(render_state* State, hemicube_framebuffer* 
 	Framebuffer->Width = Width;
 	Framebuffer->Height = Height;
 }
+
+// --------------------------------
+//  NOTE(hugo) : Error handling
+// --------------------------------
+
+bool DetectErrors(char* Tag)
+{
+	bool ErrorFound = false;
+	for(GLenum Error; (Error = glGetError()) != GL_NO_ERROR;)
+	{
+		ErrorFound = true;
+		switch(Error)
+		{
+			case GL_INVALID_ENUM:
+				{
+					SDL_Log("GL_INVALID_ENUM (%s)", Tag);
+				} break;
+			case GL_INVALID_VALUE:
+				{
+					SDL_Log("GL_INVALID_VALUE (%s)", Tag);
+				} break;
+			case GL_INVALID_OPERATION:
+				{
+					SDL_Log("GL_INVALID_OPERATION (%s)", Tag);
+				} break;
+			case GL_STACK_OVERFLOW:
+				{
+					SDL_Log("GL_STACK_OVERFLOW (%s)", Tag);
+				} break;
+			case GL_STACK_UNDERFLOW:
+				{
+					SDL_Log("GL_STACK_UNDERFLOW (%s)", Tag);
+				} break;
+			case GL_OUT_OF_MEMORY:
+				{
+					SDL_Log("GL_OUT_OF_MEMORY (%s)", Tag);
+				} break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				{
+					SDL_Log("GL_INVALID_FRAMEBUFFER_OPERATION (%s)", Tag);
+				} break;
+			case GL_CONTEXT_LOST:
+				{
+					SDL_Log("GL_CONTEXT_LOST (%s)", Tag);
+				} break;
+
+			InvalidDefaultCase;
+		}
+	}
+
+	return(ErrorFound);
+}

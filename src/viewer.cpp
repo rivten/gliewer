@@ -1026,6 +1026,7 @@ rect3 GetFrustumBoundingBox(camera Camera)
 
 void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* RenderState)
 {
+	Assert(!DetectErrors("In Frame"));
 	Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
 	game_state* State = (game_state*)Memory->PermanentStorage;
 	if(!Memory->IsInitialized)
