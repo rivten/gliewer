@@ -1103,6 +1103,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 		State->Time = 0.0f;
 
+		State->CameraType = CameraType_Arcball;
 		State->ReferenceCamera = {};
 		State->ReferenceCamera.Pos = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
 		State->ReferenceCamera.Target = 0.5f * (Box.Max + Box.Min);
@@ -1186,10 +1187,6 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	ClearColorAndDepth(State->RenderState, V4(0.4f, 0.6f, 0.2f, 1.0f));
 
-	float DeltaMovement = 1.0f * 0.5f;
-	v3 LookingDir = Normalized(State->ReferenceCamera.Target - State->ReferenceCamera.Pos);
-	State->ReferenceCamera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
-
 	// NOTE(hugo) : Live shader reloading
 	if(IsKeyPressed(Input, SCANCODE_SPACE))
 	{
@@ -1200,36 +1197,56 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		LoadShaders(State);
 	}
 
-	if(Input->MouseButtons[0].EndedDown)
-	{
-		if(!State->MouseDragging)
-		{
-			State->MouseDragging = true;
-			State->MouseXInitial = Input->MouseX;
-			State->MouseYInitial = Input->MouseY;
-		}
-	}
-
+	// NOTE(hugo) : Camera management
 	State->Camera = State->ReferenceCamera;
 	v3 CameraUp = Cross(State->ReferenceCamera.Right, Normalized(State->ReferenceCamera.Target - State->ReferenceCamera.Pos));
-	if(State->MouseDragging)
+	switch(State->CameraType)
 	{
-		s32 DeltaX = Input->MouseX - State->MouseXInitial;
-		s32 DeltaY = Input->MouseY - State->MouseYInitial;
-		v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
-		State->Camera.Pos = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), WorldUp) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->ReferenceCamera.Pos)).xyz;
-		State->Camera.Right = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), V3(0.0f, 1.0f, 0.0f)) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->ReferenceCamera.Right)).xyz;
-		v3 LookingDir = Normalized(State->ReferenceCamera.Target - State->Camera.Pos);
-		CameraUp = Cross(State->Camera.Right, LookingDir);
+		case CameraType_Fixed:
+			{
+				// NOTE(hugo) : Do nothing for a fixed camera
+			} break;
+		case CameraType_Arcball:
+			{
+				if(Input->MouseButtons[0].EndedDown)
+				{
+					if(!State->MouseDragging)
+					{
+						State->MouseDragging = true;
+						State->MouseXInitial = Input->MouseX;
+						State->MouseYInitial = Input->MouseY;
+					}
+				}
 
-		State->FrustumBoundingBox = GetFrustumBoundingBox(State->Camera);
-	}
+				float DeltaMovement = 1.0f * 0.5f;
+				v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
+				State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
 
-	if(State->MouseDragging && !(Input->MouseButtons[0].EndedDown))
-	{
-		State->ReferenceCamera.Pos = State->Camera.Pos;
-		State->ReferenceCamera.Right = State->Camera.Right;
-		State->MouseDragging = false;
+				if(State->MouseDragging)
+				{
+					s32 DeltaX = Input->MouseX - State->MouseXInitial;
+					s32 DeltaY = Input->MouseY - State->MouseYInitial;
+					v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
+					State->Camera.Pos = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), WorldUp) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->ReferenceCamera.Pos)).xyz;
+					State->Camera.Right = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), V3(0.0f, 1.0f, 0.0f)) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->ReferenceCamera.Right)).xyz;
+					v3 LookingDir = Normalized(State->ReferenceCamera.Target - State->Camera.Pos);
+					CameraUp = Cross(State->Camera.Right, LookingDir);
+
+					State->FrustumBoundingBox = GetFrustumBoundingBox(State->Camera);
+				}
+
+				if(State->MouseDragging && !(Input->MouseButtons[0].EndedDown))
+				{
+					State->ReferenceCamera.Pos = State->Camera.Pos;
+					State->ReferenceCamera.Right = State->Camera.Right;
+					State->MouseDragging = false;
+				}
+			} break;
+		case CameraType_FirstPerson:
+			{
+				// TODO(hugo)
+			} break;
+		InvalidDefaultCase;
 	}
 
 	// NOTE(hugo) : Direct lighting rendering
@@ -1325,6 +1342,20 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	if(ImGui::CollapsingHeader("Camera Data"))
 	{
+		s32 CameraTypeID = (u32)State->CameraType;
+		ImGui::Combo("Camera Type", &CameraTypeID, "Fixed\0Arcball\0First Person\0\0");
+		if(CameraTypeID == 0)
+		{
+			State->CameraType = CameraType_Fixed;
+		}
+		else if(CameraTypeID == 1)
+		{
+			State->CameraType = CameraType_Arcball;
+		}
+		else if(CameraTypeID == 2)
+		{
+			State->CameraType = CameraType_FirstPerson;
+		}
 		ImGui::Text("Pos = (%f, %f, %f)", State->Camera.Pos.x, State->Camera.Pos.y, State->Camera.Pos.z);
 		ImGui::Text("Target = (%f, %f, %f)", State->Camera.Target.x, State->Camera.Target.y, State->Camera.Target.z);
 		ImGui::Text("Right = (%f, %f, %f)", State->Camera.Right.x, State->Camera.Right.y, State->Camera.Right.z);

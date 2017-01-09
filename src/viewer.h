@@ -71,6 +71,13 @@ enum light_type
 	LightType_PointLight,
 };
 
+enum camera_type
+{
+	CameraType_Fixed,
+	CameraType_Arcball,
+	CameraType_FirstPerson,
+};
+
 struct projection_parameters
 {
 	union
@@ -120,6 +127,7 @@ struct game_state
 	shader SkyboxShader;
 	shader BRDFConvShader;
 
+	camera_type CameraType;
 	camera ReferenceCamera;
 	camera Camera;
 	float Time;
