@@ -153,7 +153,7 @@ struct game_state
 	texture IndirectIlluminationTexture;
 	u32* IndirectIlluminationBuffer;
 
-	render_state* GLState;
+	render_state* RenderState;
 	rect3 FrustumBoundingBox;
 };
 

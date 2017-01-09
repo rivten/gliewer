@@ -24,9 +24,9 @@ const u32 FrameTrackingCount = 128;
 global_variable float DEBUGCounters[FrameTrackingCount];
 global_variable u32 DEBUGCurrentCounter = 0;
 
-global_variable float DEBUGGLStateChangeCounters[FrameTrackingCount];
+global_variable float DEBUGRenderStateChangeCounters[FrameTrackingCount];
 global_variable u32 DEBUGGLCurrentFrameStateChangeCount = 0;
-global_variable u32 DEBUGGLStateChangeCurrentCounter = 0;
+global_variable u32 DEBUGRenderStateChangeCurrentCounter = 0;
 
 #include "shader.h"
 #include "gl_layer.h"
@@ -361,22 +361,22 @@ int main(int argc, char** argv)
     { 
 		ImGuiInit(Window);
 
-		render_state GLState = CreateDefaultRenderState();
+		render_state RenderState = CreateDefaultRenderState();
 
 #ifdef _WIN32
-		Enable(&GLState, GL_MULTISAMPLE);
+		Enable(&RenderState, GL_MULTISAMPLE);
 #endif
-		Enable(&GLState, GL_DEPTH_TEST);
-		DepthFunc(&GLState, GL_LEQUAL);
-		DepthMask(&GLState, GL_TRUE);
-		Enable(&GLState, GL_FRAMEBUFFER_SRGB);
+		Enable(&RenderState, GL_DEPTH_TEST);
+		DepthFunc(&RenderState, GL_LEQUAL);
+		DepthMask(&RenderState, GL_TRUE);
+		Enable(&RenderState, GL_FRAMEBUFFER_SRGB);
 
 #ifdef _WIN32
-		Disable(&GLState, GL_CULL_FACE);
+		Disable(&RenderState, GL_CULL_FACE);
 #else
-		Enable(&GLState, GL_CULL_FACE);
-		CullFace(&GLState, GL_BACK);
-		FrontFace(&GLState, GL_CCW);
+		Enable(&RenderState, GL_CULL_FACE);
+		CullFace(&RenderState, GL_BACK);
+		FrontFace(&RenderState, GL_CCW);
 #endif
 
         GlobalRunning = true;
@@ -508,7 +508,7 @@ int main(int argc, char** argv)
                 SDL_Surface* Screen = SDL_GetWindowSurface(Window);
 
 				// TODO(hugo) : Make this resolution-independant ?
-				SetViewport(&GLState, Screen->w, Screen->h);
+				SetViewport(&RenderState, Screen->w, Screen->h);
 
 				// TODO(hugo) : Formalize this !
 				if(((u32)(Screen->w) != GlobalWindowWidth) 
@@ -526,7 +526,7 @@ int main(int argc, char** argv)
 
 				ImGuiNewFrame(Window, Input);
 
-                GameUpdateAndRender(&GameMemory, NewInput, &GLState);
+                GameUpdateAndRender(&GameMemory, NewInput, &RenderState);
 				ImGui::Render();
                 SDL_GL_SwapWindow(Window);
 
@@ -558,20 +558,20 @@ int main(int argc, char** argv)
 					DEBUGCounters[DEBUGCurrentCounter - 1] = SecondsElapsedForFrame * 1000.0f;
 				}
 
-				if(DEBUGGLStateChangeCurrentCounter < ArrayCount(DEBUGGLStateChangeCounters))
+				if(DEBUGRenderStateChangeCurrentCounter < ArrayCount(DEBUGRenderStateChangeCounters))
 				{
-					DEBUGGLStateChangeCounters[DEBUGGLStateChangeCurrentCounter] = DEBUGGLCurrentFrameStateChangeCount;
-					++DEBUGGLStateChangeCurrentCounter;
+					DEBUGRenderStateChangeCounters[DEBUGRenderStateChangeCurrentCounter] = DEBUGGLCurrentFrameStateChangeCount;
+					++DEBUGRenderStateChangeCurrentCounter;
 				}
 				else
 				{
 					for(u32 CounterIndex = 0; 
-							CounterIndex < (ArrayCount(DEBUGGLStateChangeCounters) - 1); 
+							CounterIndex < (ArrayCount(DEBUGRenderStateChangeCounters) - 1); 
 							++CounterIndex)
 					{
-						DEBUGGLStateChangeCounters[CounterIndex] = DEBUGGLStateChangeCounters[CounterIndex + 1];
+						DEBUGRenderStateChangeCounters[CounterIndex] = DEBUGRenderStateChangeCounters[CounterIndex + 1];
 					}
-					DEBUGGLStateChangeCounters[DEBUGGLStateChangeCurrentCounter - 1] = DEBUGGLCurrentFrameStateChangeCount;
+					DEBUGRenderStateChangeCounters[DEBUGRenderStateChangeCurrentCounter - 1] = DEBUGGLCurrentFrameStateChangeCount;
 				}
 				DEBUGGLCurrentFrameStateChangeCount = 0;
 #endif
