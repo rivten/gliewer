@@ -2,11 +2,13 @@
 
 layout (location = 0) in vec3 Position;
 layout (location = 1) in vec3 Normal;
+layout (location = 2) in vec2 TextureCoord;
 
 out vec3 VertexNormal;
 out vec3 NormalWorldSpace;
 out vec4 FragmentPositionInWorldSpace;
 out vec4 FragmentPositionInLightSpace[4];
+out vec2 TextureCoordinates;
 
 uniform mat4 MVPMatrix;
 uniform mat4 NormalMatrix;
@@ -32,4 +34,5 @@ void main()
 	}
 
 	NormalWorldSpace = normalize(vec3(NormalWorldMatrix * vec4(Normal, 1.0f)));
+	TextureCoordinates = TextureCoord;
 }

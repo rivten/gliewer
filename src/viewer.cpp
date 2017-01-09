@@ -171,6 +171,13 @@ void RenderShadowedScene(game_state* State,
 			if(ShouldDraw)
 			{
 				SetUniform(State->ShadowMappingShader, Object->Albedo, "ObjectColor");
+				SetUniform(State->ShadowMappingShader, Object->UseTextureMapping, "UseTextureMapping");
+				if(Object->UseTextureMapping)
+				{
+					ActiveTexture(State->RenderState, GL_TEXTURE4);
+					SetUniform(State->ShadowMappingShader, (u32)4, "TextureMap");
+					BindTexture(State->RenderState, GL_TEXTURE_2D, State->BasicTexture.ID);
+				}
 				DrawTriangleObject(State->RenderState, Object);
 			}
 		}
@@ -1037,11 +1044,22 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->RenderState = RenderState;
 		rect3 Box = MaxBoundingBox();
 		{
-			std::vector<object> Objects = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
+			{
+				// TODO(hugo) : Maybe I can only load it as RGB not RGBA
+				bitmap BasicBitmap = LoadBitmap("../models/container.jpg", 4);
+				State->BasicTexture = CreateTexture();
+				image_texture_loading_params Params = DefaultImageTextureLoadingParams(BasicBitmap.Width, BasicBitmap.Height, BasicBitmap.Data);
+				Params.InternalFormat = GL_SRGB; // NOTE(hugo) : Loading gamma corrected
+				LoadImageToTexture(State->RenderState, &State->BasicTexture, Params);
+				FreeBitmap(&BasicBitmap);
+			}
+
+			//std::vector<object> Objects = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
 			//std::vector<object> Objects = LoadOBJ("../models/house/", "house.obj");
-			//std::vector<object> Objects = LoadOBJ("../models/sponza/", "sponza.obj");
+			std::vector<object> Objects = LoadOBJ("../models/sponza/", "sponza.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
 			{
+				Objects[ObjectIndex].TextureMap = State->BasicTexture;
 				PushObject(State, &Objects[ObjectIndex]);
 
 				// NOTE(hugo) : Computing bounding box

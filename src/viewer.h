@@ -164,6 +164,8 @@ struct game_state
 
 	render_state* RenderState;
 	rect3 FrustumBoundingBox;
+
+	texture BasicTexture;
 };
 
 #include "viewer.cpp"

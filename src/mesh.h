@@ -63,6 +63,9 @@ struct object
 
 	bool Visible;
 
+	bool UseTextureMapping;
+	texture TextureMap;
+
 	mesh Mesh;
 	rect3 BoundingBox;
 };
@@ -383,6 +386,8 @@ std::vector<object> LoadOBJ(const std::string BaseDir, const std::string Filenam
 				{
 					V.Texture = V2(Attributes.texcoords[2 * TextureIndex + 0],
 							Attributes.texcoords[2 * TextureIndex + 1]);
+					// TODO(hugo) : Load the texture map
+					Object.UseTextureMapping = true;
 				}
 
 				u32 VertexIndexInMesh = GetIndexOfVertexInMesh(V, &Object.Mesh, VertexHash, ArrayCount(VertexHash));

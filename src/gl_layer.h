@@ -479,6 +479,12 @@ void SetUniform(shader Shader, v4 V, const char* VariableName)
 	glUniform4f(Location, V.x, V.y, V.z, V.w); 
 }
 
+void SetUniform(shader Shader, bool B, const char* VariableName)
+{
+	u32 IntegerBoolean = (u32)B;
+	SetUniform(Shader, IntegerBoolean, VariableName);
+}
+
 struct screen_framebuffer
 {
 	u32 FBO;
