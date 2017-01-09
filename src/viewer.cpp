@@ -688,20 +688,23 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			u32* AlbedoPixels = AllocateArray(u32, PatchSizeInPixelsSqr);
 			float* Depths = AllocateArray(float, PatchSizeInPixelsSqr);
 
-			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
-			glReadPixels(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchSizeInPixels, PatchSizeInPixels,
-					GL_DEPTH_COMPONENT, GL_FLOAT, Depths);
+			ReadBufferDepth(State->RenderState, State->ScreenFramebuffer.FBO,
+					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
+					PatchSizeInPixels, PatchSizeInPixels, Depths);
 
-			ReadBuffer(State->RenderState, GL_COLOR_ATTACHMENT0);
-			glReadPixels(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchSizeInPixels, PatchSizeInPixels,
+			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.FBO, 0,
+					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
+					PatchSizeInPixels, PatchSizeInPixels,
 					GL_RGBA, GL_UNSIGNED_BYTE, ScreenPatch);
 
-			ReadBuffer(State->RenderState, GL_COLOR_ATTACHMENT1);
-			glReadPixels(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchSizeInPixels, PatchSizeInPixels,
+			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.FBO, 1,
+					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
+					PatchSizeInPixels, PatchSizeInPixels,
 					GL_RGB, GL_FLOAT, Normals);
 
-			ReadBuffer(State->RenderState, GL_COLOR_ATTACHMENT2);
-			glReadPixels(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchSizeInPixels, PatchSizeInPixels,
+			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.FBO, 2,
+					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
+					PatchSizeInPixels, PatchSizeInPixels,
 					GL_RGBA, GL_UNSIGNED_BYTE, AlbedoPixels);
 
 			mat4 InvLookAtCamera = Inverse(LookAt(Camera.Pos, Camera.Target, CameraUp));

@@ -718,6 +718,23 @@ void UpdateHemicubeScreenFramebuffer(render_state* State, hemicube_framebuffer* 
 	Framebuffer->Height = Height;
 }
 
+// TODO(hugo) : Can be even further improved by giving the whole
+// framebuffer and getting the ID and the attachement from there
+void ReadBufferAttachement(render_state* State, u32 FramebufferID, u32 AttachementIndex, 
+		u32 X, u32 Y, u32 Width, u32 Height, GLenum Format, GLenum Type, void* Data)
+{
+	BindFramebuffer(State, GL_FRAMEBUFFER, FramebufferID);
+	ReadBuffer(State, GL_COLOR_ATTACHMENT0 + AttachementIndex);
+	glReadPixels(X, Y, Width, Height, Format, Type, Data);
+}
+
+void ReadBufferDepth(render_state* State, u32 FramebufferID, 
+		u32 X, u32 Y, u32 Width, u32 Height, void* Data)
+{
+	BindFramebuffer(State, GL_FRAMEBUFFER, FramebufferID);
+	glReadPixels(X, Y, Width, Height, GL_DEPTH_COMPONENT, GL_FLOAT, Data);
+}
+
 // --------------------------------
 //  NOTE(hugo) : Error handling
 // --------------------------------
