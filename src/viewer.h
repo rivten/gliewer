@@ -130,6 +130,8 @@ struct game_state
 	camera Camera;
 	float Time;
 
+	v3 dPCamera;
+
 	s32 MouseXInitial;
 	s32 MouseYInitial;
 	bool MouseDragging;

@@ -1015,9 +1015,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->RenderState = RenderState;
 		rect3 Box = MaxBoundingBox();
 		{
-			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
+			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/house/", "house.obj");
-			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
+			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
 			{
 				PushObject(State, &Objects[ObjectIndex]);
@@ -1056,8 +1056,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->ObjectModelMatrix = Identity4();
 		LoadShaders(State);
 
-		//light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
-		light Light = {0, V3(-60.0f, 700.0f, -38.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		//light Light = {0, V3(-60.0f, 700.0f, -38.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(State->RenderState, GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light);
 		
@@ -1071,8 +1071,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				} break;
 			case LightType_Perspective:
 				{
-					//State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 1.0f, 5.5f};
-					State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 50.0f, 600.5f};
+					State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 1.0f, 5.5f};
+					//State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 50.0f, 600.5f};
 				} break;
 			case LightType_PointLight:
 				{
@@ -1083,7 +1083,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 		State->Time = 0.0f;
 
-		State->CameraType = CameraType_Arcball;
+		//State->CameraType = CameraType_Arcball;
+		State->CameraType = CameraType_FirstPerson;
 		State->ReferenceCamera = {};
 		State->ReferenceCamera.Pos = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
 		State->ReferenceCamera.Target = 0.5f * (Box.Max + Box.Min);
@@ -1224,7 +1225,41 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 			} break;
 		case CameraType_FirstPerson:
 			{
-				// TODO(hugo)
+				float CameraAccel = 60.0f;
+				float CameraDrag = 10.0f;
+				float dt = Input->dtForFrame;
+				v3 ddP = {};
+				if(IsKeyPressed(Input, SCANCODE_I))
+				{
+					ddP += Normalized(State->Camera.Target - State->Camera.Pos);
+				}
+				if(IsKeyPressed(Input, SCANCODE_K))
+				{
+					ddP += -1.0f * Normalized(State->Camera.Target - State->Camera.Pos);
+				}
+				if(IsKeyPressed(Input, SCANCODE_L))
+				{
+					ddP += Normalized(State->Camera.Right);
+				}
+				if(IsKeyPressed(Input, SCANCODE_J))
+				{
+					ddP += -1.0f * Normalized(State->Camera.Right);
+				}
+
+				ddP *= CameraAccel;
+
+				v3 DragForce = -CameraDrag * State->dPCamera;
+				ddP += DragForce;
+
+				State->dPCamera += dt * ddP;
+
+				v3 CameraDeltaP = dt * State->dPCamera + 0.5f * dt * dt * ddP;
+
+				State->Camera.Pos += CameraDeltaP;
+				State->Camera.Target += CameraDeltaP;
+
+				State->ReferenceCamera = State->Camera;
+
 			} break;
 		InvalidDefaultCase;
 	}
