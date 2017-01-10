@@ -51,9 +51,9 @@
 
 struct camera
 {
-	v3 Pos;
-	v3 Target;
-	v3 Right;
+	v3 P;
+	v3 XAxis;
+	v3 ZAxis;
 	float FoV;
 	float Aspect;
 	float NearPlane;
@@ -126,6 +126,7 @@ struct game_state
 	camera_type CameraType;
 	camera ReferenceCamera;
 	camera Camera;
+	v3 FixedTarget;
 	float Time;
 
 	v3 dPCamera;

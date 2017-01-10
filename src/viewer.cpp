@@ -414,7 +414,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 			// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
 			PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
 
-			mat4 InvLookAtCamera = Inverse(LookAt(Camera.Pos, Camera.Target, CameraUp));
+			mat4 InvLookAtCamera = Inverse(LookAt(Camera.P, Camera.P - Camera.ZAxis, CameraUp));
 
 			Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
 			v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
@@ -447,8 +447,8 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 				MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
 				for(u32 MicroCameraIndex = 0; MicroCameraIndex < ArrayCount(MicroCameras); ++MicroCameraIndex)
 				{
-					MicroCameras[MicroCameraIndex].Pos = MicroCameraPos;
-					MicroCameras[MicroCameraIndex].Target = MicroCameraPos + MicroRenderDir[MicroCameraIndex];
+					MicroCameras[MicroCameraIndex].P = MicroCameraPos;
+					MicroCameras[MicroCameraIndex].ZAxis = -1.0f * MicroRenderDir[MicroCameraIndex];
 
 					v3 MicroCameraUp = WorldUp;
 					if(MicroCameraIndex != 0)
@@ -456,7 +456,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 						MicroCameraUp = Normal;
 					}
 
-					MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
+					MicroCameras[MicroCameraIndex].XAxis = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
 					MicroCameras[MicroCameraIndex].FoV = Radians(State->MicroFoVInDegrees);
 					MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
 					MicroCameras[MicroCameraIndex].NearPlane = 0.1f * State->Camera.NearPlane;
@@ -472,8 +472,8 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 				camera MicroCamera = MicroCameras[FaceIndex];
 				SetViewport(State->RenderState, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
 						State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
-				RenderShadowSceneOnFramebuffer(State, MicroCamera.Pos, MicroCamera.Target, 
-						Cross(MicroCamera.Right, MicroCamera.Target - MicroCamera.Pos), MicroCameraProjections[FaceIndex], 
+				RenderShadowSceneOnFramebuffer(State, MicroCamera.P, MicroCamera.P - MicroCamera.ZAxis, 
+						Cross(MicroCamera.XAxis, -1.0f * MicroCamera.ZAxis), MicroCameraProjections[FaceIndex], 
 						LightProjectionMatrix, 
 						State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
 						V4(0.0f, 0.0f, 0.0f, 1.0f), false);
@@ -507,12 +507,12 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 				glReadPixels(0, 0, Microbuffer.Width, Microbuffer.Height, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
 				BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
 
-				v3 Wo = Normalized(Camera.Pos - MicroCameras[FaceIndex].Pos);
+				v3 Wo = Normalized(Camera.P - MicroCameras[FaceIndex].P);
 				float NormalDotWo = DotClamp(Normal, Wo);
 				camera MicroCamera = MicroCameras[FaceIndex];
-				v3 MicroCameraLookingDir = Normalized(MicroCamera.Target - MicroCamera.Pos);
-				v3 MicroCameraUp = Cross(MicroCamera.Right, MicroCameraLookingDir);
-				mat4 InvMicroCameraLookAt = Inverse(LookAt(MicroCamera.Pos, MicroCamera.Target, MicroCameraUp));
+				v3 MicroCameraLookingDir = Normalized(-1.0f * MicroCamera.ZAxis);
+				v3 MicroCameraUp = Cross(MicroCamera.XAxis, MicroCameraLookingDir);
+				mat4 InvMicroCameraLookAt = Inverse(LookAt(MicroCamera.P, MicroCamera.P - MicroCamera.ZAxis, MicroCameraUp));
 
 				for(u32 PixelX = 0; PixelX < Microbuffer.Width; ++PixelX)
 				{
@@ -528,8 +528,8 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 									PixelsToMeters, InvMicroCameraLookAt, 
 									Microbuffer.Width, Microbuffer.Height);
 						//Assert(DotClamp(Normal, Wi) > 0.0f);
-						float DistanceMiroCameraPixelSqr = LengthSqr(MicroCamera.Pos - PixelWorldPos);
-						v3 Wi = (PixelWorldPos - MicroCamera.Pos) / (sqrt(DistanceMiroCameraPixelSqr));
+						float DistanceMiroCameraPixelSqr = LengthSqr(MicroCamera.P - PixelWorldPos);
+						v3 Wi = (PixelWorldPos - MicroCamera.P) / (sqrt(DistanceMiroCameraPixelSqr));
 
 						// NOTE(hugo) : In theory, every pixel I sample from
 						// should have a dot product strictly positive
@@ -685,7 +685,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 					PatchSizeInPixels, PatchSizeInPixels,
 					GL_RGBA, GL_UNSIGNED_BYTE, AlbedoPixels);
 
-			mat4 InvLookAtCamera = Inverse(LookAt(Camera.Pos, Camera.Target, CameraUp));
+			mat4 InvLookAtCamera = Inverse(LookAt(Camera.P, Camera.P - Camera.ZAxis, CameraUp));
 #if 0
 			v4* WorldPositionPatch = AllocateArray(v4, PatchSizeInPixelsSqr);
 			for(u32 Y = 0; Y < PatchSizeInPixels; ++Y)
@@ -770,7 +770,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 					// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
 					PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
 
-					mat4 InvLookAtCamera = Inverse(LookAt(Camera.Pos, Camera.Target, CameraUp));
+					mat4 InvLookAtCamera = Inverse(LookAt(Camera.P, Camera.P - Camera.ZAxis, CameraUp));
 
 					Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
 
@@ -793,8 +793,8 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 						MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
 						for(u32 MicroCameraIndex = 0; MicroCameraIndex < ArrayCount(MicroCameras); ++MicroCameraIndex)
 						{
-							MicroCameras[MicroCameraIndex].Pos = MicroCameraPos;
-							MicroCameras[MicroCameraIndex].Target = MicroCameraPos + MicroRenderDir[MicroCameraIndex];
+							MicroCameras[MicroCameraIndex].P = MicroCameraPos;
+							MicroCameras[MicroCameraIndex].ZAxis = -1.0f * MicroRenderDir[MicroCameraIndex];
 
 							v3 MicroCameraUp = WorldUp;
 							if(MicroCameraIndex != 0)
@@ -802,7 +802,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 								MicroCameraUp = Normal;
 							}
 
-							MicroCameras[MicroCameraIndex].Right = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
+							MicroCameras[MicroCameraIndex].XAxis = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
 							MicroCameras[MicroCameraIndex].FoV = Radians(State->MicroFoVInDegrees);
 							MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
 							// TODO(hugo) : Make the micro near/far plane parametrable
@@ -820,8 +820,8 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 						camera MicroCamera = MicroCameras[FaceIndex];
 						SetViewport(State->RenderState, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
 								State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
-						RenderShadowSceneOnFramebuffer(State, MicroCamera.Pos, MicroCamera.Target, 
-								Cross(MicroCamera.Right, MicroCamera.Target - MicroCamera.Pos), MicroCameraProjections[FaceIndex], 
+						RenderShadowSceneOnFramebuffer(State, MicroCamera.P, MicroCamera.P - MicroCamera.ZAxis, 
+								Cross(MicroCamera.XAxis, -1.0f * MicroCamera.ZAxis), MicroCameraProjections[FaceIndex], 
 								LightProjectionMatrix, 
 								State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
 								V4(0.0f, 0.0f, 0.0f, 1.0f), false);
@@ -890,7 +890,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			SetUniform(State->BRDFConvShader, PatchY, "PatchY");
 			SetUniform(State->BRDFConvShader, State->HemicubeFramebuffer.Width, "MicrobufferWidth");
 			SetUniform(State->BRDFConvShader, State->HemicubeFramebuffer.Height, "MicrobufferHeight");
-			SetUniform(State->BRDFConvShader, Camera.Pos, "CameraPos");
+			SetUniform(State->BRDFConvShader, Camera.P, "CameraPos");
 			SetUniform(State->BRDFConvShader, PixelSurfaceInMeters, "PixelSurfaceInMeters");
 			SetUniform(State->BRDFConvShader, PixelsToMeters, "PixelsToMeters");
 			SetUniform(State->BRDFConvShader, State->Alpha, "Alpha");
@@ -992,9 +992,9 @@ rect3 GetFrustumBoundingBox(camera Camera)
 	P[7].x = -P[7].x;
 	P[7].y = -P[7].y;
 
-	v3 CameraUp = Cross(Camera.Right, Normalized(Camera.Target - Camera.Pos));
-	mat4 InvLookAt = Inverse(LookAt(Camera.Pos, 
-				Camera.Target, 
+	v3 CameraUp = Cross(Camera.ZAxis, Camera.XAxis);
+	mat4 InvLookAt = Inverse(LookAt(Camera.P, 
+				Camera.P - Camera.ZAxis, 
 				CameraUp));
 
 	for(u32 PointIndex = 0; PointIndex < ArrayCount(P); ++PointIndex)
@@ -1086,16 +1086,17 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		//State->CameraType = CameraType_Arcball;
 		State->CameraType = CameraType_FirstPerson;
 		State->ReferenceCamera = {};
-		State->ReferenceCamera.Pos = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
-		State->ReferenceCamera.Target = 0.5f * (Box.Max + Box.Min);
-		v3 LookingDir = State->ReferenceCamera.Target - State->ReferenceCamera.Pos;
+		State->ReferenceCamera.P = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
+		State->FixedTarget = 0.5f * (Box.Max + Box.Min);
+		State->ReferenceCamera.ZAxis = Normalized(State->ReferenceCamera.P - State->FixedTarget);
+		v3 LookingDir = -1.0f * State->ReferenceCamera.ZAxis;
 		v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
-		State->ReferenceCamera.Right = Normalized(Cross(LookingDir, WorldUp));
+		State->ReferenceCamera.XAxis = Normalized(Cross(LookingDir, WorldUp));
 		State->ReferenceCamera.FoV = Radians(45);
 		State->ReferenceCamera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
 		float Epsilon = 0.2f;
-		State->ReferenceCamera.NearPlane = (1.0f - Epsilon) * Abs(State->ReferenceCamera.Pos.z - Box.Max.z);
-		State->ReferenceCamera.FarPlane = (1.0f + Epsilon) * Abs(State->ReferenceCamera.Pos.z - Box.Min.z);
+		State->ReferenceCamera.NearPlane = (1.0f - Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Max.z);
+		State->ReferenceCamera.FarPlane = (1.0f + Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Min.z);
 		State->FrustumBoundingBox = GetFrustumBoundingBox(State->ReferenceCamera);
 
 		State->Camera = State->ReferenceCamera;
@@ -1180,7 +1181,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	// NOTE(hugo) : Camera management
 	State->Camera = State->ReferenceCamera;
-	v3 CameraUp = Cross(State->ReferenceCamera.Right, Normalized(State->ReferenceCamera.Target - State->ReferenceCamera.Pos));
+	v3 CameraUp = Cross(State->ReferenceCamera.XAxis, Normalized(-1.0f * State->ReferenceCamera.ZAxis));
 	switch(State->CameraType)
 	{
 		case CameraType_Fixed:
@@ -1200,26 +1201,26 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				}
 
 				float DeltaMovement = 1.0f * 0.5f;
-				v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
-				State->Camera.Pos += Input->MouseZ * DeltaMovement * LookingDir;
+				v3 LookingDir = Normalized(-1.0f * State->Camera.ZAxis);
+				State->Camera.P += Input->MouseZ * DeltaMovement * LookingDir;
 
 				if(State->MouseDragging)
 				{
 					s32 DeltaX = Input->MouseX - State->MouseXInitial;
 					s32 DeltaY = Input->MouseY - State->MouseYInitial;
 					v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
-					State->Camera.Pos = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), WorldUp) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->ReferenceCamera.Pos)).xyz;
-					State->Camera.Right = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), V3(0.0f, 1.0f, 0.0f)) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->ReferenceCamera.Right)).xyz;
-					v3 LookingDir = Normalized(State->ReferenceCamera.Target - State->Camera.Pos);
-					CameraUp = Cross(State->Camera.Right, LookingDir);
+					State->Camera.P = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), WorldUp) * Rotation(-Radians(DeltaY), State->Camera.XAxis) * ToV4(State->ReferenceCamera.P)).xyz;
+					State->Camera.XAxis = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), V3(0.0f, 1.0f, 0.0f)) * Rotation(-Radians(DeltaY), State->Camera.XAxis) * ToV4(State->ReferenceCamera.XAxis)).xyz;
+					State->Camera.ZAxis = Normalized(State->Camera.P - State->FixedTarget);
+					v3 LookingDir = - 1.0f * State->Camera.ZAxis;
+					CameraUp = Cross(State->Camera.XAxis, LookingDir);
 
 					State->FrustumBoundingBox = GetFrustumBoundingBox(State->Camera);
 				}
 
 				if(State->MouseDragging && !(Input->MouseButtons[MouseButton_Right].EndedDown))
 				{
-					State->ReferenceCamera.Pos = State->Camera.Pos;
-					State->ReferenceCamera.Right = State->Camera.Right;
+					State->ReferenceCamera = State->Camera;
 					State->MouseDragging = false;
 				}
 			} break;
@@ -1232,19 +1233,19 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				v3 ddP = {};
 				if(IsKeyPressed(Input, SCANCODE_I))
 				{
-					ddP += Normalized(State->Camera.Target - State->Camera.Pos);
+					ddP += Normalized(-1.0f * State->Camera.ZAxis);
 				}
 				if(IsKeyPressed(Input, SCANCODE_K))
 				{
-					ddP += -1.0f * Normalized(State->Camera.Target - State->Camera.Pos);
+					ddP += -1.0f * Normalized(-1.0f * State->Camera.ZAxis);
 				}
 				if(IsKeyPressed(Input, SCANCODE_L))
 				{
-					ddP += Normalized(State->Camera.Right);
+					ddP += Normalized(State->Camera.XAxis);
 				}
 				if(IsKeyPressed(Input, SCANCODE_J))
 				{
-					ddP += -1.0f * Normalized(State->Camera.Right);
+					ddP += -1.0f * Normalized(State->Camera.XAxis);
 				}
 
 				ddP *= CameraAccel;
@@ -1256,12 +1257,12 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 				v3 CameraDeltaP = dt * State->dPCamera + 0.5f * dt * dt * ddP;
 
-				State->Camera.Pos += CameraDeltaP;
-				State->Camera.Target += CameraDeltaP;
+				State->Camera.P += CameraDeltaP;
 
 				State->ReferenceCamera = State->Camera;
 
 				// NOTE(hugo) : First person camera rotation
+#if 0
 				if(Input->MouseButtons[MouseButton_Right].EndedDown)
 				{
 					if(!State->MouseDragging)
@@ -1273,7 +1274,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 					if(State->MouseDragging)
 					{
-						v3 ZAxis = Normalized(State->Camera.Pos - State->Camera.Target);
+						v3 ZAxis = Normalized(State->Camera.ZAxis);
 						float CameraPitchCos = Dot(ZAxis, V3(0.0f, 0.0f, 1.0f));
 
 						s32 DeltaX = Input->MouseX - State->MouseXInitial;
@@ -1291,6 +1292,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 					State->ReferenceCamera = State->Camera;
 					State->MouseDragging = false;
 				}
+#endif
 
 				State->FrustumBoundingBox = GetFrustumBoundingBox(State->Camera);
 			} break;
@@ -1333,7 +1335,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	mat4 ProjectionMatrix = GetCameraPerspective(State->Camera);
 
 	RenderShadowSceneOnQuad(State, 
-			State->Camera.Pos, State->Camera.Target, CameraUp, 
+			State->Camera.P, State->Camera.P - State->Camera.ZAxis, CameraUp, 
 			ProjectionMatrix, 
 			LightProjectionMatrix, 
 			State->ScreenFramebuffer,
@@ -1404,9 +1406,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		{
 			State->CameraType = CameraType_FirstPerson;
 		}
-		ImGui::Text("Pos = (%f, %f, %f)", State->Camera.Pos.x, State->Camera.Pos.y, State->Camera.Pos.z);
-		ImGui::Text("Target = (%f, %f, %f)", State->Camera.Target.x, State->Camera.Target.y, State->Camera.Target.z);
-		ImGui::Text("Right = (%f, %f, %f)", State->Camera.Right.x, State->Camera.Right.y, State->Camera.Right.z);
+		ImGui::Text("Pos = (%f, %f, %f)", State->Camera.P.x, State->Camera.P.y, State->Camera.P.z);
+		ImGui::Text("XAxis = (%f, %f, %f)", State->Camera.XAxis.x, State->Camera.XAxis.y, State->Camera.XAxis.z);
+		ImGui::Text("ZAxis = (%f, %f, %f)", State->Camera.ZAxis.x, State->Camera.ZAxis.y, State->Camera.ZAxis.z);
 		ImGui::Text("Aspect = %f", State->Camera.Aspect);
 		ImGui::SliderFloat("FoV", &State->Camera.FoV, 0.0f, 3.1415f);
 		ImGui::SliderFloat("NearPlane", &State->Camera.NearPlane, 0.0f, 100.0f);
