@@ -1257,20 +1257,15 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				}
 
 				ddP *= CameraAccel;
-
 				v3 DragForce = -CameraDrag * State->dPCamera;
 				ddP += DragForce;
-
 				State->dPCamera += dt * ddP;
-
 				v3 CameraDeltaP = dt * State->dPCamera + 0.5f * dt * dt * ddP;
-
 				State->Camera.P += CameraDeltaP;
 
 				State->ReferenceCamera = State->Camera;
 
 				// NOTE(hugo) : First person camera rotation
-#if 0
 				if(Input->MouseButtons[MouseButton_Right].EndedDown)
 				{
 					if(!State->MouseDragging)
@@ -1282,25 +1277,48 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 					if(State->MouseDragging)
 					{
-						v3 ZAxis = Normalized(State->Camera.ZAxis);
-						float CameraPitchCos = Dot(ZAxis, V3(0.0f, 0.0f, 1.0f));
+						v3 WorldX = V3(1.0f, 0.0f, 0.0f);
+						v3 WorldY = V3(0.0f, 1.0f, 0.0f);
+						v3 WorldZ = V3(0.0f, 0.0f, 1.0f);
+						float MouseSensitivity = 3.0f;
 
-						s32 DeltaX = Input->MouseX - State->MouseXInitial;
-						s32 DeltaY = Input->MouseY - State->MouseYInitial;
-						v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
-						State->Camera.Target = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), WorldUp) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->Camera.Target)).xyz;
-						State->Camera.Right = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), V3(0.0f, 1.0f, 0.0f)) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->ReferenceCamera.Right)).xyz;
-						v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
-						CameraUp = Cross(State->Camera.Right, LookingDir);
+						float Yaw = GetAngle(WorldX, State->Camera.XAxis, WorldY);
+						float Pitch = GetAngle((Rotation(Yaw, WorldY) * ToV4(WorldZ)).xyz, State->Camera.ZAxis, WorldX);
+
+						s32 DeltaX = -(Input->MouseX - State->MouseXInitial);
+						s32 DeltaY = State->MouseYInitial - Input->MouseY;
+
+						State->MouseXInitial = Input->MouseX;
+						State->MouseYInitial = Input->MouseY;
+
+						Yaw += Radians(dt * MouseSensitivity * DeltaX);
+						Pitch += Radians(dt * MouseSensitivity * DeltaY);
+
+						//float CosPitch = Cos(Pitch);
+						//float SinPitch = Sin(Pitch);
+						float CosYaw = Cos(Yaw);
+						float SinYaw = Sin(Yaw);
+
+						State->Camera.XAxis.x = CosYaw;
+						State->Camera.XAxis.y = 0.0f;
+						State->Camera.XAxis.z = -SinYaw;
+
+						State->Camera.ZAxis.x = SinYaw;
+						State->Camera.ZAxis.y = 0.0f;
+						State->Camera.ZAxis.z = CosYaw;
+
+						State->Camera.ZAxis = (Rotation(Pitch, State->Camera.XAxis) * ToV4(State->Camera.ZAxis)).xyz;
+
+						ImGui::Text("(Dx, Dy) = (%i, %i)", DeltaX, DeltaY);
 					}
 				}
 
 				if(State->MouseDragging && !(Input->MouseButtons[MouseButton_Right].EndedDown))
 				{
-					State->ReferenceCamera = State->Camera;
 					State->MouseDragging = false;
 				}
-#endif
+
+				State->ReferenceCamera = State->Camera;
 
 				State->FrustumBoundingBox = GetFrustumBoundingBox(State->Camera);
 			} break;

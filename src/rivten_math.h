@@ -90,6 +90,13 @@ float Tan(float X)
 	return(Result);
 }
 
+float Arccos(float X)
+{
+	float Result = acos(X);
+
+	return(Result);
+}
+
 int Sign(float X)
 {
 	if(X < 0)
@@ -431,6 +438,26 @@ v3 Clamp01(v3 A)
 	Result.x = Clamp01(A.x);
 	Result.y = Clamp01(A.y);
 	Result.z = Clamp01(A.z);
+
+	return(Result);
+}
+
+float GetAngle(v3 A, v3 B, v3 RefAxis)
+{
+	float CosAngle = Dot(Normalized(A), Normalized(B));
+	int SignAngle = Sign(Dot(Cross(A, B), RefAxis));
+	float Result = 0.0f;
+	if(SignAngle == 0)
+	{
+		if(CosAngle == -1.0f)
+		{
+			Result = Arccos(-1.0f);
+		}
+	}
+	else
+	{
+		Result = SignAngle * Arccos(CosAngle);
+	}
 
 	return(Result);
 }
