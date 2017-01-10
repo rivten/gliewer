@@ -130,6 +130,8 @@ struct game_state
 	float Time;
 
 	v3 dPCamera;
+	float YawSpeed;
+	float PitchSpeed;
 
 	s32 MouseXInitial;
 	s32 MouseYInitial;

@@ -1095,8 +1095,19 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->CameraType = CameraType_FirstPerson;
 		State->ReferenceCamera = {};
 		State->ReferenceCamera.P = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
-		State->FixedTarget = 0.5f * (Box.Max + Box.Min);
-		State->ReferenceCamera.ZAxis = Normalized(State->ReferenceCamera.P - State->FixedTarget);
+		//State->ReferenceCamera.P = V3(0.0f, 0.0f, 0.0f);
+		if(State->CameraType == CameraType_Arcball)
+		{
+			State->FixedTarget = 0.5f * (Box.Max + Box.Min);
+			State->ReferenceCamera.ZAxis = Normalized(State->ReferenceCamera.P - State->FixedTarget);
+		}
+		else
+		{
+			State->ReferenceCamera.ZAxis = V3(0.0f, 0.0f, 1.0f);
+			State->FixedTarget = 0.5f * (Box.Max + Box.Min);
+			State->ReferenceCamera.ZAxis = Normalized(State->ReferenceCamera.P - State->FixedTarget);
+		}
+
 		v3 LookingDir = -1.0f * State->ReferenceCamera.ZAxis;
 		v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
 		State->ReferenceCamera.XAxis = Normalized(Cross(LookingDir, WorldUp));
@@ -1105,7 +1116,14 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		float Epsilon = 0.2f;
 		State->ReferenceCamera.NearPlane = (1.0f - Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Max.z);
 		State->ReferenceCamera.FarPlane = (1.0f + Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Min.z);
+		//State->ReferenceCamera.NearPlane = 100.0f;
+		//State->ReferenceCamera.FarPlane = 2000.0f;
+		State->ReferenceCamera.NearPlane = 0.5f;
 		State->FrustumBoundingBox = GetFrustumBoundingBox(State->ReferenceCamera);
+
+		State->dPCamera = {};
+		State->YawSpeed = 0.0f;
+		State->PitchSpeed = 0.0f;
 
 		State->Camera = State->ReferenceCamera;
 
@@ -1280,7 +1298,6 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 						v3 WorldX = V3(1.0f, 0.0f, 0.0f);
 						v3 WorldY = V3(0.0f, 1.0f, 0.0f);
 						v3 WorldZ = V3(0.0f, 0.0f, 1.0f);
-						float MouseSensitivity = 3.0f;
 
 						float Yaw = GetAngle(WorldX, State->Camera.XAxis, WorldY);
 						float Pitch = GetAngle((Rotation(Yaw, WorldY) * ToV4(WorldZ)).xyz, State->Camera.ZAxis, WorldX);
@@ -1291,8 +1308,22 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 						State->MouseXInitial = Input->MouseX;
 						State->MouseYInitial = Input->MouseY;
 
-						Yaw += Radians(dt * MouseSensitivity * DeltaX);
-						Pitch += Radians(dt * MouseSensitivity * DeltaY);
+						float MouseSensitivity = 30.0f;
+						float YawAccel = Radians(MouseSensitivity * DeltaX);
+						float PitchAccel = Radians(MouseSensitivity * DeltaY);
+
+						float YawPitchDrag = 10.0f;
+						YawAccel += -YawPitchDrag * State->YawSpeed;
+						PitchAccel += -YawPitchDrag * State->PitchSpeed;
+
+						// NOTE(hugo) : Taylor Expansion
+						float SaveYawSpeed = State->YawSpeed;
+						float SavePitchSpeed = State->PitchSpeed;
+						State->YawSpeed += YawAccel * dt;
+						State->PitchSpeed += PitchAccel * dt;
+
+						Yaw += SaveYawSpeed * dt + 0.5f * dt * dt * YawAccel;
+						Pitch += SavePitchSpeed * dt + 0.5f * dt * dt * PitchAccel;
 
 						//float CosPitch = Cos(Pitch);
 						//float SinPitch = Sin(Pitch);
