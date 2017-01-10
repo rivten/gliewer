@@ -1225,6 +1225,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 			} break;
 		case CameraType_FirstPerson:
 			{
+				// NOTE(hugo) : First person camera translation
 				float CameraAccel = 60.0f;
 				float CameraDrag = 10.0f;
 				float dt = Input->dtForFrame;
@@ -1260,6 +1261,38 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 				State->ReferenceCamera = State->Camera;
 
+				// NOTE(hugo) : First person camera rotation
+				if(Input->MouseButtons[MouseButton_Right].EndedDown)
+				{
+					if(!State->MouseDragging)
+					{
+						State->MouseDragging = true;
+						State->MouseXInitial = Input->MouseX;
+						State->MouseYInitial = Input->MouseY;
+					}
+
+					if(State->MouseDragging)
+					{
+						v3 ZAxis = Normalized(State->Camera.Pos - State->Camera.Target);
+						float CameraPitchCos = Dot(ZAxis, V3(0.0f, 0.0f, 1.0f));
+
+						s32 DeltaX = Input->MouseX - State->MouseXInitial;
+						s32 DeltaY = Input->MouseY - State->MouseYInitial;
+						v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
+						State->Camera.Target = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), WorldUp) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->Camera.Target)).xyz;
+						State->Camera.Right = (Rotation(-Sign(Dot(WorldUp, CameraUp)) * Radians(DeltaX), V3(0.0f, 1.0f, 0.0f)) * Rotation(-Radians(DeltaY), State->Camera.Right) * ToV4(State->ReferenceCamera.Right)).xyz;
+						v3 LookingDir = Normalized(State->Camera.Target - State->Camera.Pos);
+						CameraUp = Cross(State->Camera.Right, LookingDir);
+					}
+				}
+
+				if(State->MouseDragging && !(Input->MouseButtons[MouseButton_Right].EndedDown))
+				{
+					State->ReferenceCamera = State->Camera;
+					State->MouseDragging = false;
+				}
+
+				State->FrustumBoundingBox = GetFrustumBoundingBox(State->Camera);
 			} break;
 		InvalidDefaultCase;
 	}

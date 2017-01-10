@@ -3,10 +3,8 @@
 /*
    TODO(hugo)
      * Basic GLiewer todos
-		- get rid of ImGui / camera interference
-	    - different type of camera (FPS camera)
 		- proper SDL-ImGui layer
-		- material handling when OBJ parsing
+		- full material handling when OBJ parsing
 		- asset streaming
 		- shader as assets (having a structure, uniforms, etc.. ==> glsl parsing ??)
 	    - split the viewer.cpp code into several files
