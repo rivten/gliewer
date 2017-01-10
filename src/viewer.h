@@ -4,19 +4,17 @@
    TODO(hugo)
      * Basic GLiewer todos
 		- get rid of ImGui / camera interference
-		- clean Camera code
 	    - different type of camera (FPS camera)
 		- proper SDL-ImGui layer
-	    - texture support
+		- material handling when OBJ parsing
 		- asset streaming
 		- shader as assets (having a structure, uniforms, etc.. ==> glsl parsing ??)
 	    - split the viewer.cpp code into several files
 		- light attenuation
-		- material handling when OBJ parsing
 		- normal mapping
 		- motion blur
-	    - mesh code cleanup
 	    - ambient occlusion (SSAO ?)
+	    - mesh code cleanup
 		- possibility to see light depth buffer from GUI
 		- light handling has objects having an emissivity
 		- check memory footprint

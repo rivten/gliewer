@@ -141,7 +141,7 @@ void RenderShadowedScene(game_state* State,
 			}
 			if(ShouldDraw)
 			{
-				SetUniform(State->ShadowMappingShader, Object->Albedo, "ObjectColor");
+				SetUniform(State->ShadowMappingShader, Object->Albedo, "Albedo");
 				SetUniform(State->ShadowMappingShader, Object->UseTextureMapping, "UseTextureMapping");
 				if(Object->UseTextureMapping)
 				{
@@ -1015,8 +1015,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->RenderState = RenderState;
 		rect3 Box = MaxBoundingBox();
 		{
-			//std::vector<object> Objects = LoadOBJ("../models/cornell_box/", "CornellBox-Original.obj");
-			//std::vector<object> Objects = LoadOBJ("../models/house/", "house.obj");
+			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
+			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/house/", "house.obj");
 			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
 			{
@@ -1056,7 +1056,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->ObjectModelMatrix = Identity4();
 		LoadShaders(State);
 
-		light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		//light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		light Light = {0, V3(-60.0f, 700.0f, -38.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(State->RenderState, GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light);
 		
@@ -1070,7 +1071,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				} break;
 			case LightType_Perspective:
 				{
-					State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 1.0f, 5.5f};
+					//State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 1.0f, 5.5f};
+					State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 50.0f, 600.5f};
 				} break;
 			case LightType_PointLight:
 				{

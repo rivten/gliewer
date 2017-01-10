@@ -17,7 +17,7 @@ uniform vec3 LightPos[4];
 uniform vec4 LightColor[4];
 uniform int LightCount;
 uniform mat4 ViewMatrix;
-uniform vec4 ObjectColor;
+uniform vec4 Albedo;
 uniform int BlinnPhongShininess;
 uniform float CTF0;
 uniform float Alpha;
@@ -162,32 +162,31 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 
 void main()
 {
-	if(UseTextureMapping == 0)
+	vec4 ReflectionColor = Albedo;
+	if(UseTextureMapping == 1)
 	{
-		vec3 FragmentPos = vec3(ViewMatrix * FragmentPositionInWorldSpace);
-		vec3 ViewDir = normalize(-FragmentPos);
-
-		// NOTE(hugo) : Computations needs to happen in eye space
-		// since we computed the Normal in that very space
-		for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
-		{
-			vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos[LightIndex], 1.0f)) - FragmentPos);
-			vec3 HalfDir = normalize(ViewDir + LightDir);
-
-			float ShadowMappingBias = max(0.01f * (1.0f - dot(VertexNormal, LightDir)), 0.005f);
-			float Shadow = ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex], ShadowMappingBias);
-			float BRDF = GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
-			vec4 Li = LightIntensity * ObjectColor * LightColor[LightIndex];
-			Color += (1.0f - Shadow) * BRDF * Li * DotClamp(VertexNormal, LightDir);
-		}
+		ReflectionColor = texture(TextureMap, TextureCoordinates);
 	}
-	else
+
+	vec3 FragmentPos = vec3(ViewMatrix * FragmentPositionInWorldSpace);
+	vec3 ViewDir = normalize(-FragmentPos);
+
+	// NOTE(hugo) : Computations needs to happen in eye space
+	// since we computed the Normal in that very space
+	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
 	{
-		Color = texture(TextureMap, TextureCoordinates);
+		vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos[LightIndex], 1.0f)) - FragmentPos);
+		vec3 HalfDir = normalize(ViewDir + LightDir);
+
+		float ShadowMappingBias = max(0.01f * (1.0f - dot(VertexNormal, LightDir)), 0.005f);
+		float Shadow = ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex], ShadowMappingBias);
+		float BRDF = GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
+		vec4 Li = LightIntensity * ReflectionColor * LightColor[LightIndex];
+		Color += (1.0f - Shadow) * BRDF * Li * DotClamp(VertexNormal, LightDir);
 	}
 
 	// NOTE(hugo) : Compacting the normal into [0,1]^3
 	NormalMap = 0.5f * NormalWorldSpace + vec3(0.5f, 0.5f, 0.5f);
 
-	AlbedoMap = ObjectColor.xyz;
+	AlbedoMap = Albedo.xyz;
 }
