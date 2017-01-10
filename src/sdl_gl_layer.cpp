@@ -429,10 +429,10 @@ int main(int argc, char** argv)
 
                 SDLProcessKeyboardState(NewInput);
 
-                SDL_GetMouseState(&NewInput->MouseX, &NewInput->MouseY);
-                SDLProcessKeyboardMessage(&NewInput->MouseButtons[0], (SDL_GetMouseState(0, 0) & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0);
-                SDLProcessKeyboardMessage(&NewInput->MouseButtons[1], (SDL_GetMouseState(0, 0) & SDL_BUTTON(SDL_BUTTON_MIDDLE)) != 0);
-                SDLProcessKeyboardMessage(&NewInput->MouseButtons[2], (SDL_GetMouseState(0, 0) & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0);
+                u8 ButtonState = SDL_GetMouseState(&NewInput->MouseX, &NewInput->MouseY);
+                SDLProcessKeyboardMessage(&NewInput->MouseButtons[0], (ButtonState & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0);
+                SDLProcessKeyboardMessage(&NewInput->MouseButtons[1], (ButtonState & SDL_BUTTON(SDL_BUTTON_MIDDLE)) != 0);
+                SDLProcessKeyboardMessage(&NewInput->MouseButtons[2], (ButtonState & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0);
 
                 u32 MaxControllerCount = ArrayCount(NewInput->Controllers) - 1;
                 u32 ControllerCount = SDL_NumJoysticks();
