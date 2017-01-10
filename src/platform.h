@@ -407,10 +407,21 @@ enum scancode
                                  for array bounds */
 };
 
+enum mouse_button
+{
+	MouseButton_Left = 0,
+	MouseButton_Middle = 1,
+	MouseButton_Right = 2,
+	MouseButton_Special0 = 3,
+	MouseButton_Special1 = 4,
+
+	MouseButton_Count = 5,
+};
+
 // TODO(hugo) : Get textinput event and MouseWheel (mostly for ImGui)
 struct game_input
 {
-    game_button_state MouseButtons[5];
+    game_button_state MouseButtons[MouseButton_Count];
     s32 MouseX, MouseY, MouseZ;
 
     bool ExecutableReloaded;

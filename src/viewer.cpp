@@ -1188,7 +1188,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 			} break;
 		case CameraType_Arcball:
 			{
-				if(Input->MouseButtons[0].EndedDown)
+				if(Input->MouseButtons[MouseButton_Right].EndedDown)
 				{
 					if(!State->MouseDragging)
 					{
@@ -1215,7 +1215,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 					State->FrustumBoundingBox = GetFrustumBoundingBox(State->Camera);
 				}
 
-				if(State->MouseDragging && !(Input->MouseButtons[0].EndedDown))
+				if(State->MouseDragging && !(Input->MouseButtons[MouseButton_Right].EndedDown))
 				{
 					State->ReferenceCamera.Pos = State->Camera.Pos;
 					State->ReferenceCamera.Right = State->Camera.Right;
