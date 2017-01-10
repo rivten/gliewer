@@ -1014,12 +1014,10 @@ mat4 Orthographic(float Width, float Height, float NearPlane, float FarPlane)
 	return(Result);
 }
 
-mat4 LookAt(v3 Eye, v3 Target, v3 WorldUp)
+mat4 LookAt(v3 Eye, v3 XAxis, v3 ZAxis)
 {
 	mat4 Result = {};
 
-	v3 ZAxis = Normalized(Eye - Target);
-	v3 XAxis = Normalized(Cross(WorldUp, ZAxis));
 	v3 YAxis = Cross(ZAxis, XAxis);
 
 	SetValue(&Result, 0, 0, XAxis.x);

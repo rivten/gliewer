@@ -40,6 +40,12 @@ mat4 GetLightModelMatrix(light Light)
 		return(ModelMatrix);
 }
 
+mat4 LookAt(camera Camera)
+{
+	mat4 Result = LookAt(Camera.P, Camera.XAxis, Camera.ZAxis);
+	return(Result);
+}
+
 mat4 GetCameraPerspective(camera Camera)
 {
 	mat4 Result = Perspective(Camera.FoV, Camera.Aspect, Camera.NearPlane, Camera.FarPlane);
@@ -48,12 +54,12 @@ mat4 GetCameraPerspective(camera Camera)
 }
 
 // TODO(hugo) : A lot of render call recompute the LookAt matrix. Factorize this to compute it only once
-void RenderSkybox(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix)
+void RenderSkybox(game_state* State, camera Camera, mat4 ProjectionMatrix)
 {
 	DepthMask(State->RenderState, false);
 	UseShader(State->RenderState, State->SkyboxShader);
 
-	mat4 UntranslatedView = RemoveTranslationPart(LookAt(CameraPos, CameraTarget, CameraUp));
+	mat4 UntranslatedView = RemoveTranslationPart(LookAt(Camera));
 	SetUniform(State->SkyboxShader, ProjectionMatrix, "Projection");
 	SetUniform(State->SkyboxShader, UntranslatedView, "View");
 
@@ -66,14 +72,14 @@ void RenderSkybox(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp,
 
 // NOTE(hugo) : In order for this function to work, the light depth buffers must have been previously computed
 void RenderShadowedScene(game_state* State, 
-		v3 CameraPos, v3 CameraTarget, v3 CameraUp, 
+		camera Camera,
 		mat4 ProjectionMatrix, 
 		mat4 LightProjectionMatrix, 
 		rect3* FrustumBoundingBox = 0)
 {
 	mat4 LightSpaceMatrix[4];
 
-	mat4 ViewMatrix = LookAt(CameraPos, CameraTarget, CameraUp);
+	mat4 ViewMatrix = LookAt(Camera);
 
 	// NOTE(hugo) : Drawing Object Mesh
 	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectModelMatrix;
@@ -94,6 +100,8 @@ void RenderShadowedScene(game_state* State,
 
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
+		light* Light = State->Lights + LightIndex;
+
 		char Buffer[80];
 		char StringNum[2];
 		sprintf(StringNum, "%i", LightIndex);
@@ -101,16 +109,19 @@ void RenderShadowedScene(game_state* State,
 		strcat(Buffer, StringNum);
 		strcat(Buffer, "]");
 
-		SetUniform(State->ShadowMappingShader, State->Lights[LightIndex].Pos, Buffer);
+		SetUniform(State->ShadowMappingShader, Light->Pos, Buffer);
 
 		memset(Buffer, 0, ArrayCount(Buffer));
 		strcpy(Buffer, "LightColor[");
 		strcat(Buffer, StringNum);
 		strcat(Buffer, "]");
 
-		SetUniform(State->ShadowMappingShader, State->Lights[LightIndex].Color, Buffer);
+		SetUniform(State->ShadowMappingShader, Light->Color, Buffer);
 
-		mat4 LightLookAt = LookAt(State->Lights[LightIndex].Pos, State->Lights[LightIndex].Target, V3(0.0f, 1.0f, 0.0f));
+		v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
+		v3 LightZAxis = Normalized(Light->Pos - Light->Target);
+		v3 LightXAxis = Cross(LightYAxis, LightZAxis);
+		mat4 LightLookAt = LookAt(Light->Pos, LightXAxis, LightZAxis);
 		LightSpaceMatrix[LightIndex] = LightProjectionMatrix * LightLookAt;
 		memset(Buffer, 0, ArrayCount(Buffer));
 		strcpy(Buffer, "LightSpaceMatrix[");
@@ -124,7 +135,7 @@ void RenderShadowedScene(game_state* State,
 		strcat(Buffer, "]");
 		ActiveTexture(State->RenderState, GL_TEXTURE0 + LightIndex);
 		SetUniform(State->ShadowMappingShader, LightIndex, Buffer);
-		BindTexture(State->RenderState, GL_TEXTURE_2D, State->Lights[LightIndex].DepthFramebuffer.Texture.ID);
+		BindTexture(State->RenderState, GL_TEXTURE_2D, Light->DepthFramebuffer.Texture.ID);
 	}
 
 	SetUniform(State->ShadowMappingShader, State->CookTorranceF0, "CTF0");
@@ -169,9 +180,9 @@ void RenderShadowedScene(game_state* State,
 	}
 }
 
-void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 CameraUp, mat4 ProjectionMatrix)
+void RenderSimpleScene(game_state* State, camera Camera, mat4 ProjectionMatrix)
 {
-	mat4 ViewMatrix = LookAt(CameraPos, CameraTarget, CameraUp);
+	mat4 ViewMatrix = LookAt(Camera);
 	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectModelMatrix;
 
 	UseShader(State->RenderState, State->BasicShader);
@@ -188,7 +199,7 @@ void RenderSimpleScene(game_state* State, v3 CameraPos, v3 CameraTarget, v3 Came
 }
 
 void RenderShadowSceneOnFramebuffer(game_state* State, 
-		v3 CameraPos, v3 CameraTarget, v3 CameraUp, 
+		camera Camera,
 		mat4 ProjectionMatrix, mat4 LightProjectionMatrix, 
 		geometry_framebuffer Framebuffer, 
 		v4 ClearColor = V4(0.0f, 0.0f, 0.0f, 1.0f),
@@ -200,13 +211,13 @@ void RenderShadowSceneOnFramebuffer(game_state* State,
 	Enable(State->RenderState, GL_DEPTH_TEST);
 
 	RenderShadowedScene(State, 
-			CameraPos, CameraTarget, CameraUp, 
+			Camera,
 			ProjectionMatrix, 
 			LightProjectionMatrix, 
 			FrustumBoundingBox);
 	if(SkyboxRender)
 	{
-		RenderSkybox(State, CameraPos, CameraTarget, CameraUp, ProjectionMatrix);
+		RenderSkybox(State, Camera, ProjectionMatrix);
 	}
 
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
@@ -233,13 +244,13 @@ void RenderTextureOnQuadScreen(game_state* State, texture Texture)
 }
 
 void RenderShadowSceneOnQuad(game_state* State, 
-		v3 CameraPos, v3 CameraTarget, v3 CameraUp, 
+		camera Camera,
 		mat4 ProjectionMatrix, mat4 LightProjectionMatrix, 
 		geometry_framebuffer Framebuffer,
 		rect3* FrustumBoundingBox = 0)
 {
 	RenderShadowSceneOnFramebuffer(State, 
-			CameraPos, CameraTarget, CameraUp, 
+			Camera,
 			ProjectionMatrix, LightProjectionMatrix, 
 			Framebuffer, V4(1.0f, 0.0f, 0.5f, 1.0f), 
 			true,
@@ -360,7 +371,7 @@ v4 NormalizedLInf(v4 A)
 	return(Result);
 }
 
-void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, mat4 LightProjectionMatrix)
+void ComputeGlobalIllumination(game_state* State, camera Camera, mat4 LightProjectionMatrix)
 {
 	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
 			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
@@ -414,7 +425,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 			// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
 			PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
 
-			mat4 InvLookAtCamera = Inverse(LookAt(Camera.P, Camera.P - Camera.ZAxis, CameraUp));
+			mat4 InvLookAtCamera = Inverse(LookAt(Camera));
 
 			Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
 			v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
@@ -472,8 +483,8 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, v3 CameraUp, ma
 				camera MicroCamera = MicroCameras[FaceIndex];
 				SetViewport(State->RenderState, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
 						State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
-				RenderShadowSceneOnFramebuffer(State, MicroCamera.P, MicroCamera.P - MicroCamera.ZAxis, 
-						Cross(MicroCamera.XAxis, -1.0f * MicroCamera.ZAxis), MicroCameraProjections[FaceIndex], 
+				RenderShadowSceneOnFramebuffer(State, MicroCamera,
+						MicroCameraProjections[FaceIndex], 
 						LightProjectionMatrix, 
 						State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
 						V4(0.0f, 0.0f, 0.0f, 1.0f), false);
@@ -636,7 +647,6 @@ v4 UnprojectPixel(float PixelDepth, u32 X, u32 Y, u32 Width, u32 Height,
 
 void ComputeGlobalIlluminationWithPatch(game_state* State, 
 		camera Camera, 
-		v3 CameraUp, 
 		mat4 LightProjectionMatrix,
 		u32 PatchSizeInPixels = 32)
 {
@@ -685,7 +695,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 					PatchSizeInPixels, PatchSizeInPixels,
 					GL_RGBA, GL_UNSIGNED_BYTE, AlbedoPixels);
 
-			mat4 InvLookAtCamera = Inverse(LookAt(Camera.P, Camera.P - Camera.ZAxis, CameraUp));
+			mat4 InvLookAtCamera = Inverse(LookAt(Camera));
 #if 0
 			v4* WorldPositionPatch = AllocateArray(v4, PatchSizeInPixelsSqr);
 			for(u32 Y = 0; Y < PatchSizeInPixels; ++Y)
@@ -770,7 +780,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 					// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
 					PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
 
-					mat4 InvLookAtCamera = Inverse(LookAt(Camera.P, Camera.P - Camera.ZAxis, CameraUp));
+					mat4 InvLookAtCamera = Inverse(LookAt(Camera));
 
 					Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
 
@@ -820,8 +830,8 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 						camera MicroCamera = MicroCameras[FaceIndex];
 						SetViewport(State->RenderState, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
 								State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
-						RenderShadowSceneOnFramebuffer(State, MicroCamera.P, MicroCamera.P - MicroCamera.ZAxis, 
-								Cross(MicroCamera.XAxis, -1.0f * MicroCamera.ZAxis), MicroCameraProjections[FaceIndex], 
+						RenderShadowSceneOnFramebuffer(State, MicroCamera,
+								MicroCameraProjections[FaceIndex], 
 								LightProjectionMatrix, 
 								State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
 								V4(0.0f, 0.0f, 0.0f, 1.0f), false);
@@ -993,9 +1003,7 @@ rect3 GetFrustumBoundingBox(camera Camera)
 	P[7].y = -P[7].y;
 
 	v3 CameraUp = Cross(Camera.ZAxis, Camera.XAxis);
-	mat4 InvLookAt = Inverse(LookAt(Camera.P, 
-				Camera.P - Camera.ZAxis, 
-				CameraUp));
+	mat4 InvLookAt = Inverse(LookAt(Camera));
 
 	for(u32 PointIndex = 0; PointIndex < ArrayCount(P); ++PointIndex)
 	{
@@ -1321,10 +1329,15 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	SetViewport(State->RenderState, GlobalShadowWidth, GlobalShadowHeight);
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
+		light* Light = State->Lights + LightIndex;
 		BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->Lights[LightIndex].DepthFramebuffer.FBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
 		CullFace(State->RenderState, GL_FRONT);
-		RenderSimpleScene(State, State->Lights[LightIndex].Pos, State->Lights[LightIndex].Target, V3(0.0f, 1.0f, 0.0f), LightProjectionMatrix);
+		camera LightCamera = {};
+		LightCamera.P = Light->Pos;
+		LightCamera.ZAxis = Normalized(LightCamera.P - Light->Target);
+		LightCamera.XAxis = Cross(V3(0.0f, 1.0f, 0.0f), LightCamera.ZAxis);
+		RenderSimpleScene(State, LightCamera, LightProjectionMatrix);
 		CullFace(State->RenderState, GL_BACK);
 	}
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
@@ -1335,7 +1348,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	mat4 ProjectionMatrix = GetCameraPerspective(State->Camera);
 
 	RenderShadowSceneOnQuad(State, 
-			State->Camera.P, State->Camera.P - State->Camera.ZAxis, CameraUp, 
+			State->Camera,
 			ProjectionMatrix, 
 			LightProjectionMatrix, 
 			State->ScreenFramebuffer,
@@ -1344,7 +1357,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	if(ImGui::Button("Compute Indirect Illumination"))
 	{
-		ComputeGlobalIlluminationWithPatch(State, State->Camera, CameraUp, LightProjectionMatrix);
+		ComputeGlobalIlluminationWithPatch(State, State->Camera, LightProjectionMatrix);
 	}
 
 #if 1
