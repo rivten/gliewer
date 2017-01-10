@@ -147,7 +147,7 @@ void RenderShadowedScene(game_state* State,
 				{
 					ActiveTexture(State->RenderState, GL_TEXTURE4);
 					SetUniform(State->ShadowMappingShader, (u32)4, "TextureMap");
-					BindTexture(State->RenderState, GL_TEXTURE_2D, Object->TextureMap.ID);
+					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->TextureMapLocation].ID);
 				}
 				DrawTriangleObject(State->RenderState, Object);
 			}

@@ -64,7 +64,7 @@ struct object
 	bool Visible;
 
 	bool UseTextureMapping;
-	texture TextureMap;
+	u32 TextureMapLocation;
 
 	mesh Mesh;
 	rect3 BoundingBox;
@@ -321,7 +321,7 @@ std::vector<object> LoadOBJ(render_state* RenderState, const std::string BaseDir
 	bool LoadingWorked = tinyobj::LoadObj(&Attributes, &Shapes, &Materials, &Error, (BaseDir + Filename).c_str(), BaseDir.c_str());
 	Assert(LoadingWorked);
 
-	for(u32 ShapeIndex = 3; ShapeIndex < min(13, Shapes.size()); ++ShapeIndex)
+	for(u32 ShapeIndex = 0; ShapeIndex < Shapes.size(); ++ShapeIndex)
 	{
 		object Object = {};
 		Object.Mesh.VertexCount = 0;
@@ -364,11 +364,25 @@ std::vector<object> LoadOBJ(render_state* RenderState, const std::string BaseDir
 			tinyobj::material_t ObjectMaterial = Materials[Shapes[ShapeIndex].mesh.material_ids[0]];
 			Object.Albedo = V4(ObjectMaterial.ambient[0], ObjectMaterial.ambient[1], ObjectMaterial.ambient[2], 1.0f);
 			
-			// TODO(hugo) : Maybe separate objects and material since different 
-			// objects can use the same material and we should not copy the data twice
-			char TextureMapPath[128];
-			sprintf(TextureMapPath, "%s%s", BaseDir.c_str(), ObjectMaterial.ambient_texname.c_str());
-			Object.TextureMap = CreateTextureFromFile(RenderState, TextureMapPath);
+			char* AmbientTexName = (char*) ObjectMaterial.ambient_texname.c_str();
+			if(!IsEmptyString(AmbientTexName))
+			{
+				Object.UseTextureMapping = true;
+				u32 TextureLocation = 0;
+				if(TextureExists(RenderState, AmbientTexName, &TextureLocation))
+				{
+					Object.TextureMapLocation = TextureLocation;
+				}
+				else
+				{
+					char TextureMapPath[128];
+					sprintf(TextureMapPath, "%s%s", BaseDir.c_str(), AmbientTexName);
+					texture TextureMap = CreateTextureFromFile(RenderState, TextureMapPath);
+					CopyArray(TextureMap.Name, ObjectMaterial.ambient_texname.c_str(), char, ArrayCount(TextureMap.Name));
+					PushTexture(RenderState, TextureMap);
+					Object.TextureMapLocation = RenderState->TextureCount - 1;
+				}
+			}
 		}
 #endif
 
@@ -408,8 +422,6 @@ std::vector<object> LoadOBJ(render_state* RenderState, const std::string BaseDir
 				{
 					V.Texture = V2(Attributes.texcoords[2 * TextureIndex + 0],
 							Attributes.texcoords[2 * TextureIndex + 1]);
-					// TODO(hugo) : Load the texture map
-					Object.UseTextureMapping = true;
 				}
 
 				u32 VertexIndexInMesh = GetIndexOfVertexInMesh(V, &Object.Mesh, VertexHash, ArrayCount(VertexHash));

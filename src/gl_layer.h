@@ -62,6 +62,14 @@ struct rect2
 	v2 Size;
 };
 
+struct texture
+{
+	u32 ID;
+	GLenum RenderTarget;
+	bool IsValid;
+	char Name[128];
+};
+
 struct render_state
 {
 	u32 ShaderID;
@@ -89,13 +97,9 @@ struct render_state
 	GLenum ColorAttachmentRead;
 
 	rect2 Viewport;
-};
 
-struct texture
-{
-	u32 ID;
-	GLenum RenderTarget;
-	bool IsValid;
+	texture Textures[64];
+	u32 TextureCount;
 };
 
 render_state CreateDefaultRenderState(void)
@@ -782,6 +786,35 @@ void ReadBufferDepth(render_state* State, u32 FramebufferID,
 {
 	BindFramebuffer(State, GL_FRAMEBUFFER, FramebufferID);
 	glReadPixels(X, Y, Width, Height, GL_DEPTH_COMPONENT, GL_FLOAT, Data);
+}
+
+void PushTexture(render_state* RenderState, texture Texture)
+{
+	Assert(RenderState->TextureCount < ArrayCount(RenderState->Textures));
+	RenderState->Textures[RenderState->TextureCount] = Texture;
+	++RenderState->TextureCount;
+}
+
+bool TextureExists(render_state* RenderState, char* TextureName, u32* Location)
+{
+	Assert(TextureName);
+	Assert(!IsEmptyString(TextureName));
+
+	bool Found = false;
+	for(u32 TextureIndex = 0; (!Found) && (TextureIndex < RenderState->TextureCount); ++TextureIndex)
+	{
+		texture* Texture = RenderState->Textures + TextureIndex;
+		if(AreStringIdentical(Texture->Name, TextureName))
+		{
+			Found = true;
+			if(Location)
+			{
+				*Location = TextureIndex;
+			}
+		}
+	}
+
+	return(Found);
 }
 
 // --------------------------------
