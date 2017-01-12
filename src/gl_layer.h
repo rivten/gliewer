@@ -433,8 +433,8 @@ void LoadImageToTexture(render_state* State, texture* Texture, image_texture_loa
 			Params.ExternalFormat, Params.ExternalType, 
 			Params.Data);
 
-	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_MAG_FILTER, Params.MinFilter);
-	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_MIN_FILTER, Params.MagFilter);
+	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_MIN_FILTER, Params.MinFilter);
+	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_MAG_FILTER, Params.MagFilter);
 	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_WRAP_S, Params.WrapS);
 	glTexParameteri(Texture->RenderTarget, GL_TEXTURE_WRAP_T, Params.WrapT);
 	BindTexture(State, Texture->RenderTarget, 0);
