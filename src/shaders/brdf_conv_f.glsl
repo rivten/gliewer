@@ -3,13 +3,14 @@
 in vec2 TextureCoordinates;
 
 layout (location = 0) out vec4 Color;
-layout (location = 1) out vec3 NormalMap;
-layout (location = 2) out vec3 AlbedoMap;
+layout (location = 1) out vec3 NormalOut;
+layout (location = 2) out vec3 AlbedoOut;
 
 uniform sampler2D MegaTextures[5];
 uniform sampler2D DepthPatch;
-uniform sampler2D NormalPatch;
-uniform sampler2D AlbedoPatch;
+uniform sampler2D NormalMap;
+uniform sampler2D AlbedoMap;
+uniform sampler2D DirectIlluminationMap;
 
 uniform int PatchSizeInPixels;
 
@@ -156,16 +157,6 @@ mat4 GetLookAt(vec3 Eye, vec3 Target, vec3 Up)
 	return(Result);
 }
 
-vec4 Hadamard(vec4 A, vec4 B)
-{
-	vec4 Result = vec4(A.x * B.x,
-			A.y * B.y,
-			A.z * B.z,
-			A.w * B.w);
-
-	return(Result);
-}
-
 void main()
 {
 	// NOTE(hugo) : These coords are from the LOWER-LEFT corner
@@ -177,7 +168,8 @@ void main()
 	// texture range.
 	//vec2 PixelCoordInScreen = gl_FragCoord.xy - vec2(0.5f, 0.5f);
 	vec2 PixelCoordInScreen = gl_FragCoord.xy;
-	vec2 PixelCoordInPatch = PixelCoordInScreen  - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
+	vec2 ScreenSize = vec2(WindowWidth, WindowHeight);
+	vec2 PixelCoordInPatch = PixelCoordInScreen - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
 	vec2 TextureCoord = PixelCoordInPatch / float(PatchSizeInPixels);
 
 	float Depth = texture(DepthPatch, TextureCoord).r;
@@ -197,16 +189,11 @@ void main()
 	PixelPos.y = - tan(0.5f * MainCameraFoV) * PixelPos.z * PixelPos.y;
 	PixelPos = InvLookAtCamera * PixelPos;
 	PixelPos.w = 1.0f;
-	//vec4 FragmentWorldPos = UnprojectPixel(Depth, 
-			//PixelCoordInScreen.x, PixelCoordInScreen.y, 
-			//float(WindowWidth), float(WindowHeight), 
-			//MainCameraFoV, MainCameraAspect, 
-			//InvLookAtCamera);
 	vec4 FragmentWorldPos = PixelPos;
-	vec3 Normal = texture(NormalPatch, TextureCoord).xyz;
+	vec3 Normal = texture(NormalMap, PixelCoordInScreen / ScreenSize).xyz;
 	Normal = normalize(2.0f * Normal - vec3(1.0f, 1.0f, 1.0f));
 
-	vec4 Albedo = texture(AlbedoPatch, TextureCoord);
+	vec4 Albedo = texture(AlbedoMap, PixelCoordInScreen / ScreenSize);
 	//if(length(Albedo.xyz) == 0.0f)
 	//{
 		//discard;
@@ -214,7 +201,7 @@ void main()
 
 	float MegaTextureTexelSize = 1.0f / textureSize(MegaTextures[0], 0).x;
 
-	Color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	Color = texture(DirectIlluminationMap, PixelCoordInScreen / ScreenSize);
 	vec3 Wo = normalize(CameraPos - FragmentWorldPos.xyz);
 	float NormalDotWo = DotClamp(Normal, Wo);
 
@@ -297,7 +284,7 @@ void main()
 						float SolidAngle = dot(Wi, MicroCameraLookingDir) * (PixelSurfaceInMeters / DistanceMicroCameraPixelSqr);
 						float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, Alpha, CookTorranceF0);
 						// TODO(hugo) : Check earlier if Albedo.rgb == 0
-						Color += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, SampleColor);
+						Color += BRDF * DotClamp(Normal, Wi) * SolidAngle * Albedo * SampleColor;
 					}
 				}
 				float DistanceMicroCameraPixelSqr = LengthSqr(FragmentWorldPos - MicroPixelWorldPos);
@@ -307,8 +294,6 @@ void main()
 		}
 	}
 	Color.w = 1.0f;
-	AlbedoMap = vec3(0.0f, 0.0f, 0.0f);
-	NormalMap = vec3(0.0f, 0.0f, 0.0f);
-	//float Fraction = DEBUGSolidAngle / (2.0f * Pi);
-	//Color = vec4(DEBUGRedError, 1.0f * Fraction, 0.0f * DEBUGCounter / (float(MicrobufferWidth) * float(MicrobufferHeight) * 3.0f), 1.0f);
+	AlbedoOut = vec3(0.0f, 0.0f, 0.0f);
+	NormalOut = vec3(0.0f, 0.0f, 0.0f);
 }

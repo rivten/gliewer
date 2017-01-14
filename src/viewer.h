@@ -149,6 +149,7 @@ struct game_state
 
 	geometry_framebuffer ScreenFramebuffer;
 	hemicube_framebuffer HemicubeFramebuffer;
+	geometry_framebuffer IndirectIlluminationFramebuffer;
 
 	GLuint RBO;
 	GLuint QuadVAO;
@@ -159,9 +160,6 @@ struct game_state
 	GLuint SkyboxTexture;
 
 	u32 MicroFoVInDegrees;
-
-	texture IndirectIlluminationTexture;
-	u32* IndirectIlluminationBuffer;
 
 	render_state* RenderState;
 	rect3 FrustumBoundingBox;

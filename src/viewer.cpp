@@ -371,6 +371,7 @@ v4 NormalizedLInf(v4 A)
 	return(Result);
 }
 
+#if 0
 void ComputeGlobalIllumination(game_state* State, camera Camera, mat4 LightProjectionMatrix)
 {
 	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
@@ -625,6 +626,7 @@ void ComputeGlobalIllumination(game_state* State, camera Camera, mat4 LightProje
 	//SDL_Delay(2000);
 #endif
 }
+#endif
 
 v4 UnprojectPixel(float PixelDepth, u32 X, u32 Y, u32 Width, u32 Height,
 		camera Camera, mat4 InvLookAtCamera)
@@ -656,6 +658,9 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		UpdateHemicubeScreenFramebuffer(State->RenderState, &State->HemicubeFramebuffer, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 	}
 
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.FBO);
+	ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
+
 	u32 PatchXCount = Ceil(GlobalWindowWidth / (float)PatchSizeInPixels);
 	u32 PatchYCount = Ceil(GlobalWindowHeight / (float)PatchSizeInPixels);
 
@@ -671,78 +676,21 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	{
 		for(u32 PatchX = 0; PatchX < PatchXCount; ++PatchX)
 		{
-			u32* ScreenPatch = AllocateArray(u32, PatchSizeInPixelsSqr);
 			v3* Normals = AllocateArray(v3, PatchSizeInPixelsSqr);
-			u32* AlbedoPixels = AllocateArray(u32, PatchSizeInPixelsSqr);
 			float* Depths = AllocateArray(float, PatchSizeInPixelsSqr);
 
 			ReadBufferDepth(State->RenderState, State->ScreenFramebuffer.FBO,
 					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
 					PatchSizeInPixels, PatchSizeInPixels, Depths);
 
-			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.FBO, 0,
-					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
-					PatchSizeInPixels, PatchSizeInPixels,
-					GL_RGBA, GL_UNSIGNED_BYTE, ScreenPatch);
-
 			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.FBO, 1,
 					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
-					PatchSizeInPixels, PatchSizeInPixels,
-					GL_RGB, GL_FLOAT, Normals);
-
-			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.FBO, 2,
-					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
-					PatchSizeInPixels, PatchSizeInPixels,
-					GL_RGBA, GL_UNSIGNED_BYTE, AlbedoPixels);
+					PatchSizeInPixels, PatchSizeInPixels, GL_RGB, GL_FLOAT, Normals);
 
 			mat4 InvLookAtCamera = Inverse(LookAt(Camera));
-#if 0
-			v4* WorldPositionPatch = AllocateArray(v4, PatchSizeInPixelsSqr);
-			for(u32 Y = 0; Y < PatchSizeInPixels; ++Y)
-			{
-				for(u32 X = 0; X < PatchSizeInPixels; ++X)
-				{
-					float PixelDepth = Depths[Y * PatchSizeInPixels + X];
-					PixelDepth = 2.0f * PixelDepth - 1.0f;
-					// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
-					float NearPlane = State->Camera.NearPlane;
-					float FarPlane = State->Camera.FarPlane;
-					PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
-					v4 UnprojectedPixel = UnprojectPixel(PixelDepth,
-							X + PatchX * PatchSizeInPixels, Y + PatchY * PatchSizeInPixels,
-							GlobalWindowWidth, GlobalWindowHeight, 
-							State->Camera, InvLookAtCamera);
-					WorldPositionPatch[Y * PatchSizeInPixels + X] = UnprojectedPixel;
-				}
-			}
-#endif
-
 			// NOTE(hugo) : Create textures
-			texture NormalPatchTexture = CreateTexture();
-			image_texture_loading_params Params = DefaultImageTextureLoadingParams(
-					PatchSizeInPixels, PatchSizeInPixels, Normals);
-			Params.ExternalFormat = GL_RGB;
-			Params.ExternalType = GL_FLOAT;
-			Params.MinFilter = GL_LINEAR;
-			Params.MagFilter = GL_LINEAR;
-			LoadImageToTexture(State->RenderState, &NormalPatchTexture, Params);
-
-			texture AlbedoPatchTexture = CreateTexture();
-			Params = DefaultImageTextureLoadingParams(
-					PatchSizeInPixels, PatchSizeInPixels, AlbedoPixels);
-			Params.MinFilter = GL_LINEAR;
-			Params.MagFilter = GL_LINEAR;
-			LoadImageToTexture(State->RenderState, &AlbedoPatchTexture, Params);
-
-#if 0
-			texture WorldPositionPatchTexture = CreateTexture();
-			Params = DefaultImageTextureLoadingParams(
-					PatchSizeInPixels, PatchSizeInPixels, WorldPositionPatch);
-			Params.ExternalType = GL_FLOAT;
-			LoadImageToTexture(State->RenderState, &WorldPositionPatchTexture, Params);
-#else
 			texture DepthPatchTexture = CreateTexture();
-			Params = DefaultImageTextureLoadingParams(
+			image_texture_loading_params Params = DefaultImageTextureLoadingParams(
 					PatchSizeInPixels, PatchSizeInPixels, Depths);
 			Params.InternalFormat = GL_DEPTH_COMPONENT;
 			Params.ExternalFormat = GL_DEPTH_COMPONENT;
@@ -750,7 +698,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			Params.MinFilter = GL_LINEAR;
 			Params.MagFilter = GL_LINEAR;
 			LoadImageToTexture(State->RenderState, &DepthPatchTexture, Params);
-#endif
 
 			u32* MegaTextures[5];
 			u32* MegaTexturePixels[5];
@@ -771,10 +718,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 					//u32 PixelIndex = X + PatchX * PatchSizeInPixels + (Y + PatchY * PatchSizeInPixels) * GlobalWindowWidth;
 					u32 PixelIndex = X + PatchSizeInPixels * Y;
 					float PixelDepth = Depths[PixelIndex];
-					u32 PixelAlbedo = AlbedoPixels[PixelIndex];
 					v3 Normal = Normals[PixelIndex];
-
-					v4 Albedo = ColorU32ToV4(PixelAlbedo);
 
 					PixelDepth = 2.0f * PixelDepth - 1.0f;
 					// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
@@ -861,9 +805,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 				}
 			}
 
-			int MaxTextureSize = 0;
-			glGetIntegerv(GL_MAX_TEXTURE_SIZE, &MaxTextureSize);
-
 			texture Megas[5];
 			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
 			{
@@ -872,8 +813,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 						PatchSizeInPixels * GlobalMicrobufferWidth,
 						PatchSizeInPixels * GlobalMicrobufferHeight,
 						MegaTextures[TextureIndex]);
-				//Params.MinFilter = GL_NEAREST;
-				//Params.MagFilter = GL_NEAREST;
 				LoadImageToTexture(State->RenderState, &Megas[TextureIndex], Params);
 				Assert(!DetectErrors("GI"));
 			}
@@ -890,23 +829,21 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 				BindTexture(State->RenderState, GL_TEXTURE_2D, Megas[TextureIndex].ID);
 			}
 			
-#if 0
-			ActiveTexture(State->RenderState, GL_TEXTURE1);
-			SetUniform(State->BRDFConvShader, (u32)1, "WorldPositionPatch");
-			BindTexture(State->RenderState, GL_TEXTURE_2D, WorldPositionPatchTexture.ID);
-#else
 			ActiveTexture(State->RenderState, GL_TEXTURE5);
 			SetUniform(State->BRDFConvShader, (u32)5, "DepthPatch");
 			BindTexture(State->RenderState, GL_TEXTURE_2D, DepthPatchTexture.ID);
-#endif
 
 			ActiveTexture(State->RenderState, GL_TEXTURE6);
-			SetUniform(State->BRDFConvShader, (u32)6, "NormalPatch");
-			BindTexture(State->RenderState, GL_TEXTURE_2D, NormalPatchTexture.ID);
+			SetUniform(State->BRDFConvShader, (u32)6, "NormalMap");
+			BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.NormalTexture.ID);
 
 			ActiveTexture(State->RenderState, GL_TEXTURE7);
-			SetUniform(State->BRDFConvShader, (u32)7, "AlbedoPatch");
-			BindTexture(State->RenderState, GL_TEXTURE_2D, AlbedoPatchTexture.ID);
+			SetUniform(State->BRDFConvShader, (u32)7, "AlbedoMap");
+			BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.AlbedoTexture.ID);
+
+			ActiveTexture(State->RenderState, GL_TEXTURE8);
+			SetUniform(State->BRDFConvShader, (u32)8, "DirectIlluminationMap");
+			BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.ScreenTexture.ID);
 
 			// TODO(hugo) : Check that every uniform has been set
 			SetUniform(State->BRDFConvShader, PatchSizeInPixels, "PatchSizeInPixels");
@@ -929,22 +866,20 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			SetUniform(State->BRDFConvShader, GlobalWindowWidth, "WindowWidth");
 			SetUniform(State->BRDFConvShader, GlobalWindowHeight, "WindowHeight");
 
-			SetViewport(State->RenderState, PatchSizeInPixels, PatchSizeInPixels);
-			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+			glViewport(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchSizeInPixels, PatchSizeInPixels);
+			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.FBO);
 			BindVertexArray(State->RenderState, State->QuadVAO);
 			Disable(State->RenderState, GL_DEPTH_TEST);
-			//ActiveTexture(State->RenderState, GL_TEXTURE0);
-			//BindTexture(State->RenderState, GL_TEXTURE_2D, Mega.ID);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			Enable(State->RenderState, GL_DEPTH_TEST);
-			//BindTexture(State->RenderState, GL_TEXTURE_2D, 0);
 			BindVertexArray(State->RenderState, 0);
 
+			SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+			RenderTextureOnQuadScreen(State, State->IndirectIlluminationFramebuffer.ScreenTexture);
 			Assert(!DetectErrors("GI2"));
 			SDL_GL_SwapWindow(GlobalWindow);
 
-			DeleteTexture(&NormalPatchTexture);
-			DeleteTexture(&AlbedoPatchTexture);
 			DeleteTexture(&DepthPatchTexture);
 			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
 			{
@@ -953,9 +888,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			}
 
 			Free(Depths);
-			Free(AlbedoPixels);
 			Free(Normals);
-			Free(ScreenPatch);
 		}
 	}
 }
@@ -1160,9 +1093,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 		State->ScreenFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->RenderState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
-
-		State->IndirectIlluminationBuffer = 0;
-		State->IndirectIlluminationTexture = CreateTexture();
+		State->IndirectIlluminationFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {
