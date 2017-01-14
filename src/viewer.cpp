@@ -734,11 +734,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			Params.MagFilter = GL_LINEAR;
 			LoadImageToTexture(State->RenderState, &AlbedoPatchTexture, Params);
 
-			SetViewport(State->RenderState, PatchSizeInPixels, PatchSizeInPixels);
-			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-			RenderTextureOnQuadScreen(State, AlbedoPatchTexture);
-			SDL_GL_SwapWindow(GlobalWindow);
-
 #if 0
 			texture WorldPositionPatchTexture = CreateTexture();
 			Params = DefaultImageTextureLoadingParams(
@@ -757,8 +752,13 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			LoadImageToTexture(State->RenderState, &DepthPatchTexture, Params);
 #endif
 
-			u32* MegaTexture = AllocateArray(u32, PatchSizeInPixels * PatchSizeInPixels * GlobalMicrobufferWidth * GlobalMicrobufferHeight * 5);
-			u32* MegaTexturePixel = MegaTexture;
+			u32* MegaTextures[5];
+			u32* MegaTexturePixels[5];
+			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
+			{
+				MegaTextures[TextureIndex] = AllocateArray(u32, PatchSizeInPixels * PatchSizeInPixels * GlobalMicrobufferWidth * GlobalMicrobufferHeight);
+				MegaTexturePixels[TextureIndex] = MegaTextures[TextureIndex];
+			}
 			v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
 
 			float NearPlane = Camera.NearPlane;
@@ -852,8 +852,8 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 								PixelIndex < State->HemicubeFramebuffer.Width * State->HemicubeFramebuffer.Height; 
 								++PixelIndex)
 						{
-							*MegaTexturePixel = *(FaceRenderedPixels + PixelIndex);
-							++MegaTexturePixel;
+							*(MegaTexturePixels[FaceIndex]) = *(FaceRenderedPixels + PixelIndex);
+							++(MegaTexturePixels[FaceIndex]);
 						}
 
 						Free(FaceRenderedPixels);
@@ -861,37 +861,51 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 				}
 			}
 
-			texture Mega = CreateTexture();
-			Params = DefaultImageTextureLoadingParams(
-					PatchSizeInPixels * PatchSizeInPixels * GlobalMicrobufferWidth * GlobalMicrobufferHeight * 5, 
-					1,
-					MegaTexture);
-			Params.MinFilter = GL_NEAREST;
-			LoadImageToTexture(State->RenderState, &Mega, Params);
+			int MaxTextureSize = 0;
+			glGetIntegerv(GL_MAX_TEXTURE_SIZE, &MaxTextureSize);
+
+			texture Megas[5];
+			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
+			{
+				Megas[TextureIndex] = CreateTexture();
+				Params = DefaultImageTextureLoadingParams(
+						PatchSizeInPixels * GlobalMicrobufferWidth,
+						PatchSizeInPixels * GlobalMicrobufferHeight,
+						MegaTextures[TextureIndex]);
+				//Params.MinFilter = GL_NEAREST;
+				//Params.MagFilter = GL_NEAREST;
+				LoadImageToTexture(State->RenderState, &Megas[TextureIndex], Params);
+				Assert(!DetectErrors("GI"));
+			}
 
 			// NOTE(hugo) : The megatexture is full ! Now we apply the shader
 			UseShader(State->RenderState, State->BRDFConvShader);
 
-			ActiveTexture(State->RenderState, GL_TEXTURE0);
-			SetUniform(State->BRDFConvShader, (u32)0, "MegaTexture");
-			BindTexture(State->RenderState, GL_TEXTURE_2D, Mega.ID);
+			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
+			{
+				ActiveTexture(State->RenderState, GL_TEXTURE0 + TextureIndex);
+				char Buffer[80];
+				sprintf(Buffer, "MegaTextures[%d]", TextureIndex);
+				SetUniform(State->BRDFConvShader, TextureIndex, Buffer);
+				BindTexture(State->RenderState, GL_TEXTURE_2D, Megas[TextureIndex].ID);
+			}
 			
 #if 0
 			ActiveTexture(State->RenderState, GL_TEXTURE1);
 			SetUniform(State->BRDFConvShader, (u32)1, "WorldPositionPatch");
 			BindTexture(State->RenderState, GL_TEXTURE_2D, WorldPositionPatchTexture.ID);
 #else
-			ActiveTexture(State->RenderState, GL_TEXTURE1);
-			SetUniform(State->BRDFConvShader, (u32)1, "DepthPatch");
+			ActiveTexture(State->RenderState, GL_TEXTURE5);
+			SetUniform(State->BRDFConvShader, (u32)5, "DepthPatch");
 			BindTexture(State->RenderState, GL_TEXTURE_2D, DepthPatchTexture.ID);
 #endif
 
-			ActiveTexture(State->RenderState, GL_TEXTURE2);
-			SetUniform(State->BRDFConvShader, (u32)2, "NormalPatch");
+			ActiveTexture(State->RenderState, GL_TEXTURE6);
+			SetUniform(State->BRDFConvShader, (u32)6, "NormalPatch");
 			BindTexture(State->RenderState, GL_TEXTURE_2D, NormalPatchTexture.ID);
 
-			ActiveTexture(State->RenderState, GL_TEXTURE3);
-			SetUniform(State->BRDFConvShader, (u32)3, "AlbedoPatch");
+			ActiveTexture(State->RenderState, GL_TEXTURE7);
+			SetUniform(State->BRDFConvShader, (u32)7, "AlbedoPatch");
 			BindTexture(State->RenderState, GL_TEXTURE_2D, AlbedoPatchTexture.ID);
 
 			// TODO(hugo) : Check that every uniform has been set
@@ -902,7 +916,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			SetUniform(State->BRDFConvShader, State->HemicubeFramebuffer.Height, "MicrobufferHeight");
 			SetUniform(State->BRDFConvShader, Camera.P, "CameraPos");
 			SetUniform(State->BRDFConvShader, PixelSurfaceInMeters, "PixelSurfaceInMeters");
-			SetUniform(State->BRDFConvShader, PixelsToMeters, "PixelsToMeters");
+			//SetUniform(State->BRDFConvShader, PixelsToMeters, "PixelsToMeters");
 			SetUniform(State->BRDFConvShader, State->Alpha, "Alpha");
 			SetUniform(State->BRDFConvShader, State->CookTorranceF0, "CookTorranceF0");
 			SetUniform(State->BRDFConvShader, MicroCameraNearPlane, "MicroCameraNearPlane");
@@ -926,13 +940,17 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			//BindTexture(State->RenderState, GL_TEXTURE_2D, 0);
 			BindVertexArray(State->RenderState, 0);
 
+			Assert(!DetectErrors("GI2"));
 			SDL_GL_SwapWindow(GlobalWindow);
 
 			DeleteTexture(&NormalPatchTexture);
 			DeleteTexture(&AlbedoPatchTexture);
 			DeleteTexture(&DepthPatchTexture);
-			DeleteTexture(&Mega);
-			Free(MegaTexture);
+			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
+			{
+				DeleteTexture(&Megas[TextureIndex]);
+				Free(MegaTextures[TextureIndex]);
+			}
 
 			Free(Depths);
 			Free(AlbedoPixels);

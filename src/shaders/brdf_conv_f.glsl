@@ -6,7 +6,7 @@ layout (location = 0) out vec4 Color;
 layout (location = 1) out vec3 NormalMap;
 layout (location = 2) out vec3 AlbedoMap;
 
-uniform sampler2D MegaTexture;
+uniform sampler2D MegaTextures[5];
 uniform sampler2D DepthPatch;
 uniform sampler2D NormalPatch;
 uniform sampler2D AlbedoPatch;
@@ -21,7 +21,7 @@ uniform int MicrobufferHeight;
 
 uniform vec3 CameraPos;
 uniform float PixelSurfaceInMeters;
-uniform float PixelsToMeters;
+//uniform float PixelsToMeters;
 
 uniform float Alpha;
 uniform float CookTorranceF0;
@@ -69,21 +69,6 @@ vec4 UnprojectPixel(float Depth,
 
 	PixelPos.w = 1.0f;
 	return(PixelPos / PixelPos.w);
-}
-
-vec3 ComputePositionOfPixel(float MicroCameraNearPlane, 
-		int X, int Y, float PixelsToMeters, 
-		mat4 InvMicroCameraLookAt,
-		int MicrobufferWidth, int MicrobufferHeight)
-{
-	int PixelX = X - int(0.5f * MicrobufferWidth);
-	int PixelY = Y - int(0.5f * MicrobufferHeight);
-	vec4 PixelCameraPos = vec4(PixelX * PixelsToMeters,
-			PixelY * PixelsToMeters, - MicroCameraNearPlane, 1.0f);
-	vec4 PixelWorldPos = InvMicroCameraLookAt * PixelCameraPos;
-
-	return(PixelWorldPos.xyz / PixelWorldPos.w);
-	//return(PixelWorldPos.xyz);
 }
 
 // TODO(hugo) : Do shader parsing in order to implement include
@@ -193,19 +178,19 @@ void main()
 	//vec2 PixelCoordInScreen = gl_FragCoord.xy - vec2(0.5f, 0.5f);
 	vec2 PixelCoordInScreen = gl_FragCoord.xy;
 	vec2 PixelCoordInPatch = PixelCoordInScreen  - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
-	vec2 TextureCoord = PixelCoordInPatch / PatchSizeInPixels;
+	vec2 TextureCoord = PixelCoordInPatch / float(PatchSizeInPixels);
 
 	float Depth = texture(DepthPatch, TextureCoord).r;
 	float NearPlane = MainCameraNearPlane;
-	float FarPlane = MainCameraNearPlane;
+	float FarPlane = MainCameraFarPlane;
 	Depth = 2.0f * Depth - 1.0f;
 	Depth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - Depth * (FarPlane - NearPlane));
 
 	vec4 PixelPos = vec4(0.0f, 0.0f, 0.0f, 0.0f);
 	PixelPos.z = -Depth;
 	PixelPos.w = 1.0f;
-	PixelPos.x = float(PixelCoordInScreen.x);
-	PixelPos.y = float(PixelCoordInScreen.y);
+	PixelPos.x = float(PixelCoordInScreen.x) / float(WindowWidth);
+	PixelPos.y = float(PixelCoordInScreen.y) / float(WindowHeight);
 
 	PixelPos.xy = 2.0f * PixelPos.xy - vec2(1.0f, 1.0f);
 	PixelPos.x = - MainCameraAspect * tan(0.5f * MainCameraFoV) * PixelPos.z * PixelPos.x;
@@ -227,10 +212,7 @@ void main()
 		//discard;
 	//}
 
-	int MegaTexturePixelIndex = 5 * 
-		MicrobufferHeight * MicrobufferWidth * 
-		int(PixelCoordInPatch.x + PatchSizeInPixels * PixelCoordInPatch.y);
-	float MegaTextureTexelSize = 1.0f / textureSize(MegaTexture, 0).x;
+	float MegaTextureTexelSize = 1.0f / textureSize(MegaTextures[0], 0).x;
 
 	Color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	vec3 Wo = normalize(CameraPos - FragmentWorldPos.xyz);
@@ -275,7 +257,6 @@ void main()
 		{
 			Up = Normal;
 			StartingY = int(0.5f * MicrobufferHeight);
-			MegaTexturePixelIndex += StartingY * MicrobufferWidth;
 		}
 		vec3 MicroCameraRight = normalize(cross(MicroCameraLookingDir, Up));
 		// TODO(hugo) : Can't I do a more straightforward computation ?
@@ -288,14 +269,27 @@ void main()
 		{
 			for(int X = 0; X < MicrobufferWidth; ++X)
 			{
-				vec3 MicroPixelWorldPos = ComputePositionOfPixel(MicroCameraNearPlane, 
-						X, Y, PixelsToMeters, InvMicroCameraLookAt,
-						MicrobufferWidth, MicrobufferHeight);
-				vec3 Wi = normalize(MicroPixelWorldPos.xyz  - (FragmentWorldPos.xyz));
+				vec4 MicroPixelWorldPos = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+				MicroPixelWorldPos.z = -MicroCameraNearPlane;
+				MicroPixelWorldPos.w = 1.0f;
+				MicroPixelWorldPos.x = float(X) / float(MicrobufferWidth);
+				MicroPixelWorldPos.y = float(Y) / float(MicrobufferHeight);
+
+				MicroPixelWorldPos.xy = 2.0f * MicroPixelWorldPos.xy - vec2(1.0f, 1.0f);
+
+				// NOTE(hugo) : Since aspect = 1 and fov = 90 deg, we do not use the general case
+				MicroPixelWorldPos.x = - MicroPixelWorldPos.z * MicroPixelWorldPos.x;
+				MicroPixelWorldPos.y = - MicroPixelWorldPos.z * MicroPixelWorldPos.y;
+				MicroPixelWorldPos = InvMicroCameraLookAt * MicroPixelWorldPos;
+				MicroPixelWorldPos.w = 1.0f;
+				vec3 Wi = normalize(MicroPixelWorldPos.xyz - (FragmentWorldPos.xyz));
 				if(DotClamp(Normal, Wi) > 0.0f)
 				{
 					DEBUGCounter++;
-					vec4 SampleColor = texture(MegaTexture, MegaTextureTexelSize * vec2(MegaTexturePixelIndex, 0) + vec2(0.5f, 0.5f));
+					float AbsoluteIndex = X + Y * MicrobufferWidth + MicrobufferWidth * MicrobufferHeight * (PixelCoordInPatch.x + PatchSizeInPixels * PixelCoordInPatch.y);
+					float XTexture = mod(AbsoluteIndex, PatchSizeInPixels * MicrobufferWidth);
+					float YTexture = (AbsoluteIndex - XTexture) / (PatchSizeInPixels * MicrobufferWidth);
+					vec4 SampleColor = texture(MegaTextures[FaceIndex], vec2(XTexture, YTexture) / (PatchSizeInPixels * MicrobufferWidth));
 					if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)
 					{
 						vec3 H = normalize(0.5f * (Wi + Wo));
@@ -309,13 +303,12 @@ void main()
 				float DistanceMicroCameraPixelSqr = LengthSqr(FragmentWorldPos - MicroPixelWorldPos);
 				float SolidAngle = dot(Wi, MicroCameraLookingDir) * (PixelSurfaceInMeters / DistanceMicroCameraPixelSqr);
 				DEBUGSolidAngle = DEBUGSolidAngle + SolidAngle;
-				MegaTexturePixelIndex++;
 			}
 		}
 	}
 	Color.w = 1.0f;
 	AlbedoMap = vec3(0.0f, 0.0f, 0.0f);
 	NormalMap = vec3(0.0f, 0.0f, 0.0f);
-	float Fraction = DEBUGSolidAngle / (2.0f * Pi);
-	Color = vec4(DEBUGRedError, 1.0f * Fraction, 0.0f * DEBUGCounter / (float(MicrobufferWidth) * float(MicrobufferHeight) * 3.0f), 1.0f);
+	//float Fraction = DEBUGSolidAngle / (2.0f * Pi);
+	//Color = vec4(DEBUGRedError, 1.0f * Fraction, 0.0f * DEBUGCounter / (float(MicrobufferWidth) * float(MicrobufferHeight) * 3.0f), 1.0f);
 }
