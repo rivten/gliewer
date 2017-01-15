@@ -5,8 +5,8 @@
 static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
-static u32 GlobalMicrobufferWidth = 128;
-static u32 GlobalMicrobufferHeight = 128;
+static u32 GlobalMicrobufferWidth = 16;
+static u32 GlobalMicrobufferHeight = 16;
 
 GLuint LoadCubemap(game_state* State, const char** Filenames)
 {
@@ -672,24 +672,40 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	float PixelsToMeters = MicrobufferWidthInMeters / float(State->HemicubeFramebuffer.Width);
 	float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
 
+	v3* Normals = AllocateArray(v3, PatchSizeInPixelsSqr);
+	float* Depths = AllocateArray(float, PatchSizeInPixelsSqr);
+	u32* FaceRenderedPixels = AllocateArray(u32, 
+			State->HemicubeFramebuffer.Width * State->HemicubeFramebuffer.Height);
+	u32* MegaTextures[5];
+	u32* MegaTexturePixels[5];
+	for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
+	{
+		MegaTextures[TextureIndex] = AllocateArray(u32, PatchSizeInPixels * PatchSizeInPixels * GlobalMicrobufferWidth * GlobalMicrobufferHeight);
+		MegaTexturePixels[TextureIndex] = MegaTextures[TextureIndex];
+	}
+
+	// NOTE(hugo) : Create textures
+	texture DepthPatchTexture = CreateTexture();
+
+	texture Megas[5];
+	for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
+	{
+		Megas[TextureIndex] = CreateTexture();
+	}
+
 	for(u32 PatchY = 0; PatchY < PatchYCount; ++PatchY)
 	{
 		for(u32 PatchX = 0; PatchX < PatchXCount; ++PatchX)
 		{
-			v3* Normals = AllocateArray(v3, PatchSizeInPixelsSqr);
-			float* Depths = AllocateArray(float, PatchSizeInPixelsSqr);
+			// NOTE(hugo) : Reinit pixels
+			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
+			{
+				MegaTexturePixels[TextureIndex] = MegaTextures[TextureIndex];
+			}
 
 			ReadBufferDepth(State->RenderState, State->ScreenFramebuffer.FBO,
 					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
 					PatchSizeInPixels, PatchSizeInPixels, Depths);
-
-			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.FBO, 1,
-					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
-					PatchSizeInPixels, PatchSizeInPixels, GL_RGB, GL_FLOAT, Normals);
-
-			mat4 InvLookAtCamera = Inverse(LookAt(Camera));
-			// NOTE(hugo) : Create textures
-			texture DepthPatchTexture = CreateTexture();
 			image_texture_loading_params Params = DefaultImageTextureLoadingParams(
 					PatchSizeInPixels, PatchSizeInPixels, Depths);
 			Params.InternalFormat = GL_DEPTH_COMPONENT;
@@ -699,13 +715,12 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			Params.MagFilter = GL_LINEAR;
 			LoadImageToTexture(State->RenderState, &DepthPatchTexture, Params);
 
-			u32* MegaTextures[5];
-			u32* MegaTexturePixels[5];
-			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
-			{
-				MegaTextures[TextureIndex] = AllocateArray(u32, PatchSizeInPixels * PatchSizeInPixels * GlobalMicrobufferWidth * GlobalMicrobufferHeight);
-				MegaTexturePixels[TextureIndex] = MegaTextures[TextureIndex];
-			}
+			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.FBO, 1,
+					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
+					PatchSizeInPixels, PatchSizeInPixels, GL_RGB, GL_FLOAT, Normals);
+
+			mat4 InvLookAtCamera = Inverse(LookAt(Camera));
+
 			v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
 
 			float NearPlane = Camera.NearPlane;
@@ -784,8 +799,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 								GL_FRAMEBUFFER, 
 								State->HemicubeFramebuffer.MicroBuffers[FaceIndex].FBO);
 
-						u32* FaceRenderedPixels = AllocateArray(u32, 
-								State->HemicubeFramebuffer.Width * State->HemicubeFramebuffer.Height);
 						glReadPixels(0, 0, State->HemicubeFramebuffer.Width,
 								State->HemicubeFramebuffer.Height,
 								GL_RGBA, GL_UNSIGNED_BYTE,
@@ -800,15 +813,12 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 							++(MegaTexturePixels[FaceIndex]);
 						}
 
-						Free(FaceRenderedPixels);
 					}
 				}
 			}
 
-			texture Megas[5];
 			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
 			{
-				Megas[TextureIndex] = CreateTexture();
 				Params = DefaultImageTextureLoadingParams(
 						PatchSizeInPixels * GlobalMicrobufferWidth,
 						PatchSizeInPixels * GlobalMicrobufferHeight,
@@ -880,17 +890,19 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			Assert(!DetectErrors("GI2"));
 			SDL_GL_SwapWindow(GlobalWindow);
 
-			DeleteTexture(&DepthPatchTexture);
-			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
-			{
-				DeleteTexture(&Megas[TextureIndex]);
-				Free(MegaTextures[TextureIndex]);
-			}
-
-			Free(Depths);
-			Free(Normals);
 		}
 	}
+
+	DeleteTexture(&DepthPatchTexture);
+	for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
+	{
+		DeleteTexture(&Megas[TextureIndex]);
+		Free(MegaTextures[TextureIndex]);
+	}
+
+	Free(FaceRenderedPixels);
+	Free(Depths);
+	Free(Normals);
 }
 
 void PushObject(game_state* State, object* Object)
@@ -1070,6 +1082,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		//State->ReferenceCamera.NearPlane = 100.0f;
 		//State->ReferenceCamera.FarPlane = 2000.0f;
 		State->ReferenceCamera.NearPlane = 0.5f;
+		State->ReferenceCamera.FarPlane = 3.0f;
 		State->FrustumBoundingBox = GetFrustumBoundingBox(State->ReferenceCamera);
 
 		State->dPCamera = {};
@@ -1422,8 +1435,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		ImGui::Text("ZAxis = (%f, %f, %f)", State->Camera.ZAxis.x, State->Camera.ZAxis.y, State->Camera.ZAxis.z);
 		ImGui::Text("Aspect = %f", State->Camera.Aspect);
 		ImGui::SliderFloat("FoV", &State->Camera.FoV, 0.0f, 3.1415f);
-		ImGui::SliderFloat("NearPlane", &State->Camera.NearPlane, 0.0f, 100.0f);
-		ImGui::SliderFloat("FarPlane", &State->Camera.FarPlane, State->Camera.NearPlane, 200.0f);
+		ImGui::SliderFloat("NearPlane", &State->ReferenceCamera.NearPlane, 0.0f, 100.0f);
+		ImGui::SliderFloat("FarPlane", &State->ReferenceCamera.FarPlane, State->ReferenceCamera.NearPlane, 200.0f);
 
 		ImGui::Text("Frustum Bounding Box Min: (%f, %f, %f)", State->FrustumBoundingBox.Min.x, State->FrustumBoundingBox.Min.y, State->FrustumBoundingBox.Min.z);
 		ImGui::Text("Frustum Bounding Box Max: (%f, %f, %f)", State->FrustumBoundingBox.Max.x, State->FrustumBoundingBox.Max.y, State->FrustumBoundingBox.Max.z);

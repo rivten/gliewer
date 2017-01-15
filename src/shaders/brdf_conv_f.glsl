@@ -202,12 +202,18 @@ void main()
 	float MegaTextureTexelSize = 1.0f / textureSize(MegaTextures[0], 0).x;
 
 	Color = texture(DirectIlluminationMap, PixelCoordInScreen / ScreenSize);
+	//Color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	vec3 Wo = normalize(CameraPos - FragmentWorldPos.xyz);
 	float NormalDotWo = DotClamp(Normal, Wo);
 
 	float DEBUGSolidAngle = 0.0f;
 	float DEBUGRedError = 0.0f;
 	float DEBUGCounter = 0.0f;
+	vec3 ReferenceUp = WorldUp;
+	if(length(cross(Normal, WorldUp)) < 0.001f)
+	{
+		ReferenceUp = vec3(0.44742f, 0.894427f, 0.0f);
+	}
 	for(int FaceIndex = 0; FaceIndex < 5; ++FaceIndex)
 	{
 		// NOTE(hugo) : getting microcamera variables
@@ -219,26 +225,26 @@ void main()
 		}
 		if(FaceIndex == 1)
 		{
-			MicroCameraLookingDir = cross(Normal, WorldUp);
+			MicroCameraLookingDir = normalize(cross(Normal, ReferenceUp));
 		}
 		if(FaceIndex == 2)
 		{
-			MicroCameraLookingDir = -1.0f * cross(Normal, WorldUp);
+			MicroCameraLookingDir = normalize(-1.0f * cross(Normal, ReferenceUp));
 		}
 		if(FaceIndex == 3)
 		{
-			MicroCameraLookingDir = cross(Normal, cross(Normal, WorldUp));
+			MicroCameraLookingDir = normalize(cross(Normal, cross(Normal, ReferenceUp)));
 		}
 		if(FaceIndex == 4)
 		{
-			MicroCameraLookingDir = -1.0f * cross(Normal, cross(Normal, WorldUp));
+			MicroCameraLookingDir = normalize(-1.0f * cross(Normal, cross(Normal, ReferenceUp)));
 		}
 		if(length(MicroCameraLookingDir) == 0.0f)
 		{
 			DEBUGRedError = 1.0f;
 		}
 
-		vec3 Up = WorldUp;
+		vec3 Up = ReferenceUp;
 		int StartingY = 0;
 		if(FaceIndex != 0)
 		{
@@ -277,7 +283,7 @@ void main()
 					float XTexture = mod(AbsoluteIndex, PatchSizeInPixels * MicrobufferWidth);
 					float YTexture = (AbsoluteIndex - XTexture) / (PatchSizeInPixels * MicrobufferWidth);
 					vec4 SampleColor = texture(MegaTextures[FaceIndex], vec2(XTexture, YTexture) / (PatchSizeInPixels * MicrobufferWidth));
-					if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)
+					//if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)
 					{
 						vec3 H = normalize(0.5f * (Wi + Wo));
 						float DistanceMicroCameraPixelSqr = LengthSqr(FragmentWorldPos - MicroPixelWorldPos);
@@ -296,4 +302,9 @@ void main()
 	Color.w = 1.0f;
 	AlbedoOut = vec3(0.0f, 0.0f, 0.0f);
 	NormalOut = vec3(0.0f, 0.0f, 0.0f);
+	//Color = vec4(NormalDotWo, NormalDotWo, NormalDotWo, 1.0f);
+	//Color = FragmentWorldPos;
+	//Color = vec4(0.0f, DEBUGSolidAngle / (2 * Pi), 0.0f, 1.0f);
+	//float D = texture(DepthPatch, TextureCoord).r;
+	//Color = vec4(D, D, D, 1.0f);
 }
