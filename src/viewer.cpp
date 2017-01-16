@@ -5,8 +5,8 @@
 static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
-static u32 GlobalMicrobufferWidth = 16;
-static u32 GlobalMicrobufferHeight = 16;
+static u32 GlobalMicrobufferWidth = 64;
+static u32 GlobalMicrobufferHeight = 64;
 
 GLuint LoadCubemap(game_state* State, const char** Filenames)
 {
@@ -693,6 +693,8 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		Megas[TextureIndex] = CreateTexture();
 	}
 
+	mat4 InvLookAtCamera = Inverse(LookAt(Camera));
+
 	for(u32 PatchY = 0; PatchY < PatchYCount; ++PatchY)
 	{
 		for(u32 PatchX = 0; PatchX < PatchXCount; ++PatchX)
@@ -703,11 +705,25 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 				MegaTexturePixels[TextureIndex] = MegaTextures[TextureIndex];
 			}
 
+			u32 PatchWidth = PatchSizeInPixels;
+			u32 PatchHeight = PatchSizeInPixels;
+			// NOTE(hugo) : Only the last patches can have a different size
+			if(PatchX == PatchXCount - 1)
+			{
+				PatchWidth = GlobalWindowWidth - (PatchXCount - 1) * PatchSizeInPixels;
+			}
+			if(PatchY == PatchYCount - 1)
+			{
+				PatchHeight = GlobalWindowHeight - (PatchYCount - 1) * PatchSizeInPixels;
+			}
+			Assert(PatchWidth <= PatchSizeInPixels);
+			Assert(PatchHeight <= PatchSizeInPixels);
+
 			ReadBufferDepth(State->RenderState, State->ScreenFramebuffer.FBO,
 					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
-					PatchSizeInPixels, PatchSizeInPixels, Depths);
+					PatchWidth, PatchHeight, Depths);
 			image_texture_loading_params Params = DefaultImageTextureLoadingParams(
-					PatchSizeInPixels, PatchSizeInPixels, Depths);
+					PatchWidth, PatchHeight, Depths);
 			Params.InternalFormat = GL_DEPTH_COMPONENT;
 			Params.ExternalFormat = GL_DEPTH_COMPONENT;
 			Params.ExternalType = GL_FLOAT;
@@ -717,21 +733,17 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 
 			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.FBO, 1,
 					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
-					PatchSizeInPixels, PatchSizeInPixels, GL_RGB, GL_FLOAT, Normals);
-
-			mat4 InvLookAtCamera = Inverse(LookAt(Camera));
+					PatchWidth, PatchHeight, GL_RGB, GL_FLOAT, Normals);
 
 			v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
 
 			float NearPlane = Camera.NearPlane;
 			float FarPlane = Camera.FarPlane;
-			// TODO(hugo) : Make sure you don't go too far off the screen
-			for(u32 Y = 0; Y < PatchSizeInPixels; ++Y)
+			for(u32 Y = 0; Y < PatchHeight; ++Y)
 			{
-				for(u32 X = 0; X < PatchSizeInPixels; ++X)
+				for(u32 X = 0; X < PatchWidth; ++X)
 				{
-					//u32 PixelIndex = X + PatchX * PatchSizeInPixels + (Y + PatchY * PatchSizeInPixels) * GlobalWindowWidth;
-					u32 PixelIndex = X + PatchSizeInPixels * Y;
+					u32 PixelIndex = X + PatchWidth * Y;
 					float PixelDepth = Depths[PixelIndex];
 					v3 Normal = Normals[PixelIndex];
 
@@ -739,7 +751,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 					// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
 					PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
 
-					mat4 InvLookAtCamera = Inverse(LookAt(Camera));
 
 					Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
 
@@ -820,8 +831,8 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
 			{
 				Params = DefaultImageTextureLoadingParams(
-						PatchSizeInPixels * GlobalMicrobufferWidth,
-						PatchSizeInPixels * GlobalMicrobufferHeight,
+						PatchWidth * GlobalMicrobufferWidth,
+						PatchHeight * GlobalMicrobufferHeight,
 						MegaTextures[TextureIndex]);
 				LoadImageToTexture(State->RenderState, &Megas[TextureIndex], Params);
 				Assert(!DetectErrors("GI"));
@@ -855,8 +866,9 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			SetUniform(State->BRDFConvShader, (u32)8, "DirectIlluminationMap");
 			BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.ScreenTexture.ID);
 
-			// TODO(hugo) : Check that every uniform has been set
 			SetUniform(State->BRDFConvShader, PatchSizeInPixels, "PatchSizeInPixels");
+			SetUniform(State->BRDFConvShader, PatchWidth, "PatchWidth");
+			SetUniform(State->BRDFConvShader, PatchHeight, "PatchHeight");
 			SetUniform(State->BRDFConvShader, PatchX, "PatchX");
 			SetUniform(State->BRDFConvShader, PatchY, "PatchY");
 			SetUniform(State->BRDFConvShader, State->HemicubeFramebuffer.Width, "MicrobufferWidth");
@@ -876,7 +888,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			SetUniform(State->BRDFConvShader, GlobalWindowWidth, "WindowWidth");
 			SetUniform(State->BRDFConvShader, GlobalWindowHeight, "WindowHeight");
 
-			glViewport(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchSizeInPixels, PatchSizeInPixels);
+			glViewport(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchWidth, PatchHeight);
 			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.FBO);
 			BindVertexArray(State->RenderState, State->QuadVAO);
 			Disable(State->RenderState, GL_DEPTH_TEST);
@@ -1149,6 +1161,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	if(Input->WindowResized)
 	{
 		UpdateGeometryFramebuffer(State->RenderState, &State->ScreenFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
+		UpdateGeometryFramebuffer(State->RenderState, &State->IndirectIlluminationFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
 	}
 
 	State->ReferenceCamera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);

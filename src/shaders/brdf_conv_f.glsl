@@ -13,6 +13,8 @@ uniform sampler2D AlbedoMap;
 uniform sampler2D DirectIlluminationMap;
 
 uniform int PatchSizeInPixels;
+uniform int PatchWidth;
+uniform int PatchHeight;
 
 uniform int PatchX;
 uniform int PatchY;
@@ -170,7 +172,8 @@ void main()
 	vec2 PixelCoordInScreen = gl_FragCoord.xy;
 	vec2 ScreenSize = vec2(WindowWidth, WindowHeight);
 	vec2 PixelCoordInPatch = PixelCoordInScreen - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
-	vec2 TextureCoord = PixelCoordInPatch / float(PatchSizeInPixels);
+	vec2 PatchSize = vec2(PatchWidth, PatchHeight);
+	vec2 TextureCoord = PixelCoordInPatch / PatchSize;
 
 	float Depth = texture(DepthPatch, TextureCoord).r;
 	float NearPlane = MainCameraNearPlane;
@@ -271,10 +274,10 @@ void main()
 				vec3 Wi = normalize(MicroPixelWorldPos.xyz - (FragmentWorldPos.xyz));
 				if(DotClamp(Normal, Wi) > 0.0f)
 				{
-					float AbsoluteIndex = X + Y * MicrobufferWidth + MicrobufferWidth * MicrobufferHeight * (int(PixelCoordInPatch.x) + PatchSizeInPixels * int(PixelCoordInPatch.y));
-					float XTexture = mod(AbsoluteIndex, PatchSizeInPixels * MicrobufferWidth);
-					float YTexture = (AbsoluteIndex - XTexture) / (PatchSizeInPixels * MicrobufferWidth);
-					vec2 SampleCoord = vec2(XTexture, YTexture) / (PatchSizeInPixels * MicrobufferWidth);
+					float AbsoluteIndex = X + Y * MicrobufferWidth + MicrobufferWidth * MicrobufferHeight * (int(PixelCoordInPatch.x) + PatchWidth * int(PixelCoordInPatch.y));
+					float XTexture = mod(AbsoluteIndex, PatchWidth * MicrobufferWidth);
+					float YTexture = (AbsoluteIndex - XTexture) / (PatchWidth * MicrobufferWidth);
+					vec2 SampleCoord = vec2(XTexture, YTexture) / (PatchWidth * MicrobufferWidth);
 					vec4 SampleColor = texture(MegaTextures[FaceIndex], SampleCoord);
 					//if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)
 					{
