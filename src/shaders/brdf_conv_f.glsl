@@ -206,9 +206,6 @@ void main()
 	vec3 Wo = normalize(CameraPos - FragmentWorldPos.xyz);
 	float NormalDotWo = DotClamp(Normal, Wo);
 
-	float DEBUGSolidAngle = 0.0f;
-	float DEBUGRedError = 0.0f;
-	float DEBUGCounter = 0.0f;
 	vec3 ReferenceUp = WorldUp;
 	if(length(cross(Normal, WorldUp)) < 0.001f)
 	{
@@ -239,12 +236,8 @@ void main()
 		{
 			MicroCameraLookingDir = normalize(-1.0f * cross(Normal, cross(Normal, ReferenceUp)));
 		}
-		if(length(MicroCameraLookingDir) == 0.0f)
-		{
-			DEBUGRedError = 1.0f;
-		}
 
-		vec3 Up = ReferenceUp;
+		vec3 Up = WorldUp;
 		int StartingY = 0;
 		if(FaceIndex != 0)
 		{
@@ -278,11 +271,11 @@ void main()
 				vec3 Wi = normalize(MicroPixelWorldPos.xyz - (FragmentWorldPos.xyz));
 				if(DotClamp(Normal, Wi) > 0.0f)
 				{
-					DEBUGCounter++;
-					float AbsoluteIndex = X + Y * MicrobufferWidth + MicrobufferWidth * MicrobufferHeight * (PixelCoordInPatch.x + PatchSizeInPixels * PixelCoordInPatch.y);
+					float AbsoluteIndex = X + Y * MicrobufferWidth + MicrobufferWidth * MicrobufferHeight * (int(PixelCoordInPatch.x) + PatchSizeInPixels * int(PixelCoordInPatch.y));
 					float XTexture = mod(AbsoluteIndex, PatchSizeInPixels * MicrobufferWidth);
 					float YTexture = (AbsoluteIndex - XTexture) / (PatchSizeInPixels * MicrobufferWidth);
-					vec4 SampleColor = texture(MegaTextures[FaceIndex], vec2(XTexture, YTexture) / (PatchSizeInPixels * MicrobufferWidth));
+					vec2 SampleCoord = vec2(XTexture, YTexture) / (PatchSizeInPixels * MicrobufferWidth);
+					vec4 SampleColor = texture(MegaTextures[FaceIndex], SampleCoord);
 					//if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)
 					{
 						vec3 H = normalize(0.5f * (Wi + Wo));
@@ -293,18 +286,10 @@ void main()
 						Color += BRDF * DotClamp(Normal, Wi) * SolidAngle * Albedo * SampleColor;
 					}
 				}
-				float DistanceMicroCameraPixelSqr = LengthSqr(FragmentWorldPos - MicroPixelWorldPos);
-				float SolidAngle = dot(Wi, MicroCameraLookingDir) * (PixelSurfaceInMeters / DistanceMicroCameraPixelSqr);
-				DEBUGSolidAngle = DEBUGSolidAngle + SolidAngle;
 			}
 		}
 	}
 	Color.w = 1.0f;
 	AlbedoOut = vec3(0.0f, 0.0f, 0.0f);
 	NormalOut = vec3(0.0f, 0.0f, 0.0f);
-	//Color = vec4(NormalDotWo, NormalDotWo, NormalDotWo, 1.0f);
-	//Color = FragmentWorldPos;
-	//Color = vec4(0.0f, DEBUGSolidAngle / (2 * Pi), 0.0f, 1.0f);
-	//float D = texture(DepthPatch, TextureCoord).r;
-	//Color = vec4(D, D, D, 1.0f);
 }

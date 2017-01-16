@@ -1082,7 +1082,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		//State->ReferenceCamera.NearPlane = 100.0f;
 		//State->ReferenceCamera.FarPlane = 2000.0f;
 		State->ReferenceCamera.NearPlane = 0.5f;
-		State->ReferenceCamera.FarPlane = 3.0f;
+		State->ReferenceCamera.FarPlane = 5.0f;
 		State->FrustumBoundingBox = GetFrustumBoundingBox(State->ReferenceCamera);
 
 		State->dPCamera = {};
@@ -1164,6 +1164,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		glDeleteShader(State->DepthDebugQuadShader.Program);
 		glDeleteShader(State->ShadowMappingShader.Program);
 		glDeleteShader(State->SkyboxShader.Program);
+		glDeleteShader(State->BRDFConvShader.Program);
 		LoadShaders(State);
 	}
 
