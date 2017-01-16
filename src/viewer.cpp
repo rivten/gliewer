@@ -1158,7 +1158,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	ClearColorAndDepth(State->RenderState, V4(0.4f, 0.6f, 0.2f, 1.0f));
 
 	// NOTE(hugo) : Live shader reloading
-	if(IsKeyPressed(Input, SCANCODE_SPACE))
+	if(IsKeyPressed(Input, SCANCODE_TAB))
 	{
 		glDeleteShader(State->BasicShader.Program);
 		glDeleteShader(State->DepthDebugQuadShader.Program);
@@ -1235,6 +1235,15 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				if(IsKeyPressed(Input, SCANCODE_J))
 				{
 					ddP += -1.0f * Normalized(State->Camera.XAxis);
+				}
+
+				if(IsKeyPressed(Input, SCANCODE_SPACE))
+				{
+					ddP += V3(0.0f, 1.0f, 0.0f);
+				}
+				if(IsKeyPressed(Input, SCANCODE_RSHIFT))
+				{
+					ddP += -1.0f * V3(0.0f, 1.0f, 0.0f);
 				}
 
 				ddP *= CameraAccel;
