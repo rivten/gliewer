@@ -654,7 +654,7 @@ struct geometry_framebuffer
 	texture ScreenTexture;
 	texture NormalTexture;
 	texture AlbedoTexture;
-	GLuint RBO;
+	texture DepthTexture;
 
 	u32 Width;
 	u32 Height;
@@ -672,6 +672,7 @@ geometry_framebuffer CreateGeometryFramebuffer(render_state* State, u32 BufferWi
 	Result.ScreenTexture = CreateTexture();
 	Result.NormalTexture = CreateTexture();
 	Result.AlbedoTexture = CreateTexture();
+	Result.DepthTexture = CreateTexture();
 
 	BindFramebuffer(State, GL_FRAMEBUFFER, Result.FBO);
 
@@ -687,17 +688,18 @@ geometry_framebuffer CreateGeometryFramebuffer(render_state* State, u32 BufferWi
 	LoadImageToTexture(State, &Result.AlbedoTexture, Params);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, Result.AlbedoTexture.ID, 0);
 
-	glGenRenderbuffers(1, &Result.RBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, Result.RBO);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, BufferWidth, BufferHeight);
-
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, Result.RBO);
+	glBindTexture(GL_TEXTURE_2D, Result.DepthTexture.ID);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, BufferWidth, BufferHeight, 0, 
+			GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Result.DepthTexture.ID, 0);
 
 	GLuint Attachements[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
 	glDrawBuffers(3, Attachements);
 
-	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	BindFramebuffer(State, GL_FRAMEBUFFER, 0);
 
 	return(Result);
@@ -713,8 +715,9 @@ void UpdateGeometryFramebuffer(render_state* State, geometry_framebuffer* Frameb
 	DeleteTexture(&Framebuffer->ScreenTexture);
 	DeleteTexture(&Framebuffer->NormalTexture);
 	DeleteTexture(&Framebuffer->AlbedoTexture);
+	DeleteTexture(&Framebuffer->DepthTexture);
 
-	glDeleteRenderbuffers(1, &Framebuffer->RBO);
+	//glDeleteRenderbuffers(1, &Framebuffer->RBO);
 
 	*Framebuffer = CreateGeometryFramebuffer(State, Width, Height);
 }

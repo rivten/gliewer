@@ -1388,7 +1388,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 			State->ScreenFramebuffer,
 			&State->FrustumBoundingBox);
 	// }
-
+	
 	if(ImGui::Button("Compute Indirect Illumination"))
 	{
 		ComputeGlobalIlluminationWithPatch(State, State->Camera, LightProjectionMatrix);
