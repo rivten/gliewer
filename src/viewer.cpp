@@ -1327,7 +1327,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 						v3 WorldZ = V3(0.0f, 0.0f, 1.0f);
 
 						float Yaw = GetAngle(WorldX, State->Camera.XAxis, WorldY);
-						float Pitch = GetAngle((Rotation(Yaw, WorldY) * ToV4(WorldZ)).xyz, State->Camera.ZAxis, WorldX);
+						mat4 YawRotation = Rotation(Yaw, WorldY);
+						float Pitch = GetAngle((YawRotation * ToV4(WorldZ)).xyz, State->Camera.ZAxis, (YawRotation * ToV4(WorldX)).xyz);
 
 						s32 DeltaX = -(Input->MouseX - State->MouseXInitial);
 						s32 DeltaY = State->MouseYInitial - Input->MouseY;
@@ -1350,6 +1351,15 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 						State->PitchSpeed += PitchAccel * dt;
 
 						Yaw += SaveYawSpeed * dt + 0.5f * dt * dt * YawAccel;
+						if(Yaw > PI)
+						{
+							Yaw = Yaw - 2.0f * PI;
+						}
+						else if(Yaw < -PI)
+						{
+							Yaw = Yaw + 2.0f * PI;
+						}
+
 						Pitch += SavePitchSpeed * dt + 0.5f * dt * dt * PitchAccel;
 
 						//float CosPitch = Cos(Pitch);
@@ -1367,7 +1377,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 						State->Camera.ZAxis = (Rotation(Pitch, State->Camera.XAxis) * ToV4(State->Camera.ZAxis)).xyz;
 
-						ImGui::Text("(Dx, Dy) = (%i, %i)", DeltaX, DeltaY);
+						//ImGui::Text("(Dx, Dy) = (%i, %i)", DeltaX, DeltaY);
 					}
 				}
 
@@ -1526,6 +1536,17 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 		ImGui::Text("Frustum Bounding Box Min: (%f, %f, %f)", State->FrustumBoundingBox.Min.x, State->FrustumBoundingBox.Min.y, State->FrustumBoundingBox.Min.z);
 		ImGui::Text("Frustum Bounding Box Max: (%f, %f, %f)", State->FrustumBoundingBox.Max.x, State->FrustumBoundingBox.Max.y, State->FrustumBoundingBox.Max.z);
+
+		v3 WorldX = V3(1.0f, 0.0f, 0.0f);
+		v3 WorldY = V3(0.0f, 1.0f, 0.0f);
+		v3 WorldZ = V3(0.0f, 0.0f, 1.0f);
+
+		float Yaw = GetAngle(WorldX, State->Camera.XAxis, WorldY);
+		float Pitch = GetAngle((Rotation(Yaw, WorldY) * ToV4(WorldZ)).xyz, State->Camera.ZAxis, WorldX);
+		ImGui::Text("Yaw = %f", Yaw);
+		ImGui::Text("Pitch = %f", Pitch);
+		ImGui::Text("Yaw speed = %f", State->YawSpeed);
+		ImGui::Text("Pitch speed = %f", State->PitchSpeed);
 	}
 
 	if(ImGui::CollapsingHeader("Objects Data"))
