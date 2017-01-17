@@ -23,6 +23,8 @@ uniform float CTF0;
 uniform float Alpha;
 uniform float LightIntensity;
 
+uniform float AmbientFactor;
+
 uniform int UseTextureMapping;
 uniform sampler2D TextureMap;
 
@@ -184,6 +186,8 @@ void main()
 		vec4 Li = LightIntensity * ReflectionColor * LightColor[LightIndex];
 		Color += (1.0f - Shadow) * BRDF * Li * DotClamp(VertexNormal, LightDir);
 	}
+
+	Color = max(Color, AmbientFactor * ReflectionColor);
 
 	// NOTE(hugo) : Compacting the normal into [0,1]^3
 	NormalMap = 0.5f * NormalWorldSpace + vec3(0.5f, 0.5f, 0.5f);

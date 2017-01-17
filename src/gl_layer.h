@@ -700,6 +700,7 @@ geometry_framebuffer CreateGeometryFramebuffer(render_state* State, u32 BufferWi
 	GLuint Attachements[3] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2};
 	glDrawBuffers(3, Attachements);
 
+	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 	BindFramebuffer(State, GL_FRAMEBUFFER, 0);
 
 	return(Result);

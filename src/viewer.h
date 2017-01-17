@@ -105,6 +105,15 @@ struct light
 	depth_framebuffer DepthFramebuffer;
 };
 
+struct ambient_occlusion_parameters
+{
+	u32 SampleCount;
+	float Intensity;
+	float Scale;
+	float Bias;
+	float SamplingRadius;
+};
+
 struct game_state
 {
 	object Objects[512];
@@ -145,6 +154,8 @@ struct game_state
 	float Alpha;
 	float Sigma;
 	float LightIntensity;
+	float AmbientFactor;
+	ambient_occlusion_parameters SSAOParams;
 	// }
 
 	geometry_framebuffer ScreenFramebuffer;

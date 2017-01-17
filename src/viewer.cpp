@@ -96,6 +96,7 @@ void RenderShadowedScene(game_state* State,
 	SetUniform(State->ShadowMappingShader, State->Alpha, "Alpha");
 	SetUniform(State->ShadowMappingShader, State->LightIntensity, "LightIntensity");
 	SetUniform(State->ShadowMappingShader, NormalWorldMatrix, "NormalWorldMatrix");
+	SetUniform(State->ShadowMappingShader, State->AmbientFactor, "AmbientFactor");
 
 
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
@@ -230,16 +231,41 @@ void RenderTextureOnQuadScreen(game_state* State, texture Texture)
 	ClearColor(State->RenderState, V4(1.0f, 1.0f, 1.0f, 1.0f));
 	glClear(GL_COLOR_BUFFER_BIT);
 
+	mat4 InvCameraViewMatrix = Inverse(LookAt(State->Camera));
+
 	// NOTE(hugo) : Quad rendering
 	UseShader(State->RenderState, State->DepthDebugQuadShader);
 	SetUniform(State->DepthDebugQuadShader, State->Sigma, "Sigma");
+	SetUniform(State->DepthDebugQuadShader, State->Camera.NearPlane, "NearPlane");
+	SetUniform(State->DepthDebugQuadShader, State->Camera.FarPlane, "FarPlane");
+	SetUniform(State->DepthDebugQuadShader, State->Camera.FoV, "FoV");
+	SetUniform(State->DepthDebugQuadShader, State->Camera.Aspect, "Aspect");
+	SetUniform(State->DepthDebugQuadShader, InvCameraViewMatrix, "InvView");
+	SetUniform(State->DepthDebugQuadShader, State->SSAOParams.SampleCount, "AOSamples");
+	SetUniform(State->DepthDebugQuadShader, State->SSAOParams.Intensity, "AOIntensity");
+	SetUniform(State->DepthDebugQuadShader, State->SSAOParams.Scale, "AOScale");
+	SetUniform(State->DepthDebugQuadShader, State->SSAOParams.SamplingRadius, "AORadius");
+	SetUniform(State->DepthDebugQuadShader, State->SSAOParams.Bias, "AOBias");
+
+	SetUniform(State->DepthDebugQuadShader, GlobalWindowWidth, "WindowWidth");
+	SetUniform(State->DepthDebugQuadShader, GlobalWindowHeight, "WindowHeight");
+
+	ActiveTexture(State->RenderState, GL_TEXTURE0);
+	SetUniform(State->DepthDebugQuadShader, (u32)0, "ScreenTexture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, Texture.ID);
+
+	ActiveTexture(State->RenderState, GL_TEXTURE1);
+	SetUniform(State->DepthDebugQuadShader, (u32)1, "DepthTexture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.DepthTexture.ID);
+
+	ActiveTexture(State->RenderState, GL_TEXTURE2);
+	SetUniform(State->DepthDebugQuadShader, (u32)2, "NormalTexture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.NormalTexture.ID);
+
 	BindVertexArray(State->RenderState, State->QuadVAO);
 	Disable(State->RenderState, GL_DEPTH_TEST);
-	ActiveTexture(State->RenderState, GL_TEXTURE0);
-	BindTexture(State->RenderState, GL_TEXTURE_2D, Texture.ID);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	Enable(State->RenderState, GL_DEPTH_TEST);
-	BindTexture(State->RenderState, GL_TEXTURE_2D, 0);
 	BindVertexArray(State->RenderState, 0);
 }
 
@@ -1113,12 +1139,20 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->Alpha = 0.5f;
 		State->Sigma = 0.0f;
 		State->LightIntensity = 1.5f;
+		State->AmbientFactor = 0.0f;
 
 		State->MicroFoVInDegrees = 90;
+
 
 		State->ScreenFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->RenderState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 		State->IndirectIlluminationFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+
+		State->SSAOParams.SampleCount = 1;
+		State->SSAOParams.Intensity = 1.0f;
+		State->SSAOParams.Scale = 1.0f;
+		State->SSAOParams.SamplingRadius = 1.0f;
+		State->SSAOParams.Bias = 0.0f;
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {
@@ -1403,10 +1437,27 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.0f, 50.0f);
 		ImGui::SliderFloat("Alpha", (float*)&State->Alpha, 0.0f, 1.0f);
 		ImGui::SliderInt("Microbuffer Pixel Size", (int*)&GlobalMicrobufferWidth, 0, 128);
+		ImGui::SliderFloat("Ambient factor", (float*)&State->AmbientFactor, 0.0f, 1.0f);
 		if(GlobalMicrobufferHeight != GlobalMicrobufferWidth)
 		{
 			GlobalMicrobufferHeight = GlobalMicrobufferWidth;
 		}
+
+		bool UsingSSAO = (State->SSAOParams.SampleCount == 1);
+		ImGui::Checkbox("Using SSAO", &UsingSSAO);
+		if(UsingSSAO)
+		{
+			State->SSAOParams.SampleCount = 1;
+		}
+		else
+		{
+			State->SSAOParams.SampleCount = 0;
+		}
+
+		ImGui::SliderFloat("SSAO Intensity", (float*)&State->SSAOParams.Intensity, 0.0f, 5.0f);
+		ImGui::SliderFloat("SSAO Scale", (float*)&State->SSAOParams.Scale, 0.0f, 1.0f);
+		ImGui::SliderFloat("SSAO Sampling Radius", (float*)&State->SSAOParams.SamplingRadius, 0.0f, 2.0f);
+		ImGui::SliderFloat("SSAO Bias", (float*)&State->SSAOParams.Bias, 0.0f, 1.0f);
 	}
 
 	if(ImGui::CollapsingHeader("Light Data"))
