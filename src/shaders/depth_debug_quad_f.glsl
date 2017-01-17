@@ -23,6 +23,10 @@ uniform float AOBias;
 uniform int WindowWidth;
 uniform int WindowHeight;
 
+uniform int DoMotionBlur;
+uniform mat4 PreviousViewProj;
+uniform int MotionBlurSampleCount;
+
 const float Pi = 3.14159265f;
 const float Epsilon = 0.001f;
 
@@ -79,7 +83,33 @@ float ComputeAmbientOcclusion(vec2 SamplingOffset, vec3 PixelPos, vec3 Normal, v
 
 void main()
 {
-	if(Sigma >= Epsilon)
+	// TODO(hugo) : Sort out how to compose post-processes
+	if(DoMotionBlur == 1)
+	{
+		vec2 TexelSize = 1.0f / textureSize(ScreenTexture, 0);
+		vec2 SamplingCoord = TextureCoordinates;
+		float Depth = texture(DepthTexture, SamplingCoord).r;
+		Depth = UnlinearizeDepth(Depth, NearPlane, FarPlane);
+		vec4 PixelPos = UnprojectPixelToViewSpace(Depth, SamplingCoord.x * WindowWidth, 
+				SamplingCoord.y * WindowHeight,
+				float(WindowWidth), float(WindowHeight), FoV, Aspect);
+		vec4 PixelPreviousPosInClipSpace = PreviousViewProj * PixelPos;
+
+		PixelPreviousPosInClipSpace.xyz = PixelPreviousPosInClipSpace.xyz / PixelPreviousPosInClipSpace.w;
+		PixelPreviousPosInClipSpace.xy = 0.5f * PixelPreviousPosInClipSpace.xy + vec2(0.5f, 0.5f);
+
+		vec2 BlurVector = PixelPreviousPosInClipSpace.xy - TextureCoordinates;
+
+		Color = texture(ScreenTexture, TextureCoordinates);
+		for(int SampleIndex = 0; SampleIndex < MotionBlurSampleCount; ++SampleIndex)
+		{
+			vec2 Offset = BlurVector * ((float(SampleIndex) / float(MotionBlurSampleCount - 1)) - 0.5f);
+			Color += texture(ScreenTexture, TextureCoordinates + Offset);
+		}
+		Color = Color / float(MotionBlurSampleCount);
+		Color.w = 1.0f;
+	}
+	else if(Sigma >= Epsilon)
 	{
 		// NOTE(hugo) : Code inspired by GPU Gems 3 - Incremental Computation of the Gaussian
 		vec2 TexelSize = 1.0f / textureSize(ScreenTexture, 0);

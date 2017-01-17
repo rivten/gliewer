@@ -10,8 +10,6 @@
 	    - split the viewer.cpp code into several files
 		- light attenuation
 		- normal mapping
-		- motion blur
-	    - ambient occlusion (SSAO ?)
 	    - mesh code cleanup
 		- possibility to see light depth buffer from GUI
 		- light handling has objects having an emissivity
@@ -157,6 +155,10 @@ struct game_state
 	float AmbientFactor;
 	ambient_occlusion_parameters SSAOParams;
 	// }
+
+	bool MotionBlur;
+	mat4 PreviousViewProj;
+	u32 MotionBlurSampleCount;
 
 	geometry_framebuffer ScreenFramebuffer;
 	hemicube_framebuffer HemicubeFramebuffer;

@@ -250,6 +250,10 @@ void RenderTextureOnQuadScreen(game_state* State, texture Texture)
 	SetUniform(State->DepthDebugQuadShader, GlobalWindowWidth, "WindowWidth");
 	SetUniform(State->DepthDebugQuadShader, GlobalWindowHeight, "WindowHeight");
 
+	SetUniform(State->DepthDebugQuadShader, State->MotionBlur, "DoMotionBlur");
+	SetUniform(State->DepthDebugQuadShader, State->PreviousViewProj, "PreviousViewProj");
+	SetUniform(State->DepthDebugQuadShader, State->MotionBlurSampleCount, "MotionBlurSampleCount");
+
 	ActiveTexture(State->RenderState, GL_TEXTURE0);
 	SetUniform(State->DepthDebugQuadShader, (u32)0, "ScreenTexture");
 	BindTexture(State->RenderState, GL_TEXTURE_2D, Texture.ID);
@@ -1148,11 +1152,15 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->RenderState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 		State->IndirectIlluminationFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 
-		State->SSAOParams.SampleCount = 1;
+		State->SSAOParams.SampleCount = 0;
 		State->SSAOParams.Intensity = 1.0f;
 		State->SSAOParams.Scale = 1.0f;
 		State->SSAOParams.SamplingRadius = 1.0f;
 		State->SSAOParams.Bias = 0.0f;
+
+		State->MotionBlur = true;
+		State->PreviousViewProj = Identity4();
+		State->MotionBlurSampleCount = 16;
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {
@@ -1423,6 +1431,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 			&State->FrustumBoundingBox);
 	// }
 	
+	State->PreviousViewProj = ProjectionMatrix * LookAt(State->Camera);
+
 	if(ImGui::Button("Compute Indirect Illumination"))
 	{
 		ComputeGlobalIlluminationWithPatch(State, State->Camera, LightProjectionMatrix);
@@ -1458,6 +1468,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		ImGui::SliderFloat("SSAO Scale", (float*)&State->SSAOParams.Scale, 0.0f, 1.0f);
 		ImGui::SliderFloat("SSAO Sampling Radius", (float*)&State->SSAOParams.SamplingRadius, 0.0f, 2.0f);
 		ImGui::SliderFloat("SSAO Bias", (float*)&State->SSAOParams.Bias, 0.0f, 1.0f);
+		ImGui::Checkbox("Motion Blur", &State->MotionBlur);
+		ImGui::SliderInt("Motion Blur Sample Count", (int*)&State->MotionBlurSampleCount, 0, 32);
 	}
 
 	if(ImGui::CollapsingHeader("Light Data"))
