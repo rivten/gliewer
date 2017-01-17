@@ -148,13 +148,11 @@ void main()
 				float(WindowWidth), float(WindowHeight), FoV, Aspect);
 		vec3 Normal = texture(NormalTexture, SamplingCoord).xyz;
 
-		vec2 SamplingDirs[4] = 
-		{
-			vec2(1.0f, 0.0f),
-			vec2(-1.0f, 0.0f),
-			vec2(0.0f, 1.0f),
-			vec2(0.0f, -1.0f)
-		};
+		vec2 SamplingDirs[4];
+		SamplingDirs[0] = vec2(1.0f, 0.0f);
+		SamplingDirs[1] = vec2(-1.0f, 0.0f);
+		SamplingDirs[2] = vec2(0.0f, 1.0f);
+		SamplingDirs[3] = vec2(0.0f, -1.0f);
 		
 		// NOTE(hugo) : Performing SSAO
 		float AmbientOcclusionFactor = 0.0f;
