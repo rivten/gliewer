@@ -36,6 +36,8 @@ I am using this very engine to implement these algorithms as it already provides
 - Automatic shader reloading
 - Screen-space ambient occlusion
 - Motion blur
+- Arcball and first person camera
+- Frustum culling
 
 ## To do features
 
