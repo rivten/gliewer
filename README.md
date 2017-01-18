@@ -10,6 +10,8 @@ The current dependencies are :
 - [stb] (https://github.com/nothings/stb) (for image loading / planned to get rid of this dependency)
 - [tinyobjloader](https://github.com/syoyo/tinyobjloader) (for mesh loading / planned to get rid of this dependency)
 
+Therefore I did not use any libraries for math, multithreading, or interfacing with OpenGL for rendering algorithms.
+
 This project is written using C++ but I am using only a very small subset of C++ features so that the code is as close to C as possible. The code is written and tested on Windows and Linux.
 
 ## PBGI
@@ -29,17 +31,17 @@ I am using this very engine to implement these algorithms as it already provides
 - G-buffer implementation for defered shading
 - Framebuffer / depth-buffer reading to unproject pixel to world coordinates
 - Instancing
+- Texture mapping
+- Gamma correction
+- Automatic shader reloading
+- Screen-space ambient occlusion
+- Motion blur
 
 ## To do features
 
 - Cascading shadow maps
-- Texture mapping
 - Profiler
 - Bloom effects
-- Gamma correction
-- Automatic shader reloading
 - Texture packing
 - Mesh simplification (see my other project [meshrekt](https://github.com/rivten/meshrekt))
 - Surface segmentation
-- Screen-space ambient occlusion
-- Motion blur
