@@ -7,6 +7,7 @@ enum shader_type
 	ShaderType_Skybox,
 	ShaderType_PostProcess,
 	ShaderType_LowCost,
+	ShaderType_FXAA,
 
 	ShaderType_Count,
 };
@@ -33,7 +34,8 @@ static shader_source Sources[ShaderType_Count] =
 	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/brdf_conv_f.glsl"},
 	{"../src/shaders/skybox_v.glsl", "../src/shaders/skybox_f.glsl"},
 	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl"},
-	{"../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl"}
+	{"../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl"},
+	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/fxaa_f.glsl"},
 };
 
 static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] = 
@@ -143,6 +145,14 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"MVPMatrix",
 
 		"ObjectColor",
+	},
+	
+	// NOTE(hugo) : ShaderType_FXAA
+	{
+		"Texture",
+		"FXAAMultiplicationFactor",
+		"FXAAMinimalReduction",
+		"FXAASpanMax",
 	},
 	
 };

@@ -116,6 +116,13 @@ struct ambient_occlusion_parameters
 	float SamplingRadius;
 };
 
+struct fxaa_params
+{
+	float MultiplicationFactor;
+	float MinimalReduction;
+	float SpanMax;
+};
+
 struct game_state
 {
 	object Objects[512];
@@ -154,6 +161,7 @@ struct game_state
 	float LightIntensity;
 	float AmbientFactor;
 	ambient_occlusion_parameters SSAOParams;
+	fxaa_params FXAAParams;
 	// }
 
 	bool MotionBlur;
@@ -161,6 +169,7 @@ struct game_state
 	u32 MotionBlurSampleCount;
 
 	geometry_framebuffer ScreenFramebuffer;
+	geometry_framebuffer PreFXAAFramebuffer;
 	hemicube_framebuffer HemicubeFramebuffer;
 	geometry_framebuffer IndirectIlluminationFramebuffer;
 

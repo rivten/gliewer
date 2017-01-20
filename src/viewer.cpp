@@ -948,6 +948,27 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	Free(Normals);
 }
 
+void ApplyFXAA(game_state* State, texture Texture)
+{
+	Assert(Texture.IsValid);
+
+	UseShader(State->RenderState, State->Shaders[ShaderType_FXAA]);
+
+	SetUniform(State->Shaders[ShaderType_FXAA], State->FXAAParams.MultiplicationFactor, "FXAAMultiplicationFactor");
+	SetUniform(State->Shaders[ShaderType_FXAA], State->FXAAParams.MinimalReduction, "FXAAMinimalReduction");
+	SetUniform(State->Shaders[ShaderType_FXAA], State->FXAAParams.SpanMax, "FXAASpanMax");
+
+	ActiveTexture(State->RenderState, GL_TEXTURE0);
+	SetUniform(State->Shaders[ShaderType_FXAA], (u32)0, "Texture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, Texture.ID);
+
+	BindVertexArray(State->RenderState, State->QuadVAO);
+	Disable(State->RenderState, GL_DEPTH_TEST);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	Enable(State->RenderState, GL_DEPTH_TEST);
+	BindVertexArray(State->RenderState, 0);
+}
+
 void PushObject(game_state* State, object* Object)
 {
 	Assert(State->ObjectCount < ArrayCount(State->Objects));
@@ -1127,6 +1148,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 
 		State->ScreenFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+		State->PreFXAAFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->RenderState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 		State->IndirectIlluminationFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 
@@ -1135,6 +1157,10 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->SSAOParams.Scale = 1.0f;
 		State->SSAOParams.SamplingRadius = 1.0f;
 		State->SSAOParams.Bias = 0.0f;
+
+		State->FXAAParams.MultiplicationFactor = 1.0f / 8.0f;
+		State->FXAAParams.MinimalReduction = 1.0f / 128.0f;
+		State->FXAAParams.SpanMax = 8.0f;
 
 		State->MotionBlur = true;
 		State->PreviousViewProj = Identity4();
@@ -1181,6 +1207,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	if(Input->WindowResized)
 	{
 		UpdateGeometryFramebuffer(State->RenderState, &State->ScreenFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
+		UpdateGeometryFramebuffer(State->RenderState, &State->PreFXAAFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
 		UpdateGeometryFramebuffer(State->RenderState, &State->IndirectIlluminationFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
 	}
 
@@ -1411,12 +1438,16 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	mat4 ProjectionMatrix = GetCameraPerspective(State->Camera);
 
-	RenderShadowSceneOnQuad(State, 
+	RenderShadowSceneOnFramebuffer(State, 
 			State->Camera,
-			ProjectionMatrix, 
-			LightProjectionMatrix, 
-			State->ScreenFramebuffer,
+			ProjectionMatrix, LightProjectionMatrix, 
+			State->ScreenFramebuffer, V4(1.0f, 0.0f, 0.5f, 1.0f), 
+			true,
 			&State->FrustumBoundingBox);
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->PreFXAAFramebuffer.FBO);
+	RenderTextureOnQuadScreen(State, State->ScreenFramebuffer.ScreenTexture);
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+	ApplyFXAA(State, State->PreFXAAFramebuffer.ScreenTexture);
 	// }
 	
 	State->PreviousViewProj = ProjectionMatrix * LookAt(State->Camera);
@@ -1458,6 +1489,10 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		ImGui::SliderFloat("SSAO Bias", (float*)&State->SSAOParams.Bias, 0.0f, 1.0f);
 		ImGui::Checkbox("Motion Blur", &State->MotionBlur);
 		ImGui::SliderInt("Motion Blur Sample Count", (int*)&State->MotionBlurSampleCount, 0, 32);
+
+		ImGui::SliderFloat("FXAA Multiplication Factor", (float*)&State->FXAAParams.MultiplicationFactor, 0.0f, 1.0f);
+		ImGui::SliderFloat("FXAA Minimal Reduction", (float*)&State->FXAAParams.MinimalReduction, 0.0f, 1.0f);
+		ImGui::SliderFloat("FXAA Span Max", (float*)&State->FXAAParams.SpanMax, 0.0f, 10.0f);
 	}
 
 	if(ImGui::CollapsingHeader("Light Data"))
