@@ -3,11 +3,15 @@
 /*
    TODO(hugo)
      * Basic GLiewer todos
+		- FXAA
 		- proper SDL-ImGui layer
 		- full material handling when OBJ parsing
 		- asset streaming
-		- shader as assets (having a structure, uniforms, etc.. ==> glsl parsing ??)
 	    - split the viewer.cpp code into several files
+		- display frustum
+		- display bounding boxes
+		- display triangle mesh properly
+		- non-axis aligned bounding boxes
 		- light attenuation
 		- normal mapping
 	    - mesh code cleanup
@@ -19,7 +23,7 @@
 		- logging system
 		- ray tracing ability
 	    - SDL code cleanup (cleaner layer, e.g. use of DLL for the main "game", etc...)
-		- clean OpenGL layer (no more gl_..., get rid of glew ??)
+		- get rid of glew
 	    - proper OBJ loading
 	    - profiling
 		- Mouse Wheel clean up
@@ -32,7 +36,6 @@
 		- cascade shadow mapping
 		- voxelisation
 		- lighting shader code cleanup (use structure)
-		- SIMD BRDF integration
 		- subsurface scattering
 		- mesh parametrization
 		- mesh simplification
@@ -43,8 +46,9 @@
 			normal map is the nth color attachment of this framebuffer.
 
 	* PBGI todos
-		- do smarter stuff
-		- understand the long call in the profiler
+		- fix mega texture sampling in the shader
+		- do not pass through the CPU when computing the mega texture
+		- glfw layer
  */
 
 struct camera

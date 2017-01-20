@@ -150,6 +150,7 @@ void RenderShadowedScene(game_state* State,
 			if(FrustumBoundingBox)
 			{
 				ShouldDraw = Intersect3(*FrustumBoundingBox, Object->BoundingBox);
+				Object->IsFrustumCulled = !ShouldDraw;
 			}
 			if(ShouldDraw)
 			{
@@ -974,45 +975,22 @@ void LoadShaders(game_state* State)
 
 rect3 GetFrustumBoundingBox(camera Camera)
 {
-	rect3 Result = {};
+	rect3 Result = MaxBoundingBox();
 	v3 P[8];
 
-	P[0] = {};
-	P[0].x = Camera.FarPlane * Tan(0.5f * Camera.FoV);
-	P[0].y = Camera.Aspect * P[0].x;
-	P[0].z = -Camera.FarPlane;
-
-	P[1] = P[0];
-	P[1].x = -P[1].x;
-
-	P[2] = P[0];
-	P[2].y = -P[2].y;
-
-	P[3] = P[0];
-	P[3].x = -P[3].x;
-	P[3].y = -P[3].y;
-
-	P[4] = {};
-	P[4].x = Camera.NearPlane * Tan(0.5f * Camera.FoV);
-	P[4].y = Camera.Aspect * P[4].x;
-	P[4].z = -Camera.NearPlane;
-
-	P[5] = P[4];
-	P[5].x = -P[5].x;
-
-	P[6] = P[4];
-	P[6].y = -P[6].y;
-
-	P[7] = P[4];
-	P[7].x = -P[7].x;
-	P[7].y = -P[7].y;
-
-	v3 CameraUp = Cross(Camera.ZAxis, Camera.XAxis);
 	mat4 InvLookAt = Inverse(LookAt(Camera));
+	P[0] = UnprojectPixel(Camera.FarPlane, 0, 1, 1, 1, Camera, InvLookAt).xyz;
+	P[1] = UnprojectPixel(Camera.FarPlane, 1, 1, 1, 1, Camera, InvLookAt).xyz;
+	P[2] = UnprojectPixel(Camera.FarPlane, 1, 0, 1, 1, Camera, InvLookAt).xyz;
+	P[3] = UnprojectPixel(Camera.FarPlane, 0, 0, 1, 1, Camera, InvLookAt).xyz;
+	P[4] = UnprojectPixel(Camera.NearPlane, 0, 1, 1, 1, Camera, InvLookAt).xyz;
+	P[5] = UnprojectPixel(Camera.NearPlane, 1, 1, 1, 1, Camera, InvLookAt).xyz;
+	P[6] = UnprojectPixel(Camera.NearPlane, 1, 0, 1, 1, Camera, InvLookAt).xyz;
+	P[7] = UnprojectPixel(Camera.NearPlane, 0, 0, 1, 1, Camera, InvLookAt).xyz;
 
 	for(u32 PointIndex = 0; PointIndex < ArrayCount(P); ++PointIndex)
 	{
-		AddPointToBoundingBox(&Result, (InvLookAt * ToV4(P[PointIndex])).xyz);
+		AddPointToBoundingBox(&Result, P[PointIndex]);
 	}
 
 	return(Result);
@@ -1575,6 +1553,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				ImGui::Text("Triangle Count: %d", Object->Mesh.TriangleCount);
 				ImGui::Text("Bounding Box Min: (%f, %f, %f)", Object->BoundingBox.Min.x, Object->BoundingBox.Min.y, Object->BoundingBox.Min.z);
 				ImGui::Text("Bounding Box Max: (%f, %f, %f)", Object->BoundingBox.Max.x, Object->BoundingBox.Max.y, Object->BoundingBox.Max.z);
+				ImGui::Checkbox("Is Frustum Culled", &Object->IsFrustumCulled);
 				ImGui::TreePop();
 			}
 		}

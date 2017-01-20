@@ -62,6 +62,7 @@ struct object
 	char Name[100];
 
 	bool Visible;
+	bool IsFrustumCulled;
 
 	bool UseTextureMapping;
 	u32 TextureMapLocation;
