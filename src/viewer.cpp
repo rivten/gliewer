@@ -186,7 +186,7 @@ void RenderShadowedScene(game_state* State,
 	}
 }
 
-void RenderSimpleScene(game_state* State, camera Camera, mat4 ProjectionMatrix)
+void RenderSimpleScene(game_state* State, camera Camera, mat4 ProjectionMatrix, rect3* FrustumBoundingBox)
 {
 	mat4 ViewMatrix = LookAt(Camera);
 	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectModelMatrix;
@@ -199,7 +199,15 @@ void RenderSimpleScene(game_state* State, camera Camera, mat4 ProjectionMatrix)
 		object* Object = State->Objects + ObjectIndex;
 		if(Object->Visible)
 		{
-			DrawTriangleObject(State->RenderState, Object);
+			bool ShouldDraw = true;
+			if(FrustumBoundingBox)
+			{
+				ShouldDraw = Intersect3(*FrustumBoundingBox, Object->BoundingBox);
+			}
+			if(ShouldDraw)
+			{
+				DrawTriangleObject(State->RenderState, Object);
+			}
 		}
 	}
 }
@@ -1020,9 +1028,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->RenderState = RenderState;
 		rect3 Box = MaxBoundingBox();
 		{
-			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
+			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/house/", "house.obj");
-			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
+			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
 			{
 				PushObject(State, &Objects[ObjectIndex]);
@@ -1061,8 +1069,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->ObjectModelMatrix = Identity4();
 		LoadShaders(State);
 
-		light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
-		//light Light = {0, V3(-60.0f, 700.0f, -38.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		//light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		light Light = {0, V3(-60.0f, 700.0f, -38.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(State->RenderState, GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light);
 		
@@ -1076,8 +1084,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				} break;
 			case LightType_Perspective:
 				{
-					State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 1.0f, 5.5f};
-					//State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 50.0f, 600.5f};
+					//State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 1.0f, 5.5f};
+					State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 50.0f, 600.5f};
 				} break;
 			case LightType_PointLight:
 				{
@@ -1091,8 +1099,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		//State->CameraType = CameraType_Arcball;
 		State->CameraType = CameraType_FirstPerson;
 		State->ReferenceCamera = {};
-		State->ReferenceCamera.P = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
-		//State->ReferenceCamera.P = V3(0.0f, 0.0f, 0.0f);
+		//State->ReferenceCamera.P = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
+		State->ReferenceCamera.P = V3(0.0f, 0.0f, 0.0f);
 		if(State->CameraType == CameraType_Arcball)
 		{
 			State->FixedTarget = 0.5f * (Box.Max + Box.Min);
@@ -1113,10 +1121,10 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		float Epsilon = 0.2f;
 		State->ReferenceCamera.NearPlane = (1.0f - Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Max.z);
 		State->ReferenceCamera.FarPlane = (1.0f + Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Min.z);
-		//State->ReferenceCamera.NearPlane = 100.0f;
-		//State->ReferenceCamera.FarPlane = 2000.0f;
-		State->ReferenceCamera.NearPlane = 0.5f;
-		State->ReferenceCamera.FarPlane = 5.0f;
+		State->ReferenceCamera.NearPlane = 100.0f;
+		State->ReferenceCamera.FarPlane = 2000.0f;
+		//State->ReferenceCamera.NearPlane = 0.5f;
+		//State->ReferenceCamera.FarPlane = 5.0f;
 		State->FrustumBoundingBox = GetFrustumBoundingBox(State->ReferenceCamera);
 
 		State->dPCamera = {};
@@ -1421,7 +1429,12 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		LightCamera.P = Light->Pos;
 		LightCamera.ZAxis = Normalized(LightCamera.P - Light->Target);
 		LightCamera.XAxis = Cross(V3(0.0f, 1.0f, 0.0f), LightCamera.ZAxis);
-		RenderSimpleScene(State, LightCamera, LightProjectionMatrix);
+		LightCamera.FoV = State->ProjectionParams.FoV;
+		LightCamera.Aspect = State->ProjectionParams.Aspect;
+		LightCamera.NearPlane = State->ProjectionParams.NearPlane;
+		LightCamera.FarPlane = State->ProjectionParams.FarPlane;
+		rect3 FrustumLightBoundingBox = GetFrustumBoundingBox(LightCamera);
+		RenderSimpleScene(State, LightCamera, LightProjectionMatrix, &FrustumLightBoundingBox);
 		CullFace(State->RenderState, GL_BACK);
 	}
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
