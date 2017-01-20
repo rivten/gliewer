@@ -82,7 +82,7 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"MegaTextures[2]",
 		"MegaTextures[3]",
 		"MegaTextures[4]",
-		"DepthPatch",
+		"DepthMap",
 		"NormalMap",
 		"AlbedoMap",
 		"DirectIlluminationMap",

@@ -715,9 +715,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		MegaTexturePixels[TextureIndex] = MegaTextures[TextureIndex];
 	}
 
-	// NOTE(hugo) : Create textures
-	texture DepthPatchTexture = CreateTexture();
-
 	texture Megas[5];
 	for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
 	{
@@ -753,14 +750,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			ReadBufferDepth(State->RenderState, State->ScreenFramebuffer.FBO,
 					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
 					PatchWidth, PatchHeight, Depths);
-			image_texture_loading_params Params = DefaultImageTextureLoadingParams(
-					PatchWidth, PatchHeight, Depths);
-			Params.InternalFormat = GL_DEPTH_COMPONENT;
-			Params.ExternalFormat = GL_DEPTH_COMPONENT;
-			Params.ExternalType = GL_FLOAT;
-			Params.MinFilter = GL_LINEAR;
-			Params.MagFilter = GL_LINEAR;
-			LoadImageToTexture(State->RenderState, &DepthPatchTexture, Params);
 
 			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.FBO, 1,
 					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
@@ -859,6 +848,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 				}
 			}
 
+			image_texture_loading_params Params = {};
 			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
 			{
 				Params = DefaultImageTextureLoadingParams(
@@ -882,8 +872,8 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			}
 			
 			ActiveTexture(State->RenderState, GL_TEXTURE5);
-			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)5, "DepthPatch");
-			BindTexture(State->RenderState, GL_TEXTURE_2D, DepthPatchTexture.ID);
+			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)5, "DepthMap");
+			BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.DepthTexture.ID);
 
 			ActiveTexture(State->RenderState, GL_TEXTURE6);
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)6, "NormalMap");
@@ -936,7 +926,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		}
 	}
 
-	DeleteTexture(&DepthPatchTexture);
 	for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
 	{
 		DeleteTexture(&Megas[TextureIndex]);

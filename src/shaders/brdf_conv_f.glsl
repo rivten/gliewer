@@ -7,7 +7,7 @@ layout (location = 1) out vec3 NormalOut;
 layout (location = 2) out vec3 AlbedoOut;
 
 uniform sampler2D MegaTextures[5];
-uniform sampler2D DepthPatch;
+uniform sampler2D DepthMap;
 uniform sampler2D NormalMap;
 uniform sampler2D AlbedoMap;
 uniform sampler2D DirectIlluminationMap;
@@ -168,14 +168,12 @@ void main()
 	// If my viewport is the size of the whole screen, then I just need to
 	// divide the fragment coord by the size of the screen to be in the proper
 	// texture range.
-	//vec2 PixelCoordInScreen = gl_FragCoord.xy - vec2(0.5f, 0.5f);
-	vec2 PixelCoordInScreen = gl_FragCoord.xy;
 	vec2 ScreenSize = vec2(WindowWidth, WindowHeight);
-	vec2 PixelCoordInPatch = PixelCoordInScreen - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
+	vec2 ScreenUV = gl_FragCoord.xy / ScreenSize;
+	vec2 PixelCoordInPatch = gl_FragCoord.xy - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
 	vec2 PatchSize = vec2(PatchWidth, PatchHeight);
-	vec2 TextureCoord = PixelCoordInPatch / PatchSize;
 
-	float Depth = texture(DepthPatch, TextureCoord).r;
+	float Depth = texture(DepthMap, ScreenUV).r;
 	float NearPlane = MainCameraNearPlane;
 	float FarPlane = MainCameraFarPlane;
 	Depth = 2.0f * Depth - 1.0f;
@@ -184,8 +182,8 @@ void main()
 	vec4 PixelPos = vec4(0.0f, 0.0f, 0.0f, 0.0f);
 	PixelPos.z = -Depth;
 	PixelPos.w = 1.0f;
-	PixelPos.x = float(PixelCoordInScreen.x) / float(WindowWidth);
-	PixelPos.y = float(PixelCoordInScreen.y) / float(WindowHeight);
+	PixelPos.x = float(gl_FragCoord.x) / float(WindowWidth);
+	PixelPos.y = float(gl_FragCoord.y) / float(WindowHeight);
 
 	PixelPos.xy = 2.0f * PixelPos.xy - vec2(1.0f, 1.0f);
 	PixelPos.x = - MainCameraAspect * tan(0.5f * MainCameraFoV) * PixelPos.z * PixelPos.x;
@@ -193,10 +191,10 @@ void main()
 	PixelPos = InvLookAtCamera * PixelPos;
 	PixelPos.w = 1.0f;
 	vec4 FragmentWorldPos = PixelPos;
-	vec3 Normal = texture(NormalMap, PixelCoordInScreen / ScreenSize).xyz;
+	vec3 Normal = texture(NormalMap, ScreenUV).xyz;
 	Normal = normalize(2.0f * Normal - vec3(1.0f, 1.0f, 1.0f));
 
-	vec4 Albedo = texture(AlbedoMap, PixelCoordInScreen / ScreenSize);
+	vec4 Albedo = texture(AlbedoMap, ScreenUV);
 	//if(length(Albedo.xyz) == 0.0f)
 	//{
 		//discard;
@@ -204,7 +202,7 @@ void main()
 
 	float MegaTextureTexelSize = 1.0f / textureSize(MegaTextures[0], 0).x;
 
-	Color = texture(DirectIlluminationMap, PixelCoordInScreen / ScreenSize);
+	Color = texture(DirectIlluminationMap, ScreenUV);
 	//Color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	vec3 Wo = normalize(CameraPos - FragmentWorldPos.xyz);
 	float NormalDotWo = DotClamp(Normal, Wo);
