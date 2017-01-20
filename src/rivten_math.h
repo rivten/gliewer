@@ -444,10 +444,8 @@ v3 Clamp01(v3 A)
 
 float GetAngle(v3 A, v3 B, v3 RefAxis)
 {
-	v3 NA = Normalized(A);
-	v3 NB = Normalized(B);
-	float CosAngle = Dot(NA, NB);
-	int SignAngle = Sign(Dot(Cross(NA, NB), RefAxis));
+	float CosAngle = Dot(A, B);
+	int SignAngle = Sign(Dot(Cross(A, B), RefAxis));
 	float Result = 0.0f;
 	if(SignAngle == 0)
 	{
@@ -462,6 +460,7 @@ float GetAngle(v3 A, v3 B, v3 RefAxis)
 	}
 	else
 	{
+		CosAngle = Clamp(CosAngle, -1.0f, 1.0f);
 		Result = SignAngle * Arccos(CosAngle);
 	}
 
