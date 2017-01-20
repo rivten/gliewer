@@ -1,8 +1,37 @@
 #pragma once
 
+enum shader_type
+{
+	ShaderType_DirectLighting,
+	ShaderType_BRDFConvolutional,
+	ShaderType_Skybox,
+	ShaderType_PostProcess,
+	ShaderType_LowCost,
+
+	ShaderType_Count,
+};
+
 struct shader
 {
 	GLuint Program;
+	shader_type Type;
+	char* Uniforms[128];
+	u32 Locations[128];
+};
+
+struct shader_source
+{
+	char* VertexSourceFilename;
+	char* FragmentSourceFilename;
+};
+
+static shader_source Sources[ShaderType_Count] = 
+{
+	{"../src/shaders/shadow_mapping_v.glsl", "../src/shaders/shadow_mapping_f.glsl"},
+	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/brdf_conv_f.glsl"},
+	{"../src/shaders/skybox_v.glsl", "../src/shaders/skybox_f.glsl"},
+	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl"},
+	{"../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl"}
 };
 
 // TODO(hugo) : Shaders are assets. They should go through the 

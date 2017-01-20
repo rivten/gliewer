@@ -124,11 +124,7 @@ struct game_state
 	light_type LightType;
 	projection_parameters ProjectionParams;
 
-	shader BasicShader;
-	shader DepthDebugQuadShader;
-	shader ShadowMappingShader;
-	shader SkyboxShader;
-	shader BRDFConvShader;
+	shader Shaders[ShaderType_Count];
 
 	camera_type CameraType;
 	camera ReferenceCamera;
