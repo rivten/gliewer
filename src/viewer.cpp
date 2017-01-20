@@ -1220,11 +1220,10 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	// NOTE(hugo) : Live shader reloading
 	if(IsKeyPressed(Input, SCANCODE_TAB))
 	{
-		glDeleteShader(State->Shaders[ShaderType_LowCost].Program);
-		glDeleteShader(State->Shaders[ShaderType_PostProcess].Program);
-		glDeleteShader(State->Shaders[ShaderType_DirectLighting].Program);
-		glDeleteShader(State->Shaders[ShaderType_Skybox].Program);
-		glDeleteShader(State->Shaders[ShaderType_BRDFConvolutional].Program);
+		for(u32 ShaderIndex = 0; ShaderIndex < ShaderType_Count; ++ShaderIndex)
+		{
+			glDeleteProgram(State->Shaders[ShaderIndex].Program);
+		}
 		LoadShaders(State);
 	}
 
