@@ -483,50 +483,61 @@ texture CreateTextureFromFile(render_state* State, const char* Filename)
 	return(Result);
 }
 
-GLuint GetUniformLocation(shader Shader, const char* VariableName)
+u32 GetUniformLocation(shader Shader, char* VariableName)
 {
-	GLuint Location = glGetUniformLocation(Shader.Program, VariableName);
-	Assert(Location != -1);
-	return(Location);
+	u32 ShaderType = Shader.Type;
+	u32 Result = 0;
+	bool Found = false;
+	for(u32 UniformIndex = 0; !Found && (UniformIndex < ArrayCount(Uniforms[ShaderType])); ++UniformIndex)
+	{
+		char* UniformName = Uniforms[ShaderType][UniformIndex];
+		if(UniformName && AreStringIdentical(VariableName, UniformName))
+		{
+			Result = Shader.Locations[UniformIndex];
+			Found = true;
+		}
+	}
+	Assert(Found);
+	return(Result);
 }
 
-void SetUniform(shader Shader, mat4 Matrix, const char* VariableName)
+void SetUniform(shader Shader, mat4 Matrix, char* VariableName)
 {
 	GLuint Location = GetUniformLocation(Shader, VariableName);
 	glUniformMatrix4fv(Location, 1, GL_FALSE, Matrix.Data_); 
 }
 
-void SetUniform(shader Shader, u32 UnsignedInteger, const char* VariableName)
+void SetUniform(shader Shader, u32 UnsignedInteger, char* VariableName)
 {
 	GLuint Location = GetUniformLocation(Shader, VariableName);
 	glUniform1i(Location, UnsignedInteger); 
 }
 
-void SetUniform(shader Shader, float Value, const char* VariableName)
+void SetUniform(shader Shader, float Value, char* VariableName)
 {
 	GLuint Location = GetUniformLocation(Shader, VariableName);
 	glUniform1f(Location, Value); 
 }
 
-void SetUniform(shader Shader, v2 V, const char* VariableName)
+void SetUniform(shader Shader, v2 V, char* VariableName)
 {
 	GLuint Location = GetUniformLocation(Shader, VariableName);
 	glUniform2f(Location, V.x, V.y); 
 }
 
-void SetUniform(shader Shader, v3 V, const char* VariableName)
+void SetUniform(shader Shader, v3 V, char* VariableName)
 {
 	GLuint Location = GetUniformLocation(Shader, VariableName);
 	glUniform3f(Location, V.x, V.y, V.z); 
 }
 
-void SetUniform(shader Shader, v4 V, const char* VariableName)
+void SetUniform(shader Shader, v4 V, char* VariableName)
 {
 	GLuint Location = GetUniformLocation(Shader, VariableName);
 	glUniform4f(Location, V.x, V.y, V.z, V.w); 
 }
 
-void SetUniform(shader Shader, bool B, const char* VariableName)
+void SetUniform(shader Shader, bool B, char* VariableName)
 {
 	u32 IntegerBoolean = (u32)B;
 	SetUniform(Shader, IntegerBoolean, VariableName);

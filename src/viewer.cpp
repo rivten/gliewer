@@ -968,8 +968,7 @@ void LoadShaders(game_state* State)
 	for(u32 ShaderIndex = 0; ShaderIndex < ShaderType_Count; ++ShaderIndex)
 	{
 		shader* Shader = State->Shaders + ShaderIndex;
-		*Shader = LoadShader(Sources[ShaderIndex].VertexSourceFilename, 
-				Sources[ShaderIndex].FragmentSourceFilename);
+		*Shader = LoadShader(ShaderIndex);
 	}
 }
 

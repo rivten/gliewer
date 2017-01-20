@@ -18,7 +18,6 @@ uniform vec4 LightColor[4];
 uniform int LightCount;
 uniform mat4 ViewMatrix;
 uniform vec4 Albedo;
-uniform int BlinnPhongShininess;
 uniform float CTF0;
 uniform float Alpha;
 uniform float LightIntensity;

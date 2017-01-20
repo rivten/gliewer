@@ -11,12 +11,14 @@ enum shader_type
 	ShaderType_Count,
 };
 
+#define MAX_UNIFORM_COUNT 64
 struct shader
 {
 	GLuint Program;
 	shader_type Type;
-	char* Uniforms[128];
-	u32 Locations[128];
+
+	// NOTE(hugo) : Uniform and Location indices are in a one-to-one correspondance
+	u32 Locations[MAX_UNIFORM_COUNT];
 };
 
 struct shader_source
@@ -34,11 +36,124 @@ static shader_source Sources[ShaderType_Count] =
 	{"../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl"}
 };
 
-// TODO(hugo) : Shaders are assets. They should go through the 
-// same pipeline.
-shader LoadShader(const char* VertexPath, const char* FragmentPath)
+static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] = 
 {
+	// NOTE(hugo) : ShaderType_DirectLighting
+	{
+		"MVPMatrix",
+		"NormalMatrix",
+		"ModelObjectMatrix",
+		"LightSpaceMatrix[0]",
+		"LightSpaceMatrix[1]",
+		"LightSpaceMatrix[2]",
+		"LightSpaceMatrix[3]",
+		"LightCount",
+		"NormalWorldMatrix",
+
+		"ShadowMap[0]",
+		"ShadowMap[1]",
+		"ShadowMap[2]",
+		"ShadowMap[3]",
+		"LightPos[0]",
+		"LightPos[1]",
+		"LightPos[2]",
+		"LightPos[3]",
+		"LightColor[0]",
+		"LightColor[1]",
+		"LightColor[2]",
+		"LightColor[3]",
+		"ViewMatrix",
+		"Albedo",
+		"CTF0",
+		"Alpha",
+		"LightIntensity",
+		"AmbientFactor",
+		"UseTextureMapping",
+		"TextureMap",
+	},
+
+	// NOTE(hugo) : ShaderType_BRDFConvolutional
+	{
+		// NOTE(hugo) : Fragment shader
+		"MegaTextures[0]",
+		"MegaTextures[1]",
+		"MegaTextures[2]",
+		"MegaTextures[3]",
+		"MegaTextures[4]",
+		"DepthPatch",
+		"NormalMap",
+		"AlbedoMap",
+		"DirectIlluminationMap",
+		"PatchSizeInPixels",
+		"PatchWidth",
+		"PatchHeight",
+		"PatchX",
+		"PatchY",
+		"MicrobufferWidth",
+		"MicrobufferHeight",
+		"CameraPos",
+		"PixelSurfaceInMeters",
+		"Alpha",
+		"CookTorranceF0",
+		"MicroCameraNearPlane",
+		"WorldUp",
+		"MainCameraAspect",
+		"MainCameraFoV",
+		"MainCameraNearPlane",
+		"MainCameraFarPlane",
+		"InvLookAtCamera",
+		"WindowWidth",
+		"WindowHeight",
+	},
+
+	// NOTE(hugo) : ShaderType_Skybox
+	{
+		"Projection",
+		"View",
+
+		"Skybox",
+	},
+
+	// NOTE(hugo) : ShaderType_PostProcess
+	{
+
+		"ScreenTexture",
+		"Sigma",
+		"DepthTexture", 
+		"NormalTexture",
+		"NearPlane",
+		"FarPlane", 
+		"FoV",
+		"Aspect", 
+		"InvView",
+		"AOSamples",
+		"AOIntensity",
+		"AOScale",
+		"AORadius",
+		"AOBias",
+		"WindowWidth",
+		"WindowHeight",
+		"DoMotionBlur",
+		"PreviousViewProj",
+		"MotionBlurSampleCount",
+	},
+
+	// NOTE(hugo) : ShaderType_LowCost
+	{
+		"MVPMatrix",
+
+		"ObjectColor",
+	},
+	
+};
+
+GLuint GetUniformLocation(shader Shader, const char* VariableName);
+shader LoadShader(u32 ShaderType)
+{
+	const char* VertexPath = Sources[ShaderType].VertexSourceFilename;
+	const char* FragmentPath = Sources[ShaderType].FragmentSourceFilename;
 	shader Result = {};
+	Result.Type = (shader_type)ShaderType;
 
 	char* VertexCode = ReadFileContent(VertexPath);
 	char* FragmentCode = ReadFileContent(FragmentPath);
@@ -81,6 +196,17 @@ shader LoadShader(const char* VertexPath, const char* FragmentPath)
 
 	glDeleteShader(Vertex);
 	glDeleteShader(Fragment);
+
+	// NOTE(hugo) : Setting uniform location
+	for(u32 UniformIndex = 0; UniformIndex < ArrayCount(Uniforms[ShaderType]); ++UniformIndex)
+	{
+		char* UniformName = Uniforms[ShaderType][UniformIndex];
+		if(UniformName && (!IsEmptyString(UniformName)))
+		{
+			Result.Locations[UniformIndex] = glGetUniformLocation(Result.Program, UniformName);
+			Assert(Result.Locations[UniformIndex] != -1);
+		}
+	}
 
 	return(Result);
 }
