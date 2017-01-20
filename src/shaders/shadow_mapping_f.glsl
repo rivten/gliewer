@@ -17,7 +17,7 @@ uniform vec3 LightPos[4];
 uniform vec4 LightColor[4];
 uniform int LightCount;
 uniform mat4 ViewMatrix;
-uniform vec4 Albedo;
+uniform vec4 DiffuseColor;
 uniform float CTF0;
 uniform float Alpha;
 uniform float LightIntensity;
@@ -66,7 +66,7 @@ float ShadowFactor(vec4 FragmentPositionInLightSpace, sampler2D ShadowMap, float
 // ---------------------------------------
 // NOTE(hugo) : Blinn Phong BRDF
 // ---------------------------------------
-vec4 DiffuseColor(vec4 ObjectColor, vec4 LightColor, vec3 LightDir, vec3 Normal)
+vec4 DiffuseComponent(vec4 ObjectColor, vec4 LightColor, vec3 LightDir, vec3 Normal)
 {
 	vec4 Result = ObjectColor * LightColor * max(0.0, dot(LightDir, Normal));
 
@@ -76,7 +76,7 @@ vec4 DiffuseColor(vec4 ObjectColor, vec4 LightColor, vec3 LightDir, vec3 Normal)
 vec4 BlinnPhongBRDF(vec4 ObjectColor, vec4 LightColor, vec4 SpecularColor, vec3 VertexNormal, vec3 LightDir, vec3 HalfDir, int Shininess, float SpecularIntensity)
 {
 	vec4 SpecularObjectColor = SpecularColor * pow(max(0.0, dot(HalfDir, LightDir)), Shininess);
-	vec4 DiffColor = DiffuseColor(ObjectColor, LightColor, LightDir, VertexNormal);
+	vec4 DiffColor = DiffuseComponent(ObjectColor, LightColor, LightDir, VertexNormal);
 	return(DiffColor + ObjectColor * SpecularIntensity * SpecularObjectColor);
 }
 
@@ -121,7 +121,7 @@ vec4 CookTorranceBRDF(vec4 ObjectColor, vec4 LightColor, vec3 Normal, vec3 Light
 	float D = CookTorranceDistributionTerm(NormalDotHalfDir, M);
 	vec4 SpecularColor = (1 / (4 * NormalDotLightDir * NormalDotViewDir)) * F * G * D * ObjectColor * LightColor;
 
-	vec4 DiffColor = DiffuseColor(ObjectColor, LightColor, LightDir, Normal);
+	vec4 DiffColor = DiffuseComponent(ObjectColor, LightColor, LightDir, Normal);
 
 	// TODO(hugo) : Investigate why I need to use clamp
 	// I think I could get negative color otherwise
@@ -163,7 +163,7 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 
 void main()
 {
-	vec4 ReflectionColor = Albedo;
+	vec4 ReflectionColor = DiffuseColor;
 	if(UseTextureMapping == 1)
 	{
 		ReflectionColor = texture(TextureMap, TextureCoordinates);
@@ -191,5 +191,5 @@ void main()
 	// NOTE(hugo) : Compacting the normal into [0,1]^3
 	NormalMap = 0.5f * NormalWorldSpace + vec3(0.5f, 0.5f, 0.5f);
 
-	AlbedoMap = Albedo.xyz;
+	AlbedoMap = DiffuseColor.xyz;
 }

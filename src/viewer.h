@@ -3,7 +3,6 @@
 /*
    TODO(hugo)
      * Basic GLiewer todos
-		- FXAA
 		- proper SDL-ImGui layer
 		- full material handling when OBJ parsing
 		- asset streaming
@@ -32,7 +31,6 @@
 		- automatic shader gestion I/O to chain easily shaders
 		- BHV if ever necessary
 		- BRDF visualisation
-		- GBuffer pipeline
 		- cascade shadow mapping
 		- voxelisation
 		- lighting shader code cleanup (use structure)

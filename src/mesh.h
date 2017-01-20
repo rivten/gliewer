@@ -52,20 +52,31 @@ struct rect3
 	v3 Max;
 };
 
+struct material
+{
+	char Name[128];
+	v3 AmbientColor;
+	v3 DiffuseColor;
+	v3 SpecularColor;
+	float SpecularComponent;
+	// TODO(hugo) : support transmittance and emission color
+
+	bool UseTextureMapping;
+	u32 TextureMapLocation;
+};
+
 struct object
 {
 	u32 VertexArrayID;
 	u32 VertexBufferID;
 	u32 ElementBufferID;
 
-	v4 Albedo;
 	char Name[100];
 
 	bool Visible;
 	bool IsFrustumCulled;
 
-	bool UseTextureMapping;
-	u32 TextureMapLocation;
+	material Material;
 
 	mesh Mesh;
 	rect3 BoundingBox;
@@ -333,59 +344,41 @@ std::vector<object> LoadOBJ(render_state* RenderState, const std::string BaseDir
 		Object.Mesh.Triangles = AllocateArray(triangle, Object.Mesh.TrianglePoolSize);
 		Object.Visible = true;
 		CopyArray(Object.Name, Shapes[ShapeIndex].name.c_str(), char, StringLength((char*)(Shapes[ShapeIndex].name.c_str())) + 1);
-		Object.Albedo = V4(1.0f, 1.0f, 1.0f, 1.0f);
-#if 0
-		for(u32 MaterialIndex = 0; MaterialIndex < Materials.size(); ++MaterialIndex)
-		{
-			if(!IsEmptyString(Object.Name) && AreStringIdentical((char*)Materials[MaterialIndex].name.c_str(), Object.Name))
-			{
-				tinyobj::material_t MeshMaterial = Materials[MaterialIndex];
-				Object.Albedo = V4(MeshMaterial.ambient[0], MeshMaterial.ambient[1], MeshMaterial.ambient[2], 1.0f);
-				
-				// TODO(hugo) : Maybe separate objects and material since different 
-				// objects can use the same material and we should not copy the data twice
-				char TextureMapPath[128];
-				sprintf(TextureMapPath, "..\\models\\sponza\\%s", MeshMaterial.ambient_texname.c_str());
-				Object.TextureMap = CreateTextureFromFile(RenderState, TextureMapPath);
-				break;
-			}
-			else if(AreStringIdentical((char*)Materials[MaterialIndex].name.c_str(), Object.Name) && AreStringIdentical(Object.Name, "light"))
-			{
-				// TODO(hugo) : Handle lights as meshes
-				tinyobj::material_t MeshMaterial = Materials[MaterialIndex];
-				Object.Albedo = V4(MeshMaterial.emission[0], MeshMaterial.emission[1], MeshMaterial.emission[2], 1.0f);
-				break;
-			}
-		}
-#else
+		Object.Material.DiffuseColor = V3(1.0f, 1.0f, 1.0f);
+
 		// TODO(hugo) : Implement several materials per objects (which
 		// is actually the real case scenario but a little harder to handle)
 		if(Shapes[ShapeIndex].mesh.material_ids.size() > 0)
 		{
 			tinyobj::material_t ObjectMaterial = Materials[Shapes[ShapeIndex].mesh.material_ids[0]];
-			Object.Albedo = V4(ObjectMaterial.ambient[0], ObjectMaterial.ambient[1], ObjectMaterial.ambient[2], 1.0f);
+			CopyArray(Object.Material.Name, ObjectMaterial.name.c_str(), char, ArrayCount(Object.Material.Name));
+			Object.Material.AmbientColor = V3(ObjectMaterial.ambient[0], ObjectMaterial.ambient[1], ObjectMaterial.ambient[2]);
+			Object.Material.DiffuseColor = V3(ObjectMaterial.diffuse[0], ObjectMaterial.diffuse[1], ObjectMaterial.diffuse[2]);
+			Object.Material.SpecularColor = V3(ObjectMaterial.specular[0], ObjectMaterial.specular[1], ObjectMaterial.specular[2]);
+
+			// TODO(hugo) : not sure this is the right field for spec component
+			Object.Material.SpecularComponent = ObjectMaterial.shininess;
 			
-			char* AmbientTexName = (char*) ObjectMaterial.ambient_texname.c_str();
-			if(!IsEmptyString(AmbientTexName))
+			char* DiffuseTexName = (char*) ObjectMaterial.diffuse_texname.c_str();
+			if(!IsEmptyString(DiffuseTexName))
 			{
-				Object.UseTextureMapping = true;
+				Object.Material.UseTextureMapping = true;
 				u32 TextureLocation = 0;
-				if(TextureExists(RenderState, AmbientTexName, &TextureLocation))
+				if(TextureExists(RenderState, DiffuseTexName, &TextureLocation))
 				{
-					Object.TextureMapLocation = TextureLocation;
+					Object.Material.TextureMapLocation = TextureLocation;
 				}
 				else
 				{
 					char TextureMapPath[128];
-					sprintf(TextureMapPath, "%s%s", BaseDir.c_str(), AmbientTexName);
+					sprintf(TextureMapPath, "%s%s", BaseDir.c_str(), DiffuseTexName);
 					texture TextureMap = CreateTextureFromFile(RenderState, TextureMapPath);
-					CopyArray(TextureMap.Name, ObjectMaterial.ambient_texname.c_str(), char, ArrayCount(TextureMap.Name));
+					CopyArray(TextureMap.Name, ObjectMaterial.diffuse_texname.c_str(), char, ArrayCount(TextureMap.Name));
 					PushTexture(RenderState, TextureMap);
-					Object.TextureMapLocation = RenderState->TextureCount - 1;
+					Object.Material.TextureMapLocation = RenderState->TextureCount - 1;
 				}
 			}
 		}
-#endif
 
 		bool NormalsComputed = true;
 

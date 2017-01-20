@@ -154,13 +154,13 @@ void RenderShadowedScene(game_state* State,
 			}
 			if(ShouldDraw)
 			{
-				SetUniform(State->Shaders[ShaderType_DirectLighting], Object->Albedo, "Albedo");
-				SetUniform(State->Shaders[ShaderType_DirectLighting], Object->UseTextureMapping, "UseTextureMapping");
-				if(Object->UseTextureMapping)
+				SetUniform(State->Shaders[ShaderType_DirectLighting], ToV4(Object->Material.DiffuseColor), "DiffuseColor");
+				SetUniform(State->Shaders[ShaderType_DirectLighting], Object->Material.UseTextureMapping, "UseTextureMapping");
+				if(Object->Material.UseTextureMapping)
 				{
 					ActiveTexture(State->RenderState, GL_TEXTURE4);
 					SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)4, "TextureMap");
-					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->TextureMapLocation].ID);
+					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.TextureMapLocation].ID);
 				}
 				DrawTriangleObject(State->RenderState, Object);
 			}
@@ -1370,7 +1370,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 						State->Camera.ZAxis = (Rotation(Pitch, State->Camera.XAxis) * ToV4(State->Camera.ZAxis)).xyz;
 
-						//ImGui::Text("(Dx, Dy) = (%i, %i)", DeltaX, DeltaY);
+						Assert(!isnan(State->Camera.ZAxis.x));
 					}
 				}
 
@@ -1571,7 +1571,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 					ImGui::Text("Name: %s", Object->Name);
 				}
 				ImGui::Checkbox("Visible", &Object->Visible);
-				ImGui::ColorEdit3("Albedo", Object->Albedo.E);
+				ImGui::ColorEdit3("Diffuse Color", Object->Material.DiffuseColor.E);
 				ImGui::Text("Vertex Count: %d", Object->Mesh.VertexCount);
 				ImGui::Text("Triangle Count: %d", Object->Mesh.TriangleCount);
 				ImGui::Text("Bounding Box Min: (%f, %f, %f)", Object->BoundingBox.Min.x, Object->BoundingBox.Min.y, Object->BoundingBox.Min.z);

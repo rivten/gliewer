@@ -65,7 +65,7 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"LightColor[2]",
 		"LightColor[3]",
 		"ViewMatrix",
-		"Albedo",
+		"DiffuseColor",
 		"CTF0",
 		"Alpha",
 		"LightIntensity",
