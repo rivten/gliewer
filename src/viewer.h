@@ -160,6 +160,8 @@ struct game_state
 	float AmbientFactor;
 	ambient_occlusion_parameters SSAOParams;
 	fxaa_params FXAAParams;
+	float Ks;
+	float Kd;
 	// }
 
 	bool MotionBlur;

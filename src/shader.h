@@ -65,6 +65,8 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"LightColor[2]",
 		"LightColor[3]",
 		"ViewMatrix",
+		"AmbientColor",
+		"SpecularColor",
 		"DiffuseColor",
 		"CTF0",
 		"Alpha",
@@ -72,6 +74,8 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"AmbientFactor",
 		"UseTextureMapping",
 		"TextureMap",
+		"Ks",
+		"Kd",
 	},
 
 	// NOTE(hugo) : ShaderType_BRDFConvolutional

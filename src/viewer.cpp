@@ -155,6 +155,10 @@ void RenderShadowedScene(game_state* State,
 			if(ShouldDraw)
 			{
 				SetUniform(State->Shaders[ShaderType_DirectLighting], ToV4(Object->Material.DiffuseColor), "DiffuseColor");
+				SetUniform(State->Shaders[ShaderType_DirectLighting], ToV4(Object->Material.SpecularColor), "SpecularColor");
+				SetUniform(State->Shaders[ShaderType_DirectLighting], ToV4(Object->Material.AmbientColor), "AmbientColor");
+				SetUniform(State->Shaders[ShaderType_DirectLighting], State->Ks, "Ks");
+				SetUniform(State->Shaders[ShaderType_DirectLighting], State->Kd, "Kd");
 				SetUniform(State->Shaders[ShaderType_DirectLighting], Object->Material.UseTextureMapping, "UseTextureMapping");
 				if(Object->Material.UseTextureMapping)
 				{
@@ -1155,6 +1159,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->PreviousViewProj = Identity4();
 		State->MotionBlurSampleCount = 16;
 
+		State->Ks = 1.5f;
+		State->Kd = 0.2f;
+
 		// NOTE(hugo) : Initializing Quad data 
 		// {
 		glGenVertexArrays(1, &State->QuadVAO);
@@ -1369,8 +1376,6 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 						State->Camera.ZAxis.z = CosYaw;
 
 						State->Camera.ZAxis = (Rotation(Pitch, State->Camera.XAxis) * ToV4(State->Camera.ZAxis)).xyz;
-
-						Assert(!isnan(State->Camera.ZAxis.x));
 					}
 				}
 
@@ -1481,6 +1486,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		ImGui::SliderFloat("FXAA Multiplication Factor", (float*)&State->FXAAParams.MultiplicationFactor, 0.0f, 1.0f);
 		ImGui::SliderFloat("FXAA Minimal Reduction", (float*)&State->FXAAParams.MinimalReduction, 0.0f, 1.0f);
 		ImGui::SliderFloat("FXAA Span Max", (float*)&State->FXAAParams.SpanMax, 0.0f, 10.0f);
+
+		ImGui::SliderFloat("Ks", (float*)&State->Ks, 0.0f, 10.0f);
+		ImGui::SliderFloat("Kd", (float*)&State->Kd, 0.0f, 10.0f);
 	}
 
 	if(ImGui::CollapsingHeader("Light Data"))
@@ -1571,12 +1579,23 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 					ImGui::Text("Name: %s", Object->Name);
 				}
 				ImGui::Checkbox("Visible", &Object->Visible);
-				ImGui::ColorEdit3("Diffuse Color", Object->Material.DiffuseColor.E);
 				ImGui::Text("Vertex Count: %d", Object->Mesh.VertexCount);
 				ImGui::Text("Triangle Count: %d", Object->Mesh.TriangleCount);
 				ImGui::Text("Bounding Box Min: (%f, %f, %f)", Object->BoundingBox.Min.x, Object->BoundingBox.Min.y, Object->BoundingBox.Min.z);
 				ImGui::Text("Bounding Box Max: (%f, %f, %f)", Object->BoundingBox.Max.x, Object->BoundingBox.Max.y, Object->BoundingBox.Max.z);
 				ImGui::Checkbox("Is Frustum Culled", &Object->IsFrustumCulled);
+				if(ImGui::TreeNode("Material"))
+				{
+					if(!IsEmptyString(Object->Material.Name))
+					{
+						ImGui::Text("Name: %s", Object->Material.Name);
+					}
+					ImGui::ColorEdit3("Ambient", Object->Material.AmbientColor.E);
+					ImGui::ColorEdit3("Diffuse", Object->Material.DiffuseColor.E);
+					ImGui::ColorEdit3("Specular", Object->Material.SpecularColor.E);
+					ImGui::SliderFloat("Specular Component", &Object->Material.SpecularComponent, 0.0f, 10.0f);
+					ImGui::TreePop();
+				}
 				ImGui::TreePop();
 			}
 		}

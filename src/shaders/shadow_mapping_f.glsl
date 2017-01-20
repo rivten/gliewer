@@ -17,10 +17,14 @@ uniform vec3 LightPos[4];
 uniform vec4 LightColor[4];
 uniform int LightCount;
 uniform mat4 ViewMatrix;
+uniform vec4 AmbientColor;
 uniform vec4 DiffuseColor;
+uniform vec4 SpecularColor;
 uniform float CTF0;
 uniform float Alpha;
 uniform float LightIntensity;
+uniform float Ks;
+uniform float Kd;
 
 uniform float AmbientFactor;
 
@@ -155,18 +159,17 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 	float OneOverGL = NormalDotLightDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotLightDir * NormalDotLightDir)));
 	float OneOverGV = NormalDotViewDir + sqrt(AlphaSqr + ((1.0f - AlphaSqr) * (NormalDotViewDir * NormalDotViewDir)));
 
-	float DiffuseFactor = 0.3f;
-	float Result = DiffuseFactor + ((F * D) / (OneOverGL * OneOverGV));
+	float Result = ((F * D) / (OneOverGL * OneOverGV));
 
 	return(Result);
 }
 
 void main()
 {
-	vec4 ReflectionColor = DiffuseColor;
+	vec4 RealDiffColor = DiffuseColor;
 	if(UseTextureMapping == 1)
 	{
-		ReflectionColor = texture(TextureMap, TextureCoordinates);
+		RealDiffColor = texture(TextureMap, TextureCoordinates);
 	}
 
 	vec3 FragmentPos = vec3(ViewMatrix * FragmentPositionInWorldSpace);
@@ -181,12 +184,13 @@ void main()
 
 		float ShadowMappingBias = max(0.01f * (1.0f - dot(VertexNormal, LightDir)), 0.005f);
 		float Shadow = ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex], ShadowMappingBias);
-		float BRDF = GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
-		vec4 Li = LightIntensity * ReflectionColor * LightColor[LightIndex];
-		Color += (1.0f - Shadow) * BRDF * Li * DotClamp(VertexNormal, LightDir);
+		vec4 BRDFLambert = DiffuseColor / Pi;
+		vec4 BRDFSpec = SpecularColor * GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
+		vec4 Li = LightIntensity * LightColor[LightIndex];
+		Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(VertexNormal, LightDir);
 	}
 
-	Color = max(Color, AmbientFactor * ReflectionColor);
+	Color = max(Color, AmbientFactor * AmbientColor);
 
 	// NOTE(hugo) : Compacting the normal into [0,1]^3
 	NormalMap = 0.5f * NormalWorldSpace + vec3(0.5f, 0.5f, 0.5f);
