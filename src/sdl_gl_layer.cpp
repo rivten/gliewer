@@ -315,8 +315,8 @@ int main(int argc, char** argv)
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
 	SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 #ifdef _WIN32
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 1);
 #endif
 
     SDL_Window* Window = SDL_CreateWindow("3d viewer @ rivten", 
@@ -340,6 +340,9 @@ int main(int argc, char** argv)
 	SDL_GLContext GLContext = SDL_GL_CreateContext(Window);
 	Assert(GLContext != 0);
 
+	bool UseVSync = false;
+
+	if(UseVSync)
 	{
 		s32 VSyncResult = SDL_GL_SetSwapInterval(1);
 		if(VSyncResult == -1)
@@ -352,6 +355,10 @@ int main(int argc, char** argv)
 		{
 			SDL_Log("VSync is enabled.");
 		}
+	}
+	else
+	{
+		SDL_GL_SetSwapInterval(0);
 	}
 
     // NOTE(hugo) : Initializating glew
@@ -401,6 +408,7 @@ int main(int argc, char** argv)
 
         memory_index TotalMemorySize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
         void* GameMemoryBlock = malloc(TotalMemorySize);
+		memset(GameMemoryBlock, 0, TotalMemorySize);
         GameMemory.PermanentStorage = GameMemoryBlock;
         GameMemory.TransientStorage = ((u8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
 

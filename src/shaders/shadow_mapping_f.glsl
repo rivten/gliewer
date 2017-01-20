@@ -48,7 +48,7 @@ float ShadowFactor(vec4 FragmentPositionInLightSpace, sampler2D ShadowMap, float
 	float Result = 0.0f;
 	vec2 TexelSize = 1.0f / textureSize(ShadowMap, 0);
 
-	int PCFSize = 9;
+	int PCFSize = 3;
 	int K = PCFSize / 2;
 
 	for(int X = -K; X <= K; ++X)
