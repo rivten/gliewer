@@ -1127,6 +1127,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		//State->ReferenceCamera.FarPlane = 5.0f;
 		State->FrustumBoundingBox = GetFrustumBoundingBox(State->ReferenceCamera);
 
+		State->CameraAcceleration = 60.0f;
 		State->dPCamera = {};
 		State->YawSpeed = 0.0f;
 		State->PitchSpeed = 0.0f;
@@ -1279,7 +1280,6 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		case CameraType_FirstPerson:
 			{
 				// NOTE(hugo) : First person camera translation
-				float CameraAccel = 60.0f;
 				float CameraDrag = 10.0f;
 				float dt = Input->dtForFrame;
 				v3 ddP = {};
@@ -1309,7 +1309,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 					ddP += -1.0f * V3(0.0f, 1.0f, 0.0f);
 				}
 
-				ddP *= CameraAccel;
+				ddP *= State->CameraAcceleration;
 				v3 DragForce = -CameraDrag * State->dPCamera;
 				ddP += DragForce;
 				State->dPCamera += dt * ddP;
@@ -1569,6 +1569,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		ImGui::Text("Pitch = %f", Pitch);
 		ImGui::Text("Yaw speed = %f", State->YawSpeed);
 		ImGui::Text("Pitch speed = %f", State->PitchSpeed);
+
+		ImGui::SliderFloat("Acceleration", &State->CameraAcceleration, 50.0f, 300.0f);
 	}
 
 	if(ImGui::CollapsingHeader("Objects Data"))

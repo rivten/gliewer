@@ -141,6 +141,7 @@ struct game_state
 	v3 FixedTarget;
 	float Time;
 
+	float CameraAcceleration;
 	v3 dPCamera;
 	float YawSpeed;
 	float PitchSpeed;
