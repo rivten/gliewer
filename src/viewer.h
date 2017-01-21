@@ -4,6 +4,7 @@
    TODO(hugo)
      * Basic GLiewer todos
 		- proper SDL-ImGui layer
+		- proper normal / UV etc. computation in the normal / tangent / bitangent space
 		- full material handling when OBJ parsing
 		- asset streaming
 	    - split the viewer.cpp code into several files

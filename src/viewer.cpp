@@ -160,11 +160,20 @@ void RenderShadowedScene(game_state* State,
 				SetUniform(State->Shaders[ShaderType_DirectLighting], State->Ks, "Ks");
 				SetUniform(State->Shaders[ShaderType_DirectLighting], State->Kd, "Kd");
 				SetUniform(State->Shaders[ShaderType_DirectLighting], Object->Material.UseTextureMapping, "UseTextureMapping");
+
+				SetUniform(State->Shaders[ShaderType_DirectLighting], Object->Material.UseNormalMapping, "UseNormalMapping");
+
 				if(Object->Material.UseTextureMapping)
 				{
 					ActiveTexture(State->RenderState, GL_TEXTURE4);
 					SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)4, "TextureMap");
 					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.TextureMapLocation].ID);
+				}
+				if(Object->Material.UseNormalMapping)
+				{
+					ActiveTexture(State->RenderState, GL_TEXTURE5);
+					SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)5, "NormalMap");
+					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.NormalMapLocation].ID);
 				}
 				DrawTriangleObject(State->RenderState, Object);
 			}

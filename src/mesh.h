@@ -63,6 +63,9 @@ struct material
 
 	bool UseTextureMapping;
 	u32 TextureMapLocation;
+
+	bool UseNormalMapping;
+	u32 NormalMapLocation;
 };
 
 struct object
@@ -376,6 +379,26 @@ std::vector<object> LoadOBJ(render_state* RenderState, const std::string BaseDir
 					CopyArray(TextureMap.Name, ObjectMaterial.diffuse_texname.c_str(), char, ArrayCount(TextureMap.Name));
 					PushTexture(RenderState, TextureMap);
 					Object.Material.TextureMapLocation = RenderState->TextureCount - 1;
+				}
+			}
+
+			char* NormalTexName = (char*) ObjectMaterial.bump_texname.c_str();
+			if(!IsEmptyString(NormalTexName))
+			{
+				Object.Material.UseNormalMapping = false;
+				u32 NormalMapLocation = 0;
+				if(TextureExists(RenderState, NormalTexName, &NormalMapLocation))
+				{
+					Object.Material.NormalMapLocation = NormalMapLocation;
+				}
+				else
+				{
+					char NormalMapPath[128];
+					sprintf(NormalMapPath, "%s%s", BaseDir.c_str(), NormalTexName);
+					texture NormalMap = CreateTextureFromFile(RenderState, NormalMapPath);
+					CopyArray(NormalMap.Name, ObjectMaterial.bump_texname.c_str(), char, ArrayCount(NormalMap.Name));
+					PushTexture(RenderState, NormalMap);
+					Object.Material.NormalMapLocation = RenderState->TextureCount - 1;
 				}
 			}
 		}

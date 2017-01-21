@@ -16,6 +16,9 @@ uniform mat4 ModelObjectMatrix;
 uniform mat4 LightSpaceMatrix[4];
 uniform int LightCount;
 uniform mat4 NormalWorldMatrix;
+uniform int UseNormalMapping;
+
+uniform sampler2D NormalMap;
 
 void main()
 {
@@ -26,15 +29,25 @@ void main()
 	// TODO(hugo) : What should really be done would be to add the offset to
 	// the vertex in _world space_ (and not in _object space_ like I'm doing right now
 	gl_Position = MVPMatrix * ObjectPos;
-	VertexNormal = normalize(vec3(NormalMatrix * vec4(Normal, 1.0)));
 	FragmentPositionInWorldSpace = ModelObjectMatrix * ObjectPos;
 	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
 	{
 		FragmentPositionInLightSpace[LightIndex] = LightSpaceMatrix[LightIndex] * ModelObjectMatrix * ObjectPos;
 	}
 
-	NormalWorldSpace = normalize(vec3(NormalWorldMatrix * vec4(Normal, 1.0f)));
-
 	// TODO(hugo) : Do I want to negate everything here or do I want to load bitmap upside down ?
 	TextureCoordinates = vec2(1.0f, 1.0f) - TextureCoord;
+
+	if(UseNormalMapping == 1)
+	{
+		vec3 N = texture(NormalMap, TextureCoordinates).xyz;
+		N = 2.0f * N - vec3(1.0f, 1.0f, 1.0f);
+		VertexNormal = normalize(vec3(NormalMatrix * vec4(N, 1.0f)));
+		NormalWorldSpace = normalize(vec3(NormalWorldMatrix * vec4(N, 1.0f)));
+	}
+	else
+	{
+		VertexNormal = normalize(vec3(NormalMatrix * vec4(Normal, 1.0)));
+		NormalWorldSpace = normalize(vec3(NormalWorldMatrix * vec4(Normal, 1.0f)));
+	}
 }
