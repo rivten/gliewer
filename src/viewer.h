@@ -141,6 +141,7 @@ struct game_state
 	camera Camera;
 	v3 FixedTarget;
 	float Time;
+	mat4 CameraProj;
 
 	float CameraAcceleration;
 	v3 dPCamera;
@@ -170,6 +171,7 @@ struct game_state
 	mat4 PreviousViewProj;
 	u32 MotionBlurSampleCount;
 
+	geometry_framebuffer GBuffer;
 	geometry_framebuffer ScreenFramebuffer;
 	geometry_framebuffer PreFXAAFramebuffer;
 	hemicube_framebuffer HemicubeFramebuffer;

@@ -8,6 +8,7 @@ enum shader_type
 	ShaderType_PostProcess,
 	ShaderType_LowCost,
 	ShaderType_FXAA,
+	ShaderType_FillGBuffer,
 
 	ShaderType_Count,
 };
@@ -36,6 +37,7 @@ static shader_source Sources[ShaderType_Count] =
 	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/depth_debug_quad_f.glsl"},
 	{"../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl"},
 	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/fxaa_f.glsl"},
+	{"../src/shaders/fillg_v.glsl", "../src/shaders/fillg_f.glsl"},
 };
 
 static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] = 
@@ -160,6 +162,18 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"FXAAMinimalReduction",
 		"FXAASpanMax",
 	},
+	// NOTE(hugo) : ShaderType_FillGBuffer
+	{
+		"MVPMatrix",
+		"NormalWorldMatrix",
+		"UseNormalMapping",
+		"NormalMap",
+
+		"SpecularColor",
+		"DiffuseColor",
+		"UseTextureMapping",
+		"TextureMap",
+	},
 	
 };
 
@@ -185,6 +199,7 @@ shader LoadShader(u32 ShaderType)
 	{
 		glGetShaderInfoLog(Vertex, 512, 0, InfoLog);
 		SDL_Log("%s\n", InfoLog);
+		InvalidCodePath;
 	}
 	Free(VertexCode);
 
@@ -196,6 +211,7 @@ shader LoadShader(u32 ShaderType)
 	{
 		glGetShaderInfoLog(Fragment, 512, 0, InfoLog);
 		SDL_Log("%s\n", InfoLog);
+		InvalidCodePath;
 	}
 	Free(FragmentCode);
 
@@ -208,6 +224,7 @@ shader LoadShader(u32 ShaderType)
 	{
 		glGetProgramInfoLog(Result.Program, 512, 0, InfoLog);
 		SDL_Log("%s\n", InfoLog);
+		InvalidCodePath;
 	}
 
 	glDeleteShader(Vertex);

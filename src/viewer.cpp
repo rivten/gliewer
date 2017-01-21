@@ -282,11 +282,11 @@ void RenderTextureOnQuadScreen(game_state* State, texture Texture)
 
 	ActiveTexture(State->RenderState, GL_TEXTURE1);
 	SetUniform(State->Shaders[ShaderType_PostProcess], (u32)1, "DepthTexture");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.DepthTexture.ID);
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);
 
 	ActiveTexture(State->RenderState, GL_TEXTURE2);
 	SetUniform(State->Shaders[ShaderType_PostProcess], (u32)2, "NormalTexture");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.NormalTexture.ID);
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
 
 	BindVertexArray(State->RenderState, State->QuadVAO);
 	Disable(State->RenderState, GL_DEPTH_TEST);
@@ -295,6 +295,7 @@ void RenderTextureOnQuadScreen(game_state* State, texture Texture)
 	BindVertexArray(State->RenderState, 0);
 }
 
+#if 0
 void RenderShadowSceneOnQuad(game_state* State, 
 		camera Camera,
 		mat4 ProjectionMatrix, mat4 LightProjectionMatrix, 
@@ -309,6 +310,7 @@ void RenderShadowSceneOnQuad(game_state* State,
 			FrustumBoundingBox);
 	RenderTextureOnQuadScreen(State, Framebuffer.ScreenTexture);
 }
+#endif
 
 v3 ComputePositionOfPixel(camera Camera, u32 PixelX, u32 PixelY, 
 		float PixelsToMeters, mat4 InvMicroCameraLookAt, 
@@ -423,263 +425,6 @@ v4 NormalizedLInf(v4 A)
 	return(Result);
 }
 
-#if 0
-void ComputeGlobalIllumination(game_state* State, camera Camera, mat4 LightProjectionMatrix)
-{
-	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
-			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
-	{
-		UpdateHemicubeScreenFramebuffer(State->RenderState, &State->HemicubeFramebuffer, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
-	}
-	u32* AlbedoPixels = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
-	float* DepthPixels = AllocateArray(float, GlobalWindowWidth * GlobalWindowHeight);
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->ScreenFramebuffer.FBO);
-
-	State->IndirectIlluminationBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
-
-	u32* Pixels = AllocateArray(u32, GlobalMicrobufferWidth * GlobalMicrobufferHeight);
-
-	// NOTE(hugo) : Reading depth of touched pixel
-	// Another possibility would be to store the position map in
-	// the GBuffer. This query would take all three composants and would
-	// not require any unprojection. However more space is needed.
-	// I think I prefer unproject pixel for now
-	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_DEPTH_COMPONENT, GL_FLOAT, DepthPixels);
-
-	// NOTE(hugo) : Reading albedo of touched pixel
-	ReadBuffer(State->RenderState, GL_COLOR_ATTACHMENT2);
-	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGBA, GL_UNSIGNED_BYTE, AlbedoPixels);
-
-	// NOTE(hugo) : Reading normal of touched pixel
-	ReadBuffer(State->RenderState, GL_COLOR_ATTACHMENT1);
-	v3* Normals = AllocateArray(v3, GlobalWindowWidth * GlobalWindowHeight);
-	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGB, GL_FLOAT, Normals);
-
-	ReadBuffer(State->RenderState, GL_COLOR_ATTACHMENT0);
-	u32* ScreenBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
-	glReadPixels(0, 0, GlobalWindowWidth, GlobalWindowHeight, GL_RGBA, GL_UNSIGNED_BYTE, ScreenBuffer);
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-
-	for(u32 Y = 0; Y < (u32)(GlobalWindowHeight); ++Y)
-	{
-		for(u32 X = 0; X < (u32)(GlobalWindowWidth); ++X)
-		{
-			float PixelDepth = DepthPixels[GlobalWindowWidth * Y + X];
-			u32 PixelAlbedo = AlbedoPixels[GlobalWindowWidth * Y + X];
-			v3 Normal = Normals[GlobalWindowWidth * Y + X];
-
-			v4 Albedo = ColorU32ToV4(PixelAlbedo);
-
-			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-
-			float NearPlane = State->Camera.NearPlane;
-			float FarPlane = State->Camera.FarPlane;
-			PixelDepth = 2.0f * PixelDepth - 1.0f;
-			// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
-			PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
-
-			mat4 InvLookAtCamera = Inverse(LookAt(Camera));
-
-			Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
-			v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
-
-			// NOTE(hugo) : Render directions are, in order : FRONT / LEFT / RIGHT / TOP / BOTTOM
-			// with FRONT being the direction of the normal previously found;
-			camera MicroCameras[5];
-			mat4 MicroCameraProjections[5];
-			{
-				v4 PixelPos = {};
-				PixelPos.z = -PixelDepth;
-				PixelPos.w = 1.0f;
-
-				PixelPos.x = (float)(X) / float(GlobalWindowWidth);
-				PixelPos.y = (float)(Y) / float(GlobalWindowHeight);
-
-				PixelPos.xy = 2.0f * PixelPos.xy - V2(1.0f, 1.0f);
-
-				PixelPos.x = - State->Camera.Aspect * Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.x;
-				PixelPos.y = - Tan(0.5f * State->Camera.FoV) * PixelPos.z * PixelPos.y;
-
-				PixelPos = InvLookAtCamera * PixelPos;
-				v3 MicroCameraPos = PixelPos.xyz;
-
-				v3 MicroRenderDir[5];
-				MicroRenderDir[0] = Normal;
-				MicroRenderDir[1] = Cross(Normal, WorldUp);
-				MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
-				MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
-				MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
-				for(u32 MicroCameraIndex = 0; MicroCameraIndex < ArrayCount(MicroCameras); ++MicroCameraIndex)
-				{
-					MicroCameras[MicroCameraIndex].P = MicroCameraPos;
-					MicroCameras[MicroCameraIndex].ZAxis = -1.0f * MicroRenderDir[MicroCameraIndex];
-
-					v3 MicroCameraUp = WorldUp;
-					if(MicroCameraIndex != 0)
-					{
-						MicroCameraUp = Normal;
-					}
-
-					MicroCameras[MicroCameraIndex].XAxis = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
-					MicroCameras[MicroCameraIndex].FoV = Radians(State->MicroFoVInDegrees);
-					MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
-					MicroCameras[MicroCameraIndex].NearPlane = 0.1f * State->Camera.NearPlane;
-					MicroCameras[MicroCameraIndex].FarPlane = 0.3f * State->Camera.FarPlane;
-
-					MicroCameraProjections[MicroCameraIndex] = GetCameraPerspective(MicroCameras[MicroCameraIndex]);
-				}
-			}
-
-
-			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
-			{
-				camera MicroCamera = MicroCameras[FaceIndex];
-				SetViewport(State->RenderState, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
-						State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
-				RenderShadowSceneOnFramebuffer(State, MicroCamera,
-						MicroCameraProjections[FaceIndex], 
-						LightProjectionMatrix, 
-						State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
-						V4(0.0f, 0.0f, 0.0f, 1.0f), false);
-
-			}
-			SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
-
-#if 0
-			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); ++FaceIndex)
-			{
-				RenderTextureOnQuadScreen(State, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].ScreenTexture);
-				SDL_GL_SwapWindow(GlobalWindow);
-				SDL_Delay(1000);
-			}
-#endif
-
-			// NOTE(hugo) : Now we have the whole hemicube rendered. We can sample it to 
-			v4 ColorBleeding = {};
-
-			// NOTE(hugo) : This works because all microbuffers have the same width (but different heights)
-			float MicrobufferWidthInMeters = 2.0f * MicroCameras[0].NearPlane * Tan(0.5f * MicroCameras[0].FoV);
-			float PixelsToMeters = MicrobufferWidthInMeters / float(State->HemicubeFramebuffer.MicroBuffers[0].Width);
-			float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
-
-			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(MicroCameras); ++FaceIndex)
-			{
-				geometry_framebuffer Microbuffer = State->HemicubeFramebuffer.MicroBuffers[FaceIndex];
-
-				BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, Microbuffer.FBO);
-				ReadBuffer(State->RenderState, GL_COLOR_ATTACHMENT0);
-				glReadPixels(0, 0, Microbuffer.Width, Microbuffer.Height, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
-				BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-
-				v3 Wo = Normalized(Camera.P - MicroCameras[FaceIndex].P);
-				float NormalDotWo = DotClamp(Normal, Wo);
-				camera MicroCamera = MicroCameras[FaceIndex];
-				v3 MicroCameraLookingDir = Normalized(-1.0f * MicroCamera.ZAxis);
-				v3 MicroCameraUp = Cross(MicroCamera.XAxis, MicroCameraLookingDir);
-				mat4 InvMicroCameraLookAt = Inverse(LookAt(MicroCamera.P, MicroCamera.P - MicroCamera.ZAxis, MicroCameraUp));
-
-				for(u32 PixelX = 0; PixelX < Microbuffer.Width; ++PixelX)
-				{
-					u32 StartingRow = 0;
-					if(FaceIndex > 0)
-					{
-						StartingRow = 0.5f * Microbuffer.Height;
-					}
-
-					for(u32 PixelY = StartingRow; PixelY < Microbuffer.Height; ++PixelY)
-					{
-						v3 PixelWorldPos = ComputePositionOfPixel(MicroCamera, PixelX, PixelY, 
-									PixelsToMeters, InvMicroCameraLookAt, 
-									Microbuffer.Width, Microbuffer.Height);
-						//Assert(DotClamp(Normal, Wi) > 0.0f);
-						float DistanceMiroCameraPixelSqr = LengthSqr(MicroCamera.P - PixelWorldPos);
-						v3 Wi = (PixelWorldPos - MicroCamera.P) / (sqrt(DistanceMiroCameraPixelSqr));
-
-						// NOTE(hugo) : In theory, every pixel I sample from
-						// should have a dot product strictly positive
-						// but I guess there are a numerical error at stake.
-						// I chose to ignore it because, even it there are pixels that should be sampled
-						// from, their dot product is so small that their impact on the color
-						// bleeding is negligeable
-						if(DotClamp(Normal, Wi) > 0.0f)
-						{
-							// NOTE(hugo) : From OpenGL documentation on glReadPixels :
-							// the pixels are given beginning in the lower left corner by rows
-							v4 PixelColor = ColorU32ToV4(Pixels[Microbuffer.Width * PixelY + PixelX]);
-
-							if(LengthSqr(PixelColor.rgb) > 0.0f)
-							{
-								v3 H = Normalized(0.5f * (Wi + Wo));
-								float SolidAngle = (PixelSurfaceInMeters / DistanceMiroCameraPixelSqr) 
-									* Dot(Wi, MicroCameraLookingDir);
-								float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, State->Alpha, State->CookTorranceF0);
-								// TODO(hugo) : Check earlier if Albedo.rgb == 0
-								ColorBleeding += BRDF * DotClamp(Normal, Wi) * SolidAngle * Hadamard(Albedo, PixelColor);
-							}
-						}
-					}
-				}
-
-			}
-
-			v4 DirectIlluminationColor = ColorU32ToV4(ScreenBuffer[GlobalWindowWidth * Y + X]);
-			v3 RealColorBleeding = ColorBleeding.rgb + DirectIlluminationColor.rgb;
-			RealColorBleeding = Clamp01(RealColorBleeding);
-
-			u32 ColorBleedingPixel = ColorV4ToU32(ToV4(RealColorBleeding));
-			//State->IndirectIlluminationBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
-			ScreenBuffer[GlobalWindowWidth * Y + X] = ColorBleedingPixel;
-			if(X == 0 && (Y % 1 == 0))
-			{
-				image_texture_loading_params Params = DefaultImageTextureLoadingParams(GlobalWindowWidth, GlobalWindowHeight, ScreenBuffer);
-				LoadImageToTexture(State->RenderState, &State->IndirectIlluminationTexture, Params);
-
-				BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-				RenderTextureOnQuadScreen(State, 
-						State->IndirectIlluminationTexture);
-
-				SDL_GL_SwapWindow(GlobalWindow);
-			}
-		}
-	}
-
-	// NOTE(hugo) : Saving the computed image to disk.
-	{
-		// NOTE(hugo) : Post-process of screenshot image
-		u32* ScreenshotBuffer = AllocateArray(u32, GlobalWindowWidth * GlobalWindowHeight);
-		for(u32 Y = 0; Y < GlobalWindowHeight; ++Y)
-		{
-			for(u32 X = 0; X < GlobalWindowWidth; ++X)
-			{
-				v4 UncorrectedColor = ColorU32ToV4(ScreenBuffer[GlobalWindowWidth * (GlobalWindowHeight - Y - 1) + X]);
-				UncorrectedColor = SquareRoot4(UncorrectedColor);
-				ScreenshotBuffer[GlobalWindowWidth * Y + X] = ColorV4ToU32(UncorrectedColor);
-			}
-		}
-
-		u32 Stride = sizeof(u32) * GlobalWindowWidth;
-		stbi_write_png("indirect_illumination.png",
-				GlobalWindowWidth, GlobalWindowHeight,
-				4, ScreenshotBuffer, Stride);
-		Free(ScreenshotBuffer);
-	}
-
-	Free(Pixels);
-	Free(Normals);
-	Free(DepthPixels);
-	Free(AlbedoPixels);
-	Free(ScreenBuffer);
-	Free(State->IndirectIlluminationBuffer);
-#if 0
-	//ImGui::ColorEdit3("Color Picked", ColorFloat.E);
-	ImGui::Value("Depth @ Pixel", PixelDepth);
-	//ImGui::Text("Position pointed at screen : (%f, %f, %f, %f)", PixelPos.x, PixelPos.y, PixelPos.z, PixelPos.w);
-	ImGui::Text("Normal pointed at screen : (%f, %f, %f)", Normal.x, Normal.y, Normal.z);
-	//SDL_Delay(2000);
-#endif
-}
-#endif
-
 v4 UnprojectPixel(float PixelDepth, u32 X, u32 Y, u32 Width, u32 Height,
 		camera Camera, mat4 InvLookAtCamera)
 {
@@ -699,6 +444,7 @@ v4 UnprojectPixel(float PixelDepth, u32 X, u32 Y, u32 Width, u32 Height,
 	return(PixelPos);
 }
 
+#if 0
 void ComputeGlobalIlluminationWithPatch(game_state* State, 
 		camera Camera, 
 		mat4 LightProjectionMatrix,
@@ -957,6 +703,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	Free(Depths);
 	Free(Normals);
 }
+#endif
 
 void ApplyFXAA(game_state* State, texture Texture)
 {
@@ -1025,6 +772,59 @@ rect3 GetFrustumBoundingBox(camera Camera)
 	}
 
 	return(Result);
+}
+
+void FillGBuffer(game_state* State)
+{
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->GBuffer.FBO);
+	ClearColorAndDepth(State->RenderState, V4(0.0f, 0.0f, 0.0f, 0.0f));
+	Enable(State->RenderState, GL_DEPTH_TEST);
+
+	UseShader(State->RenderState, State->Shaders[ShaderType_FillGBuffer]);
+
+	mat4 ViewMatrix = LookAt(State->Camera);
+
+	// NOTE(hugo) : Drawing Object Mesh
+	mat4 MVPMatrix = State->CameraProj * ViewMatrix * State->ObjectModelMatrix;
+	mat4 NormalWorldMatrix = Transpose(Inverse(State->ObjectModelMatrix));
+
+	SetUniform(State->Shaders[ShaderType_FillGBuffer], MVPMatrix, "MVPMatrix");
+	SetUniform(State->Shaders[ShaderType_FillGBuffer], NormalWorldMatrix, "NormalWorldMatrix");
+
+	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
+	{
+		object* Object = State->Objects + ObjectIndex;
+		if(Object->Visible)
+		{
+			bool ShouldDraw = Intersect3(State->FrustumBoundingBox, Object->BoundingBox);
+			Object->IsFrustumCulled = !ShouldDraw;
+			if(ShouldDraw)
+			{
+				SetUniform(State->Shaders[ShaderType_FillGBuffer], 
+						Object->Material.SpecularColor, "SpecularColor");
+				SetUniform(State->Shaders[ShaderType_FillGBuffer], 
+						Object->Material.DiffuseColor, "DiffuseColor");
+				SetUniform(State->Shaders[ShaderType_FillGBuffer],
+						(u32)Object->Material.UseTextureMapping, "UseTextureMapping");
+				SetUniform(State->Shaders[ShaderType_FillGBuffer],
+						(u32)Object->Material.UseNormalMapping, "UseNormalMapping");
+
+				if(Object->Material.UseTextureMapping)
+				{
+					ActiveTexture(State->RenderState, GL_TEXTURE0);
+					SetUniform(State->Shaders[ShaderType_FillGBuffer], (u32)0, "TextureMap");
+					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.TextureMapLocation].ID);
+				}
+				if(Object->Material.UseNormalMapping)
+				{
+					ActiveTexture(State->RenderState, GL_TEXTURE1);
+					SetUniform(State->Shaders[ShaderType_FillGBuffer], (u32)1, "NormalMap");
+					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.NormalMapLocation].ID);
+				}
+				DrawTriangleObject(State->RenderState, Object);
+			}
+		}
+	}
 }
 
 void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* RenderState)
@@ -1158,6 +958,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->MicroFoVInDegrees = 90;
 
 
+		State->GBuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->ScreenFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->PreFXAAFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->RenderState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
@@ -1220,6 +1021,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	if(Input->WindowResized)
 	{
+		UpdateGeometryFramebuffer(State->RenderState, &State->GBuffer, GlobalWindowWidth, GlobalWindowHeight);
 		UpdateGeometryFramebuffer(State->RenderState, &State->ScreenFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
 		UpdateGeometryFramebuffer(State->RenderState, &State->PreFXAAFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
 		UpdateGeometryFramebuffer(State->RenderState, &State->IndirectIlluminationFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
@@ -1451,8 +1253,23 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 	ClearColorAndDepth(State->RenderState, V4(1.0f, 0.0f, 0.5f, 1.0f));
 
-	mat4 ProjectionMatrix = GetCameraPerspective(State->Camera);
+	State->CameraProj = GetCameraPerspective(State->Camera);
 
+	FillGBuffer(State);
+	//LightGBuffer(State);
+#if 1
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->PreFXAAFramebuffer.FBO);
+	RenderTextureOnQuadScreen(State, State->GBuffer.AlbedoTexture);
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+	ApplyFXAA(State, State->PreFXAAFramebuffer.NormalTexture);
+#else
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->PreFXAAFramebuffer.FBO);
+	RenderTextureOnQuadScreen(State, State->ScreenFramebuffer.NormalTexture);
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+	ApplyFXAA(State, State->PreFXAAFramebuffer.ScreenTexture);
+#endif
+
+#if 0
 	RenderShadowSceneOnFramebuffer(State, 
 			State->Camera,
 			ProjectionMatrix, LightProjectionMatrix, 
@@ -1463,13 +1280,14 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	RenderTextureOnQuadScreen(State, State->ScreenFramebuffer.ScreenTexture);
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
 	ApplyFXAA(State, State->PreFXAAFramebuffer.ScreenTexture);
+#endif
 	// }
 	
-	State->PreviousViewProj = ProjectionMatrix * LookAt(State->Camera);
+	State->PreviousViewProj = State->CameraProj * LookAt(State->Camera);
 
 	if(ImGui::Button("Compute Indirect Illumination"))
 	{
-		ComputeGlobalIlluminationWithPatch(State, State->Camera, LightProjectionMatrix);
+		//ComputeGlobalIlluminationWithPatch(State, State->Camera, LightProjectionMatrix);
 	}
 
 #if 1

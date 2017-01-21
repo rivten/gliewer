@@ -662,10 +662,10 @@ screen_normal_framebuffer CreateScreenNormalFramebuffer(int BufferWidth, int Buf
 struct geometry_framebuffer
 {
 	GLuint FBO;
-	texture ScreenTexture;
-	texture NormalTexture;
-	texture AlbedoTexture;
-	texture DepthTexture;
+	texture DepthTexture; // NOTE(hugo) : Depth Attachement
+	texture NormalTexture; // NOTE(hugo) : Attachement 0
+	texture AlbedoTexture; // NOTE(hugo) : Attachement 1
+	texture SpecularTexture; // NOTE(hugo) : Attachement 2
 
 	u32 Width;
 	u32 Height;
@@ -680,24 +680,24 @@ geometry_framebuffer CreateGeometryFramebuffer(render_state* State, u32 BufferWi
 
 	glGenFramebuffers(1, &Result.FBO);
 
-	Result.ScreenTexture = CreateTexture();
+	Result.DepthTexture = CreateTexture();
 	Result.NormalTexture = CreateTexture();
 	Result.AlbedoTexture = CreateTexture();
-	Result.DepthTexture = CreateTexture();
+	Result.SpecularTexture = CreateTexture();
 
 	BindFramebuffer(State, GL_FRAMEBUFFER, Result.FBO);
 
 	image_texture_loading_params Params = DefaultImageTextureLoadingParams(BufferWidth, BufferHeight, 0);
-	LoadImageToTexture(State, &Result.ScreenTexture, Params);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.ScreenTexture.ID, 0);
+	LoadImageToTexture(State, &Result.SpecularTexture, Params);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, Result.SpecularTexture.ID, 0);
 
 	Params.ExternalType = GL_FLOAT;
 	LoadImageToTexture(State, &Result.NormalTexture, Params);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, Result.NormalTexture.ID, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.NormalTexture.ID, 0);
 
 	Params.ExternalType = GL_UNSIGNED_BYTE;
 	LoadImageToTexture(State, &Result.AlbedoTexture, Params);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, Result.AlbedoTexture.ID, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, Result.AlbedoTexture.ID, 0);
 
 	glBindTexture(GL_TEXTURE_2D, Result.DepthTexture.ID);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, BufferWidth, BufferHeight, 0, 
@@ -724,7 +724,7 @@ void UpdateGeometryFramebuffer(render_state* State, geometry_framebuffer* Frameb
 			|| (Framebuffer->Height != Height));
 
 	glDeleteFramebuffers(1, &Framebuffer->FBO);
-	DeleteTexture(&Framebuffer->ScreenTexture);
+	DeleteTexture(&Framebuffer->SpecularTexture);
 	DeleteTexture(&Framebuffer->NormalTexture);
 	DeleteTexture(&Framebuffer->AlbedoTexture);
 	DeleteTexture(&Framebuffer->DepthTexture);
