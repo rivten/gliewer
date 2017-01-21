@@ -34,5 +34,7 @@ void main()
 	}
 
 	NormalWorldSpace = normalize(vec3(NormalWorldMatrix * vec4(Normal, 1.0f)));
-	TextureCoordinates = TextureCoord;
+
+	// TODO(hugo) : Do I want to negate everything here or do I want to load bitmap upside down ?
+	TextureCoordinates = vec2(1.0f, 1.0f) - TextureCoord;
 }

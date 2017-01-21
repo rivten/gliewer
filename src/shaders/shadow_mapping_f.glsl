@@ -184,7 +184,7 @@ void main()
 
 		float ShadowMappingBias = max(0.01f * (1.0f - dot(VertexNormal, LightDir)), 0.005f);
 		float Shadow = ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex], ShadowMappingBias);
-		vec4 BRDFLambert = DiffuseColor / Pi;
+		vec4 BRDFLambert = RealDiffColor / Pi;
 		vec4 BRDFSpec = SpecularColor * GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
 		vec4 Li = LightIntensity * LightColor[LightIndex];
 		Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(VertexNormal, LightDir);
