@@ -1,35 +1,36 @@
 #version 400 core
 
 layout (location = 0) out vec4 Color;
-layout (location = 1) out vec3 NormalMap;
-layout (location = 2) out vec3 AlbedoMap;
 
-in vec3 VertexNormal;
-in vec3 NormalWorldSpace;
-in vec4 FragmentPositionInWorldSpace;
-in vec4 FragmentPositionInLightSpace[4];
 in vec2 TextureCoordinates;
 
 uniform sampler2D ShadowMap[4];
+uniform sampler2D DepthTexture;
+uniform sampler2D NormalTexture;
+uniform sampler2D AlbedoTexture;
+uniform sampler2D SpecularTexture;
 
 // TODO(hugo) : GLSL struct for lights
 uniform vec3 LightPos[4];
 uniform vec4 LightColor[4];
 uniform int LightCount;
-uniform mat4 ViewMatrix;
-uniform vec4 AmbientColor;
-uniform vec4 DiffuseColor;
-uniform vec4 SpecularColor;
+uniform mat4 LightViews[4];
+
+// TODO(hugo) : Consider getting rid of this uniform : I could pass the light pos in view space !
+uniform vec3 CameraPos;
 uniform float CTF0;
 uniform float Alpha;
 uniform float LightIntensity;
 uniform float Ks;
 uniform float Kd;
+uniform mat4 InvView;
+
+uniform float CameraNearPlane;
+uniform float CameraFarPlane;
+uniform float CameraFoV;
+uniform float CameraAspect;
 
 uniform float AmbientFactor;
-
-uniform int UseTextureMapping;
-uniform sampler2D TextureMap;
 
 const float Pi = 3.14159265f;
 
@@ -164,36 +165,78 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 	return(Result);
 }
 
+vec4 UnprojectPixelToViewSpace(float Depth, 
+		float X, float Y, 
+		float WindowWidth, float WindowHeight,
+		float CameraFoV, float CameraAspect)
+{
+	vec4 PixelPos = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+	PixelPos.z = -Depth;
+	PixelPos.w = 1.0f;
+	PixelPos.x = float(X) / float(WindowWidth);
+	PixelPos.y = float(Y) / float(WindowHeight);
+
+	PixelPos.xy = 2.0f * PixelPos.xy - vec2(1.0f, 1.0f);
+	PixelPos.x = - CameraAspect * tan(0.5f * CameraFoV) * PixelPos.z * PixelPos.x;
+	PixelPos.y = - tan(0.5f * CameraFoV) * PixelPos.z * PixelPos.y;
+
+	PixelPos.w = 1.0f;
+	return(PixelPos / PixelPos.w);
+}
+
+float UnlinearizeDepth(float Depth, float NearPlane, float FarPlane)
+{
+	float Result = 2.0f * Depth - 1.0f;
+	Result = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - Result * (FarPlane - NearPlane));
+
+	return(Result);
+}
+
 void main()
 {
-	vec4 RealDiffColor = DiffuseColor;
-	if(UseTextureMapping == 1)
-	{
-		RealDiffColor = texture(TextureMap, TextureCoordinates);
-	}
+	float FragmentDepth = texture(DepthTexture, TextureCoordinates).r;
+	vec3 VertexNormal = texture(NormalTexture, TextureCoordinates).xyz;
+	VertexNormal = normalize(2.0f * VertexNormal - vec3(1.0f, 1.0f, 1.0f));
+	vec4 SpecularColor = texture(SpecularTexture, TextureCoordinates);
+	vec4 DiffuseColor = texture(AlbedoTexture, TextureCoordinates);
 
-	vec3 FragmentPos = vec3(ViewMatrix * FragmentPositionInWorldSpace);
-	vec3 ViewDir = normalize(-FragmentPos);
+	FragmentDepth = UnlinearizeDepth(FragmentDepth, CameraNearPlane, CameraFarPlane);
+	vec4 FragmentPosition = UnprojectPixelToViewSpace(FragmentDepth, 
+			TextureCoordinates.x, TextureCoordinates.y,
+			1.0f, 1.0f,
+			CameraFoV, CameraAspect);
+	vec4 FragmentPositionInWorldSpace = InvView * FragmentPosition;
+	vec3 ViewDir = normalize(CameraPos - FragmentPositionInWorldSpace.xyz);
+
+	Color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	// NOTE(hugo) : Computations needs to happen in eye space
 	// since we computed the Normal in that very space
 	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
 	{
-		vec3 LightDir = normalize(vec3(ViewMatrix * vec4(LightPos[LightIndex], 1.0f)) - FragmentPos);
+		vec4 FragmentPositionInLightSpace = LightViews[LightIndex] * FragmentPositionInWorldSpace;
+		vec3 LightDir = normalize(LightPos[LightIndex] - FragmentPositionInWorldSpace.xyz);
 		vec3 HalfDir = normalize(ViewDir + LightDir);
 
 		float ShadowMappingBias = max(0.01f * (1.0f - dot(VertexNormal, LightDir)), 0.005f);
-		float Shadow = ShadowFactor(FragmentPositionInLightSpace[LightIndex], ShadowMap[LightIndex], ShadowMappingBias);
-		vec4 BRDFLambert = RealDiffColor / Pi;
+		float Shadow = ShadowFactor(FragmentPositionInLightSpace, ShadowMap[LightIndex], ShadowMappingBias);
+		vec4 BRDFLambert = DiffuseColor / Pi;
 		vec4 BRDFSpec = SpecularColor * GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
 		vec4 Li = LightIntensity * LightColor[LightIndex];
 		Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(VertexNormal, LightDir);
 	}
 
-	Color = max(Color, AmbientFactor * AmbientColor);
+	Color = max(Color, 0.0f * AmbientFactor * DiffuseColor);
+	Color.w = 1.0f;
 
-	// NOTE(hugo) : Compacting the normal into [0,1]^3
-	NormalMap = 0.5f * NormalWorldSpace + vec3(0.5f, 0.5f, 0.5f);
+	vec4 FragmentPositionInLightSpace = LightViews[0] * FragmentPositionInWorldSpace;
+	vec3 LightDir = normalize(LightPos[0] - FragmentPositionInWorldSpace.xyz);
+	vec3 HalfDir = normalize(ViewDir + LightDir);
 
-	AlbedoMap = DiffuseColor.xyz;
+	float ShadowMappingBias = max(0.01f * (1.0f - dot(VertexNormal, LightDir)), 0.005f);
+	float Shadow = ShadowFactor(FragmentPositionInLightSpace, ShadowMap[0], ShadowMappingBias);
+	vec4 BRDFLambert = DiffuseColor / Pi;
+	vec4 BRDFSpec = SpecularColor * GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
+	vec4 Li = LightIntensity * LightColor[0];
+	Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(VertexNormal, LightDir);
 }

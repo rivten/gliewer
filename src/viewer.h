@@ -133,6 +133,7 @@ struct game_state
 
 	light_type LightType;
 	projection_parameters ProjectionParams;
+	mat4 LightProjectionMatrix;
 
 	shader Shaders[ShaderType_Count];
 
@@ -172,8 +173,8 @@ struct game_state
 	u32 MotionBlurSampleCount;
 
 	geometry_framebuffer GBuffer;
-	geometry_framebuffer ScreenFramebuffer;
-	geometry_framebuffer PreFXAAFramebuffer;
+	basic_framebuffer PreProcess;
+	basic_framebuffer PreFXAA;
 	hemicube_framebuffer HemicubeFramebuffer;
 	geometry_framebuffer IndirectIlluminationFramebuffer;
 

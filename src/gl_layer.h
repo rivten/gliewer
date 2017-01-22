@@ -545,7 +545,7 @@ void SetUniform(shader Shader, bool B, char* VariableName)
 
 struct screen_framebuffer
 {
-	u32 FBO;
+	u32 ID;
 	texture Texture;
 	u32 RBO;
 };
@@ -553,11 +553,11 @@ struct screen_framebuffer
 screen_framebuffer CreateScreenFramebuffer(render_state* State, int BufferWidth, int BufferHeight)
 {
 	screen_framebuffer Result = {};
-	glGenFramebuffers(1, &Result.FBO);
+	glGenFramebuffers(1, &Result.ID);
 
 	Result.Texture = CreateTexture();
 
-	glBindFramebuffer(GL_FRAMEBUFFER, Result.FBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, Result.ID);
 
 	image_texture_loading_params Params = DefaultImageTextureLoadingParams(BufferWidth, BufferHeight, 0);
 	LoadImageToTexture(State, &Result.Texture, Params);
@@ -578,18 +578,18 @@ screen_framebuffer CreateScreenFramebuffer(render_state* State, int BufferWidth,
 
 struct depth_framebuffer
 {
-	u32 FBO;
+	u32 ID;
 	texture Texture;
 };
 
 depth_framebuffer CreateDepthFramebuffer(render_state* State, int BufferWidth, int BufferHeight)
 {
 	depth_framebuffer Result = {};
-	glGenFramebuffers(1, &Result.FBO);
+	glGenFramebuffers(1, &Result.ID);
 
 	Result.Texture = CreateTexture();
 
-	BindFramebuffer(State, GL_FRAMEBUFFER, Result.FBO);
+	BindFramebuffer(State, GL_FRAMEBUFFER, Result.ID);
 	image_texture_loading_params Params = DefaultImageTextureLoadingParams(BufferWidth, BufferHeight, 0);
 	Params.InternalFormat = GL_DEPTH_COMPONENT;
 	Params.ExternalFormat = GL_DEPTH_COMPONENT;
@@ -611,7 +611,7 @@ depth_framebuffer CreateDepthFramebuffer(render_state* State, int BufferWidth, i
 #if 0
 struct screen_normal_framebuffer
 {
-	u32 FBO;
+	u32 ID;
 	u32 ScreenTexture;
 	u32 NormalTexture;
 	u32 RBO;
@@ -620,12 +620,12 @@ struct screen_normal_framebuffer
 screen_normal_framebuffer CreateScreenNormalFramebuffer(int BufferWidth, int BufferHeight)
 {
 	screen_normal_framebuffer Result = {};
-	glGenFramebuffers(1, &Result.FBO);
+	glGenFramebuffers(1, &Result.ID);
 
 	glGenTextures(1, &Result.ScreenTexture);
 	glGenTextures(1, &Result.NormalTexture);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, Result.FBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, Result.ID);
 
 	glBindTexture(GL_TEXTURE_2D, Result.ScreenTexture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, BufferWidth, BufferHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
@@ -656,12 +656,68 @@ screen_normal_framebuffer CreateScreenNormalFramebuffer(int BufferWidth, int Buf
 }
 #endif
 
+struct basic_framebuffer
+{
+	u32 Width;
+	u32 Height;
+	u32 ID;
+	texture Texture;
+};
+
+basic_framebuffer CreateBasicFramebuffer(render_state* State, u32 BufferWidth, u32 BufferHeight)
+{
+	basic_framebuffer Result = {};
+
+	Result.Width = BufferWidth;
+	Result.Height = BufferHeight;
+
+	glGenFramebuffers(1, &Result.ID);
+
+	Result.Texture = CreateTexture();
+
+	BindFramebuffer(State, GL_FRAMEBUFFER, Result.ID);
+
+	image_texture_loading_params Params = DefaultImageTextureLoadingParams(BufferWidth, BufferHeight, 0);
+	LoadImageToTexture(State, &Result.Texture, Params);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.Texture.ID, 0);
+
+#if 0
+	glBindTexture(GL_TEXTURE_2D, Result.DepthTexture.ID);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, BufferWidth, BufferHeight, 0, 
+			GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Result.DepthTexture.ID, 0);
+#endif
+
+	GLuint Attachements[1] = {GL_COLOR_ATTACHMENT0};
+	glDrawBuffers(1, Attachements);
+
+	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+	BindFramebuffer(State, GL_FRAMEBUFFER, 0);
+
+	return(Result);
+}
+
+void UpdateBasicFramebuffer(render_state* State, basic_framebuffer* Framebuffer, u32 Width, u32 Height)
+{
+	Assert((Framebuffer->Width != Width) 
+			|| (Framebuffer->Height != Height));
+
+	glDeleteFramebuffers(1, &Framebuffer->ID);
+	DeleteTexture(&Framebuffer->Texture);
+
+	*Framebuffer = CreateBasicFramebuffer(State, Width, Height);
+}
+
 // NOTE(hugo) : If we wanted to do a real GBuffer, we
 // would need to store the world position as well. Not need for that
 // here at the moment.
 struct geometry_framebuffer
 {
-	GLuint FBO;
+	u32 ID;
 	texture DepthTexture; // NOTE(hugo) : Depth Attachement
 	texture NormalTexture; // NOTE(hugo) : Attachement 0
 	texture AlbedoTexture; // NOTE(hugo) : Attachement 1
@@ -678,14 +734,14 @@ geometry_framebuffer CreateGeometryFramebuffer(render_state* State, u32 BufferWi
 	Result.Width = BufferWidth;
 	Result.Height = BufferHeight;
 
-	glGenFramebuffers(1, &Result.FBO);
+	glGenFramebuffers(1, &Result.ID);
 
 	Result.DepthTexture = CreateTexture();
 	Result.NormalTexture = CreateTexture();
 	Result.AlbedoTexture = CreateTexture();
 	Result.SpecularTexture = CreateTexture();
 
-	BindFramebuffer(State, GL_FRAMEBUFFER, Result.FBO);
+	BindFramebuffer(State, GL_FRAMEBUFFER, Result.ID);
 
 	image_texture_loading_params Params = DefaultImageTextureLoadingParams(BufferWidth, BufferHeight, 0);
 	LoadImageToTexture(State, &Result.SpecularTexture, Params);
@@ -723,7 +779,7 @@ void UpdateGeometryFramebuffer(render_state* State, geometry_framebuffer* Frameb
 	Assert((Framebuffer->Width != Width) 
 			|| (Framebuffer->Height != Height));
 
-	glDeleteFramebuffers(1, &Framebuffer->FBO);
+	glDeleteFramebuffers(1, &Framebuffer->ID);
 	DeleteTexture(&Framebuffer->SpecularTexture);
 	DeleteTexture(&Framebuffer->NormalTexture);
 	DeleteTexture(&Framebuffer->AlbedoTexture);

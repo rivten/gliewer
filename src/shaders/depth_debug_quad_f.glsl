@@ -36,7 +36,7 @@ float OcclusionFactor(vec3 Normal, vec3 V, float d)
 	return(Result);
 }
 
-vec4 UnprojectPixelToViewSpace(float Depth, 
+vec4 UnprojectPixel(float Depth, 
 		float X, float Y, 
 		float WindowWidth, float WindowHeight,
 		float CameraFoV, float CameraAspect)
@@ -71,7 +71,7 @@ float ComputeAmbientOcclusion(vec2 SamplingOffset, vec3 PixelPos, vec3 Normal, v
 	NeighbourDepth = UnlinearizeDepth(NeighbourDepth, NearPlane, FarPlane);
 	float X = (TextureCoordinates.x + SamplingOffset.x * TexelSize.x) * WindowWidth;
 	float Y = (TextureCoordinates.y + SamplingOffset.y * TexelSize.y) * WindowHeight;
-	vec4 NeighbourPixel = UnprojectPixelToViewSpace(NeighbourDepth, 
+	vec4 NeighbourPixel = UnprojectPixel(NeighbourDepth, 
 			X, Y, float(WindowWidth), float(WindowHeight), FoV, Aspect);
 	vec3 Diff = NeighbourPixel.xyz - PixelPos;
 	float DiffLength = AOScale * length(Diff);
@@ -90,7 +90,7 @@ void main()
 		vec2 SamplingCoord = TextureCoordinates;
 		float Depth = texture(DepthTexture, SamplingCoord).r;
 		Depth = UnlinearizeDepth(Depth, NearPlane, FarPlane);
-		vec4 PixelPos = UnprojectPixelToViewSpace(Depth, SamplingCoord.x * WindowWidth, 
+		vec4 PixelPos = UnprojectPixel(Depth, SamplingCoord.x * WindowWidth, 
 				SamplingCoord.y * WindowHeight,
 				float(WindowWidth), float(WindowHeight), FoV, Aspect);
 		vec4 PixelPreviousPosInClipSpace = PreviousViewProj * PixelPos;
@@ -143,7 +143,7 @@ void main()
 		vec2 SamplingCoord = TextureCoordinates;
 		float Depth = texture(DepthTexture, SamplingCoord).r;
 		Depth = UnlinearizeDepth(Depth, NearPlane, FarPlane);
-		vec4 PixelPos = UnprojectPixelToViewSpace(Depth, SamplingCoord.x * WindowWidth, 
+		vec4 PixelPos = UnprojectPixel(Depth, SamplingCoord.x * WindowWidth, 
 				SamplingCoord.y * WindowHeight,
 				float(WindowWidth), float(WindowHeight), FoV, Aspect);
 		vec3 Normal = texture(NormalTexture, SamplingCoord).xyz;
