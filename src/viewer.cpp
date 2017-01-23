@@ -901,6 +901,60 @@ void LightGBuffer(game_state* State)
 	//BindVertexArray(State->RenderState, 0);
 }
 
+void FinalRender(game_state* State)
+{
+	ClearColor(State->RenderState, V4(1.0f, 1.0f, 1.0f, 1.0f));
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	mat4 InvCameraViewMatrix = Inverse(LookAt(State->Camera));
+
+	// NOTE(hugo) : Quad rendering
+	UseShader(State->RenderState, State->Shaders[ShaderType_PostProcess]);
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->Sigma, "Sigma");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->Camera.NearPlane, "NearPlane");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->Camera.FarPlane, "FarPlane");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->Camera.FoV, "FoV");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->Camera.Aspect, "Aspect");
+	SetUniform(State->Shaders[ShaderType_PostProcess], InvCameraViewMatrix, "InvView");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->SSAOParams.SampleCount, "AOSamples");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->SSAOParams.Intensity, "AOIntensity");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->SSAOParams.Scale, "AOScale");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->SSAOParams.SamplingRadius, "AORadius");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->SSAOParams.Bias, "AOBias");
+
+	SetUniform(State->Shaders[ShaderType_PostProcess], GlobalWindowWidth, "WindowWidth");
+	SetUniform(State->Shaders[ShaderType_PostProcess], GlobalWindowHeight, "WindowHeight");
+
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->MotionBlur, "DoMotionBlur");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->PreviousViewProj, "PreviousViewProj");
+	SetUniform(State->Shaders[ShaderType_PostProcess], State->MotionBlurSampleCount, "MotionBlurSampleCount");
+
+	ActiveTexture(State->RenderState, GL_TEXTURE0);
+	SetUniform(State->Shaders[ShaderType_PostProcess], (u32)0, "ScreenTexture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->PreProcess.Texture.ID);
+
+	ActiveTexture(State->RenderState, GL_TEXTURE1);
+	SetUniform(State->Shaders[ShaderType_PostProcess], (u32)1, "DepthTexture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);
+
+	ActiveTexture(State->RenderState, GL_TEXTURE2);
+	SetUniform(State->Shaders[ShaderType_PostProcess], (u32)2, "NormalTexture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
+
+	mat4 UntranslatedInvView = RemoveTranslationPart(InvCameraViewMatrix);
+	SetUniform(State->Shaders[ShaderType_PostProcess], UntranslatedInvView, "UntranslatedInvView");
+
+	ActiveTexture(State->RenderState, GL_TEXTURE3);
+	SetUniform(State->Shaders[ShaderType_PostProcess], (u32)3, "Skybox");
+	BindTexture(State->RenderState, GL_TEXTURE_CUBE_MAP, State->SkyboxTexture);
+
+	BindVertexArray(State->RenderState, State->QuadVAO);
+	Disable(State->RenderState, GL_DEPTH_TEST);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	Enable(State->RenderState, GL_DEPTH_TEST);
+	BindVertexArray(State->RenderState, 0);
+}
+
 void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* RenderState)
 {
 	Assert(!DetectErrors("In Frame"));
@@ -1331,30 +1385,10 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	FillGBuffer(State);
 	LightGBuffer(State);
-#if 1
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->PreFXAA.ID);
-	RenderTextureOnQuadScreen(State, State->PreProcess.Texture);
+	FinalRender(State);
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
 	ApplyFXAA(State, State->PreFXAA.Texture);
-#else
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->PreFXAAFramebuffer.ID);
-	RenderTextureOnQuadScreen(State, State->ScreenFramebuffer.NormalTexture);
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-	ApplyFXAA(State, State->PreFXAAFramebuffer.ScreenTexture);
-#endif
-
-#if 0
-	RenderShadowSceneOnFramebuffer(State, 
-			State->Camera,
-			ProjectionMatrix, LightProjectionMatrix, 
-			State->ScreenFramebuffer, V4(1.0f, 0.0f, 0.5f, 1.0f), 
-			true,
-			&State->FrustumBoundingBox);
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->PreFXAAFramebuffer.ID);
-	RenderTextureOnQuadScreen(State, State->ScreenFramebuffer.ScreenTexture);
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-	ApplyFXAA(State, State->PreFXAAFramebuffer.ScreenTexture);
-#endif
 	// }
 	
 	State->PreviousViewProj = State->CameraProj * LookAt(State->Camera);

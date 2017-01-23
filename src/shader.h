@@ -144,6 +144,8 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"DoMotionBlur",
 		"PreviousViewProj",
 		"MotionBlurSampleCount",
+		"Skybox",
+		"UntranslatedInvView",
 	},
 
 	// NOTE(hugo) : ShaderType_LowCost

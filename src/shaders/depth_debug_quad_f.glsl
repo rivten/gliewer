@@ -27,6 +27,9 @@ uniform int DoMotionBlur;
 uniform mat4 PreviousViewProj;
 uniform int MotionBlurSampleCount;
 
+uniform samplerCube Skybox;
+uniform mat4 UntranslatedInvView;
+
 const float Pi = 3.14159265f;
 const float Epsilon = 0.001f;
 
@@ -174,5 +177,20 @@ void main()
 	else
 	{
 		Color = texture(ScreenTexture, TextureCoordinates);
+	}
+
+	float Depth = texture(DepthTexture, TextureCoordinates).r;
+	if(Depth >= 1.0f)
+	{
+		// NOTE(hugo) : Draw skybox
+		Depth = UnlinearizeDepth(Depth, NearPlane, FarPlane);
+		vec3 ViewSpacePixel = vec3(0.0f, 0.0f, 0.0f);
+		ViewSpacePixel.z = -Depth;
+		ViewSpacePixel.xy = 2.0f * TextureCoordinates - vec2(1.0f, 1.0f);
+		ViewSpacePixel.x = - Aspect * tan(0.5f * FoV) * ViewSpacePixel.z * ViewSpacePixel.x;
+		ViewSpacePixel.y = - tan(0.5f * FoV) * ViewSpacePixel.z * ViewSpacePixel.y;
+
+		vec3 LookingDir = (UntranslatedInvView * vec4(normalize(ViewSpacePixel), 1.0f)).xyz;
+		Color = texture(Skybox, LookingDir);
 	}
 }

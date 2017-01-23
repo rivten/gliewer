@@ -228,15 +228,4 @@ void main()
 
 	Color = max(Color, 0.0f * AmbientFactor * DiffuseColor);
 	Color.w = 1.0f;
-
-	vec4 FragmentPositionInLightSpace = LightViews[0] * FragmentPositionInWorldSpace;
-	vec3 LightDir = normalize(LightPos[0] - FragmentPositionInWorldSpace.xyz);
-	vec3 HalfDir = normalize(ViewDir + LightDir);
-
-	float ShadowMappingBias = max(0.01f * (1.0f - dot(VertexNormal, LightDir)), 0.005f);
-	float Shadow = ShadowFactor(FragmentPositionInLightSpace, ShadowMap[0], ShadowMappingBias);
-	vec4 BRDFLambert = DiffuseColor / Pi;
-	vec4 BRDFSpec = SpecularColor * GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
-	vec4 Li = LightIntensity * LightColor[0];
-	Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(VertexNormal, LightDir);
 }
