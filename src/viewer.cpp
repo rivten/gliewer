@@ -70,131 +70,6 @@ void RenderSkybox(game_state* State, camera Camera, mat4 ProjectionMatrix)
 	DepthMask(State->RenderState, true);
 }
 
-// NOTE(hugo) : In order for this function to work, the light depth buffers must have been previously computed
-void RenderShadowedScene(game_state* State, 
-		camera Camera,
-		mat4 ProjectionMatrix, 
-		mat4 LightProjectionMatrix, 
-		rect3* FrustumBoundingBox = 0)
-{
-	mat4 LightSpaceMatrix[4];
-
-	mat4 ViewMatrix = LookAt(Camera);
-
-	// NOTE(hugo) : Drawing Object Mesh
-	mat4 MVPObjectMatrix = ProjectionMatrix * ViewMatrix * State->ObjectModelMatrix;
-	mat4 NormalObjectMatrix = Transpose(Inverse(ViewMatrix * State->ObjectModelMatrix));
-	mat4 NormalWorldMatrix = Transpose(Inverse(State->ObjectModelMatrix));
-
-	UseShader(State->RenderState, State->Shaders[ShaderType_DirectLighting]);
-
-	SetUniform(State->Shaders[ShaderType_DirectLighting], MVPObjectMatrix, "MVPMatrix");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], NormalObjectMatrix, "NormalMatrix");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], ViewMatrix, "ViewMatrix");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->ObjectModelMatrix, "ModelObjectMatrix");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->LightCount, "LightCount");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Alpha, "Alpha");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->LightIntensity, "LightIntensity");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], NormalWorldMatrix, "NormalWorldMatrix");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->AmbientFactor, "AmbientFactor");
-
-
-	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
-	{
-		light* Light = State->Lights + LightIndex;
-
-		char Buffer[80];
-		char StringNum[2];
-		sprintf(StringNum, "%i", LightIndex);
-		strcpy(Buffer, "LightPos[");
-		strcat(Buffer, StringNum);
-		strcat(Buffer, "]");
-
-		SetUniform(State->Shaders[ShaderType_DirectLighting], Light->Pos, Buffer);
-
-		memset(Buffer, 0, ArrayCount(Buffer));
-		strcpy(Buffer, "LightColor[");
-		strcat(Buffer, StringNum);
-		strcat(Buffer, "]");
-
-		SetUniform(State->Shaders[ShaderType_DirectLighting], Light->Color, Buffer);
-
-		v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
-		v3 LightZAxis = Normalized(Light->Pos - Light->Target);
-		v3 LightXAxis = Cross(LightYAxis, LightZAxis);
-		mat4 LightLookAt = LookAt(Light->Pos, LightXAxis, LightZAxis);
-		LightSpaceMatrix[LightIndex] = LightProjectionMatrix * LightLookAt;
-		memset(Buffer, 0, ArrayCount(Buffer));
-		strcpy(Buffer, "LightSpaceMatrix[");
-		strcat(Buffer, StringNum);
-		strcat(Buffer, "]");
-		SetUniform(State->Shaders[ShaderType_DirectLighting], LightSpaceMatrix[LightIndex], Buffer);
-
-		memset(Buffer, 0, ArrayCount(Buffer));
-		strcpy(Buffer, "ShadowMap[");
-		strcat(Buffer, StringNum);
-		strcat(Buffer, "]");
-		ActiveTexture(State->RenderState, GL_TEXTURE0 + LightIndex);
-		SetUniform(State->Shaders[ShaderType_DirectLighting], LightIndex, Buffer);
-		BindTexture(State->RenderState, GL_TEXTURE_2D, Light->DepthFramebuffer.Texture.ID);
-	}
-
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->CookTorranceF0, "CTF0");
-
-	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
-	{
-		object* Object = State->Objects + ObjectIndex;
-		if(Object->Visible)
-		{
-			bool ShouldDraw = true;
-			if(FrustumBoundingBox)
-			{
-				ShouldDraw = Intersect3(*FrustumBoundingBox, Object->BoundingBox);
-				Object->IsFrustumCulled = !ShouldDraw;
-			}
-			if(ShouldDraw)
-			{
-				SetUniform(State->Shaders[ShaderType_DirectLighting], ToV4(Object->Material.DiffuseColor), "DiffuseColor");
-				SetUniform(State->Shaders[ShaderType_DirectLighting], ToV4(Object->Material.SpecularColor), "SpecularColor");
-				SetUniform(State->Shaders[ShaderType_DirectLighting], ToV4(Object->Material.AmbientColor), "AmbientColor");
-				SetUniform(State->Shaders[ShaderType_DirectLighting], State->Ks, "Ks");
-				SetUniform(State->Shaders[ShaderType_DirectLighting], State->Kd, "Kd");
-				SetUniform(State->Shaders[ShaderType_DirectLighting], Object->Material.UseTextureMapping, "UseTextureMapping");
-
-				SetUniform(State->Shaders[ShaderType_DirectLighting], Object->Material.UseNormalMapping, "UseNormalMapping");
-
-				if(Object->Material.UseTextureMapping)
-				{
-					ActiveTexture(State->RenderState, GL_TEXTURE4);
-					SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)4, "TextureMap");
-					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.TextureMapLocation].ID);
-				}
-				if(Object->Material.UseNormalMapping)
-				{
-					ActiveTexture(State->RenderState, GL_TEXTURE5);
-					SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)5, "NormalMap");
-					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.NormalMapLocation].ID);
-				}
-				DrawTriangleObject(State->RenderState, Object);
-			}
-		}
-	}
-	ActiveTexture(State->RenderState, GL_TEXTURE0);
-
-	// NOTE(hugo) : Drawing Light Mesh
-	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
-	{
-		if(State->Lights[LightIndex].Object)
-		{
-			mat4 MVPLightMatrix = ProjectionMatrix * ViewMatrix * GetLightModelMatrix(State->Lights[LightIndex]);
-			UseShader(State->RenderState, State->Shaders[ShaderType_LowCost]);
-			SetUniform(State->Shaders[ShaderType_LowCost], MVPLightMatrix, "MVPMatrix");
-			SetUniform(State->Shaders[ShaderType_LowCost], State->Lights[LightIndex].Color, "ObjectColor");
-			DrawTriangleObject(State->RenderState, State->Lights[LightIndex].Object);
-		}
-	}
-}
-
 void RenderSimpleScene(game_state* State, camera Camera, mat4 ProjectionMatrix, rect3* FrustumBoundingBox)
 {
 	mat4 ViewMatrix = LookAt(Camera);
@@ -219,32 +94,6 @@ void RenderSimpleScene(game_state* State, camera Camera, mat4 ProjectionMatrix, 
 			}
 		}
 	}
-}
-
-void RenderShadowSceneOnFramebuffer(game_state* State, 
-		camera Camera,
-		mat4 ProjectionMatrix, mat4 LightProjectionMatrix, 
-		geometry_framebuffer Framebuffer, 
-		v4 ClearColor = V4(0.0f, 0.0f, 0.0f, 1.0f),
-		bool SkyboxRender = true,
-		rect3* FrustumBoundingBox = 0)
-{
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, Framebuffer.ID);
-	ClearColorAndDepth(State->RenderState, ClearColor);
-	Enable(State->RenderState, GL_DEPTH_TEST);
-
-	RenderShadowedScene(State, 
-			Camera,
-			ProjectionMatrix, 
-			LightProjectionMatrix, 
-			FrustumBoundingBox);
-	if(SkyboxRender)
-	{
-		RenderSkybox(State, Camera, ProjectionMatrix);
-	}
-
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-
 }
 
 void RenderTextureOnQuadScreen(game_state* State, texture Texture)
@@ -444,7 +293,138 @@ v4 UnprojectPixel(float PixelDepth, u32 X, u32 Y, u32 Width, u32 Height,
 	return(PixelPos);
 }
 
-#if 0
+void FillGBuffer(game_state* State, geometry_framebuffer GBuffer, camera Camera,
+		mat4 CameraProj)
+{
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, GBuffer.ID);
+	ClearColorAndDepth(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
+	Enable(State->RenderState, GL_DEPTH_TEST);
+
+	UseShader(State->RenderState, State->Shaders[ShaderType_FillGBuffer]);
+
+	mat4 ViewMatrix = LookAt(Camera);
+
+	// NOTE(hugo) : Drawing Object Mesh
+	mat4 MVPMatrix = CameraProj * ViewMatrix * State->ObjectModelMatrix;
+	mat4 NormalWorldMatrix = Transpose(Inverse(State->ObjectModelMatrix));
+
+	SetUniform(State->Shaders[ShaderType_FillGBuffer], MVPMatrix, "MVPMatrix");
+	SetUniform(State->Shaders[ShaderType_FillGBuffer], NormalWorldMatrix, "NormalWorldMatrix");
+
+	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
+	{
+		object* Object = State->Objects + ObjectIndex;
+		if(Object->Visible)
+		{
+			bool ShouldDraw = Intersect3(State->FrustumBoundingBox, Object->BoundingBox);
+			Object->IsFrustumCulled = !ShouldDraw;
+			if(ShouldDraw)
+			{
+				SetUniform(State->Shaders[ShaderType_FillGBuffer], 
+						Object->Material.SpecularColor, "SpecularColor");
+				SetUniform(State->Shaders[ShaderType_FillGBuffer], 
+						Object->Material.DiffuseColor, "DiffuseColor");
+				SetUniform(State->Shaders[ShaderType_FillGBuffer],
+						(u32)Object->Material.UseTextureMapping, "UseTextureMapping");
+				SetUniform(State->Shaders[ShaderType_FillGBuffer],
+						(u32)Object->Material.UseNormalMapping, "UseNormalMapping");
+
+				if(Object->Material.UseTextureMapping)
+				{
+					ActiveTexture(State->RenderState, GL_TEXTURE0);
+					SetUniform(State->Shaders[ShaderType_FillGBuffer], (u32)0, "TextureMap");
+					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.TextureMapLocation].ID);
+				}
+				if(Object->Material.UseNormalMapping)
+				{
+					ActiveTexture(State->RenderState, GL_TEXTURE1);
+					SetUniform(State->Shaders[ShaderType_FillGBuffer], (u32)1, "NormalMap");
+					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.NormalMapLocation].ID);
+				}
+				DrawTriangleObject(State->RenderState, Object);
+			}
+		}
+	}
+}
+
+void LightGBuffer(game_state* State, 
+		geometry_framebuffer GBuffer, 
+		basic_framebuffer Target,
+		camera Camera)
+{
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, Target.ID);
+	ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
+
+	UseShader(State->RenderState, State->Shaders[ShaderType_DirectLighting]);
+
+	mat4 InvView = Inverse(LookAt(State->Camera));
+	SetUniform(State->Shaders[ShaderType_DirectLighting], Camera.P, "CameraPos");
+	SetUniform(State->Shaders[ShaderType_DirectLighting], State->CookTorranceF0, "CTF0");
+	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Alpha, "Alpha");
+	SetUniform(State->Shaders[ShaderType_DirectLighting], State->LightIntensity, "LightIntensity");
+	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Ks, "Ks");
+	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Kd, "Kd");
+	SetUniform(State->Shaders[ShaderType_DirectLighting], InvView, "InvView");
+
+	SetUniform(State->Shaders[ShaderType_DirectLighting], Camera.NearPlane, "CameraNearPlane");
+	SetUniform(State->Shaders[ShaderType_DirectLighting], Camera.FarPlane, "CameraFarPlane");
+	SetUniform(State->Shaders[ShaderType_DirectLighting], Camera.FoV, "CameraFoV");
+	SetUniform(State->Shaders[ShaderType_DirectLighting], Camera.Aspect, "CameraAspect");
+
+	SetUniform(State->Shaders[ShaderType_DirectLighting], State->AmbientFactor, "AmbientFactor");
+
+	SetUniform(State->Shaders[ShaderType_DirectLighting], State->LightCount, "LightCount");
+	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
+	{
+		light* Light = State->Lights + LightIndex;
+
+		char Buffer[64];
+		sprintf(Buffer, "LightPos[%i]", LightIndex);
+		SetUniform(State->Shaders[ShaderType_DirectLighting], Light->Pos, Buffer);
+
+		memset(Buffer, 0, ArrayCount(Buffer));
+		sprintf(Buffer, "LightColor[%i]", LightIndex);
+		SetUniform(State->Shaders[ShaderType_DirectLighting], Light->Color, Buffer);
+
+		memset(Buffer, 0, ArrayCount(Buffer));
+		sprintf(Buffer, "LightViews[%i]", LightIndex);
+		v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
+		v3 LightZAxis = Normalized(Light->Pos - Light->Target);
+		v3 LightXAxis = Cross(LightYAxis, LightZAxis);
+		mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
+		SetUniform(State->Shaders[ShaderType_DirectLighting], LightViewProj, Buffer);
+
+		memset(Buffer, 0, ArrayCount(Buffer));
+		sprintf(Buffer, "ShadowMap[%i]", LightIndex);
+		ActiveTexture(State->RenderState, GL_TEXTURE0 + LightIndex);
+		SetUniform(State->Shaders[ShaderType_DirectLighting], LightIndex, Buffer);
+		BindTexture(State->RenderState, GL_TEXTURE_2D, Light->DepthFramebuffer.Texture.ID);
+	}
+
+	ActiveTexture(State->RenderState, GL_TEXTURE4);
+	SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)4, "DepthTexture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, GBuffer.DepthTexture.ID);
+
+	ActiveTexture(State->RenderState, GL_TEXTURE5);
+	SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)5, "NormalTexture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, GBuffer.NormalTexture.ID);
+
+	ActiveTexture(State->RenderState, GL_TEXTURE6);
+	SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)6, "AlbedoTexture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, GBuffer.AlbedoTexture.ID);
+
+	ActiveTexture(State->RenderState, GL_TEXTURE7);
+	SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)7, "SpecularTexture");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, GBuffer.SpecularTexture.ID);
+
+	BindVertexArray(State->RenderState, State->QuadVAO);
+	Disable(State->RenderState, GL_DEPTH_TEST);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	Enable(State->RenderState, GL_DEPTH_TEST);
+	//BindVertexArray(State->RenderState, 0);
+}
+
+#if 1
 void ComputeGlobalIlluminationWithPatch(game_state* State, 
 		camera Camera, 
 		mat4 LightProjectionMatrix,
@@ -514,11 +494,11 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			Assert(PatchWidth <= PatchSizeInPixels);
 			Assert(PatchHeight <= PatchSizeInPixels);
 
-			ReadBufferDepth(State->RenderState, State->ScreenFramebuffer.ID,
+			ReadBufferDepth(State->RenderState, State->GBuffer.ID,
 					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
 					PatchWidth, PatchHeight, Depths);
 
-			ReadBufferAttachement(State->RenderState, State->ScreenFramebuffer.ID, 1,
+			ReadBufferAttachement(State->RenderState, State->GBuffer.ID, 0,
 					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
 					PatchWidth, PatchHeight, GL_RGB, GL_FLOAT, Normals);
 
@@ -587,15 +567,19 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 						camera MicroCamera = MicroCameras[FaceIndex];
 						SetViewport(State->RenderState, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
 								State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
-						RenderShadowSceneOnFramebuffer(State, MicroCamera,
-								MicroCameraProjections[FaceIndex], 
-								LightProjectionMatrix, 
+
+						FillGBuffer(State, 
 								State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
-								V4(0.0f, 0.0f, 0.0f, 1.0f), false);
+								MicroCamera,
+								MicroCameraProjections[FaceIndex]);
+						LightGBuffer(State, 
+								State->HemicubeFramebuffer.MicroBuffers[FaceIndex], 
+								State->HemicubeFramebuffer.BasicMicroBuffers[FaceIndex],
+								MicroCamera);
 
 						BindFramebuffer(State->RenderState, 
 								GL_FRAMEBUFFER, 
-								State->HemicubeFramebuffer.MicroBuffers[FaceIndex].ID);
+								State->HemicubeFramebuffer.BasicMicroBuffers[FaceIndex].ID);
 
 						glReadPixels(0, 0, State->HemicubeFramebuffer.Width,
 								State->HemicubeFramebuffer.Height,
@@ -640,19 +624,20 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			
 			ActiveTexture(State->RenderState, GL_TEXTURE5);
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)5, "DepthMap");
-			BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.DepthTexture.ID);
+			BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);
 
 			ActiveTexture(State->RenderState, GL_TEXTURE6);
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)6, "NormalMap");
-			BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.NormalTexture.ID);
+			BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
 
 			ActiveTexture(State->RenderState, GL_TEXTURE7);
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)7, "AlbedoMap");
-			BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.AlbedoTexture.ID);
+			BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.AlbedoTexture.ID);
 
 			ActiveTexture(State->RenderState, GL_TEXTURE8);
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)8, "DirectIlluminationMap");
-			BindTexture(State->RenderState, GL_TEXTURE_2D, State->ScreenFramebuffer.ScreenTexture.ID);
+			// TODO(hugo) : maybe PreFXAA framebuffer ??
+			BindTexture(State->RenderState, GL_TEXTURE_2D, State->PreProcess.Texture.ID);
 
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchSizeInPixels, "PatchSizeInPixels");
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchWidth, "PatchWidth");
@@ -686,7 +671,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 
 			SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-			RenderTextureOnQuadScreen(State, State->IndirectIlluminationFramebuffer.ScreenTexture);
+			RenderTextureOnQuadScreen(State, State->IndirectIlluminationFramebuffer.Texture);
 			Assert(!DetectErrors("GI2"));
 			SDL_GL_SwapWindow(GlobalWindow);
 
@@ -774,133 +759,6 @@ rect3 GetFrustumBoundingBox(camera Camera)
 	return(Result);
 }
 
-void FillGBuffer(game_state* State)
-{
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->GBuffer.ID);
-	ClearColorAndDepth(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
-	Enable(State->RenderState, GL_DEPTH_TEST);
-
-	UseShader(State->RenderState, State->Shaders[ShaderType_FillGBuffer]);
-
-	mat4 ViewMatrix = LookAt(State->Camera);
-
-	// NOTE(hugo) : Drawing Object Mesh
-	mat4 MVPMatrix = State->CameraProj * ViewMatrix * State->ObjectModelMatrix;
-	mat4 NormalWorldMatrix = Transpose(Inverse(State->ObjectModelMatrix));
-
-	SetUniform(State->Shaders[ShaderType_FillGBuffer], MVPMatrix, "MVPMatrix");
-	SetUniform(State->Shaders[ShaderType_FillGBuffer], NormalWorldMatrix, "NormalWorldMatrix");
-
-	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
-	{
-		object* Object = State->Objects + ObjectIndex;
-		if(Object->Visible)
-		{
-			bool ShouldDraw = Intersect3(State->FrustumBoundingBox, Object->BoundingBox);
-			Object->IsFrustumCulled = !ShouldDraw;
-			if(ShouldDraw)
-			{
-				SetUniform(State->Shaders[ShaderType_FillGBuffer], 
-						Object->Material.SpecularColor, "SpecularColor");
-				SetUniform(State->Shaders[ShaderType_FillGBuffer], 
-						Object->Material.DiffuseColor, "DiffuseColor");
-				SetUniform(State->Shaders[ShaderType_FillGBuffer],
-						(u32)Object->Material.UseTextureMapping, "UseTextureMapping");
-				SetUniform(State->Shaders[ShaderType_FillGBuffer],
-						(u32)Object->Material.UseNormalMapping, "UseNormalMapping");
-
-				if(Object->Material.UseTextureMapping)
-				{
-					ActiveTexture(State->RenderState, GL_TEXTURE0);
-					SetUniform(State->Shaders[ShaderType_FillGBuffer], (u32)0, "TextureMap");
-					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.TextureMapLocation].ID);
-				}
-				if(Object->Material.UseNormalMapping)
-				{
-					ActiveTexture(State->RenderState, GL_TEXTURE1);
-					SetUniform(State->Shaders[ShaderType_FillGBuffer], (u32)1, "NormalMap");
-					BindTexture(State->RenderState, GL_TEXTURE_2D, State->RenderState->Textures[Object->Material.NormalMapLocation].ID);
-				}
-				DrawTriangleObject(State->RenderState, Object);
-			}
-		}
-	}
-}
-
-void LightGBuffer(game_state* State)
-{
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->PreProcess.ID);
-	ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
-
-	UseShader(State->RenderState, State->Shaders[ShaderType_DirectLighting]);
-
-	mat4 InvView = Inverse(LookAt(State->Camera));
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Camera.P, "CameraPos");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->CookTorranceF0, "CTF0");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Alpha, "Alpha");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->LightIntensity, "LightIntensity");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Ks, "Ks");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Kd, "Kd");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], InvView, "InvView");
-
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Camera.NearPlane, "CameraNearPlane");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Camera.FarPlane, "CameraFarPlane");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Camera.FoV, "CameraFoV");
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->Camera.Aspect, "CameraAspect");
-
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->AmbientFactor, "AmbientFactor");
-
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->LightCount, "LightCount");
-	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
-	{
-		light* Light = State->Lights + LightIndex;
-
-		char Buffer[64];
-		sprintf(Buffer, "LightPos[%i]", LightIndex);
-		SetUniform(State->Shaders[ShaderType_DirectLighting], Light->Pos, Buffer);
-
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "LightColor[%i]", LightIndex);
-		SetUniform(State->Shaders[ShaderType_DirectLighting], Light->Color, Buffer);
-
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "LightViews[%i]", LightIndex);
-		v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
-		v3 LightZAxis = Normalized(Light->Pos - Light->Target);
-		v3 LightXAxis = Cross(LightYAxis, LightZAxis);
-		mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
-		SetUniform(State->Shaders[ShaderType_DirectLighting], LightViewProj, Buffer);
-
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "ShadowMap[%i]", LightIndex);
-		ActiveTexture(State->RenderState, GL_TEXTURE0 + LightIndex);
-		SetUniform(State->Shaders[ShaderType_DirectLighting], LightIndex, Buffer);
-		BindTexture(State->RenderState, GL_TEXTURE_2D, Light->DepthFramebuffer.Texture.ID);
-	}
-
-	ActiveTexture(State->RenderState, GL_TEXTURE4);
-	SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)4, "DepthTexture");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);
-
-	ActiveTexture(State->RenderState, GL_TEXTURE5);
-	SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)5, "NormalTexture");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
-
-	ActiveTexture(State->RenderState, GL_TEXTURE6);
-	SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)6, "AlbedoTexture");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.AlbedoTexture.ID);
-
-	ActiveTexture(State->RenderState, GL_TEXTURE7);
-	SetUniform(State->Shaders[ShaderType_DirectLighting], (u32)7, "SpecularTexture");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.SpecularTexture.ID);
-
-	BindVertexArray(State->RenderState, State->QuadVAO);
-	Disable(State->RenderState, GL_DEPTH_TEST);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	Enable(State->RenderState, GL_DEPTH_TEST);
-	//BindVertexArray(State->RenderState, 0);
-}
-
 void FinalRender(game_state* State)
 {
 	ClearColor(State->RenderState, V4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -965,9 +823,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->RenderState = RenderState;
 		rect3 Box = MaxBoundingBox();
 		{
-			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
+			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/house/", "house.obj");
-			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
+			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
 			{
 				PushObject(State, &Objects[ObjectIndex]);
@@ -1006,8 +864,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->ObjectModelMatrix = Identity4();
 		LoadShaders(State);
 
-		//light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
-		light Light = {0, V3(-60.0f, 700.0f, -38.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(-61.0f, 700.0f, -38.0f)};
+		light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		//light Light = {0, V3(-60.0f, 700.0f, -38.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(-61.0f, 700.0f, -38.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(State->RenderState, GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light);
 		
@@ -1022,8 +880,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				} break;
 			case LightType_Perspective:
 				{
-					//State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 1.0f, 5.5f};
-					State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 100.0f, 2000.5f};
+					State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 1.0f, 5.5f};
+					//State->ProjectionParams = {Radians(45), float(GlobalWindowWidth) / float(GlobalWindowHeight), 100.0f, 2000.5f};
 				} break;
 			case LightType_PointLight:
 				{
@@ -1059,10 +917,10 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		float Epsilon = 0.2f;
 		State->ReferenceCamera.NearPlane = (1.0f - Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Max.z);
 		State->ReferenceCamera.FarPlane = (1.0f + Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Min.z);
-		State->ReferenceCamera.NearPlane = 100.0f;
-		State->ReferenceCamera.FarPlane = 2000.0f;
-		//State->ReferenceCamera.NearPlane = 0.5f;
-		//State->ReferenceCamera.FarPlane = 5.0f;
+		//State->ReferenceCamera.NearPlane = 100.0f;
+		//State->ReferenceCamera.FarPlane = 2000.0f;
+		State->ReferenceCamera.NearPlane = 0.5f;
+		State->ReferenceCamera.FarPlane = 5.0f;
 		State->FrustumBoundingBox = GetFrustumBoundingBox(State->ReferenceCamera);
 
 		State->CameraAcceleration = 60.0f;
@@ -1091,7 +949,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->PreProcess = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->PreFXAA = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->RenderState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
-		State->IndirectIlluminationFramebuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+		State->IndirectIlluminationFramebuffer = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 
 		State->SSAOParams.SampleCount = 0;
 		State->SSAOParams.Intensity = 1.0f;
@@ -1153,7 +1011,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		UpdateGeometryFramebuffer(State->RenderState, &State->GBuffer, GlobalWindowWidth, GlobalWindowHeight);
 		UpdateBasicFramebuffer(State->RenderState, &State->PreProcess, GlobalWindowWidth, GlobalWindowHeight);
 		UpdateBasicFramebuffer(State->RenderState, &State->PreFXAA, GlobalWindowWidth, GlobalWindowHeight);
-		UpdateGeometryFramebuffer(State->RenderState, &State->IndirectIlluminationFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
+		UpdateBasicFramebuffer(State->RenderState, &State->IndirectIlluminationFramebuffer, GlobalWindowWidth, GlobalWindowHeight);
 	}
 
 	State->ReferenceCamera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
@@ -1383,8 +1241,10 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	State->CameraProj = GetCameraPerspective(State->Camera);
 
-	FillGBuffer(State);
-	LightGBuffer(State);
+	FillGBuffer(State, State->GBuffer, 
+			State->Camera, State->CameraProj);
+	LightGBuffer(State, State->GBuffer, State->PreProcess,
+			State->Camera);
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->PreFXAA.ID);
 	FinalRender(State);
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
@@ -1395,7 +1255,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	if(ImGui::Button("Compute Indirect Illumination"))
 	{
-		//ComputeGlobalIlluminationWithPatch(State, State->Camera, LightProjectionMatrix);
+		ComputeGlobalIlluminationWithPatch(State, State->Camera, State->LightProjectionMatrix);
 	}
 
 #if 1

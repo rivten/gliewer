@@ -804,6 +804,18 @@ struct hemicube_framebuffer
 		};
 		geometry_framebuffer MicroBuffers[5];
 	};
+	union
+	{
+		struct
+		{
+			basic_framebuffer BasicFrontMicroBuffers;
+			basic_framebuffer BasicLeftMicroBuffers;
+			basic_framebuffer BasicRightMicroBuffers;
+			basic_framebuffer BasicTopMicroBuffers;
+			basic_framebuffer BasicBottomMicroBuffers;
+		};
+		basic_framebuffer BasicMicroBuffers[5];
+	};
 	u32 Width;
 	u32 Height;
 };

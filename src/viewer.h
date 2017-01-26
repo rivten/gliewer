@@ -176,7 +176,7 @@ struct game_state
 	basic_framebuffer PreProcess;
 	basic_framebuffer PreFXAA;
 	hemicube_framebuffer HemicubeFramebuffer;
-	geometry_framebuffer IndirectIlluminationFramebuffer;
+	basic_framebuffer IndirectIlluminationFramebuffer;
 
 	GLuint RBO;
 	GLuint QuadVAO;
