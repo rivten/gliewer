@@ -333,10 +333,14 @@ void FillGBuffer(game_state* State, geometry_framebuffer GBuffer, camera Camera,
 void LightGBuffer(game_state* State, 
 		geometry_framebuffer GBuffer, 
 		basic_framebuffer Target,
-		camera Camera)
+		camera Camera, 
+		bool ClearBuffer = true)
 {
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, Target.ID);
-	ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
+	if(ClearBuffer)
+	{
+		ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
+	}
 
 	UseShader(State->RenderState, State->Shaders[ShaderType_DirectLighting]);
 
@@ -663,12 +667,17 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 		State->MicroFoVInDegrees = 90;
 
+		State->PatchSizeInPixels = 32;
 
 		State->GBuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->PreProcess = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->PreFXAA = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->RenderState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 		State->IndirectIlluminationFramebuffer = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+		for(u32 BufferIndex = 0; BufferIndex < ArrayCount(State->MegaBuffers); ++BufferIndex)
+		{
+			State->MegaBuffers[BufferIndex] = CreateBasicFramebuffer(State->RenderState, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalWindowHeight * State->PatchSizeInPixels);
+		}
 
 		State->SSAOParams.SampleCount = 0;
 		State->SSAOParams.Intensity = 1.0f;
@@ -974,7 +983,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 	if(ImGui::Button("Compute Indirect Illumination"))
 	{
-		ComputeGlobalIlluminationWithPatch(State, State->Camera, State->LightProjectionMatrix);
+		ComputeGlobalIlluminationWithPatch(State, 
+				State->Camera, 
+				State->LightProjectionMatrix, State->PatchSizeInPixels);
 	}
 
 #if 1

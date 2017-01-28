@@ -56,12 +56,6 @@ static GLfloat SkyboxVertices[] = {
      1.0f, -1.0f,  1.0f
 };
 
-struct rect2
-{
-	v2 TopLeft;
-	v2 Size;
-};
-
 struct texture
 {
 	u32 ID;
@@ -137,15 +131,24 @@ void ClearDepth(void)
 	glClear(GL_DEPTH_BUFFER_BIT);
 }
 
-void SetViewport(render_state* GLState, int Width, int Height)
+void SetViewport(render_state* State, rect2 Viewport)
 {
-	if((GLState->Viewport.Size.x != Width) || 
-			(GLState->Viewport.Size.y != Height))
+	if((State->Viewport.Min.x != Viewport.Min.x) ||
+			(State->Viewport.Min.y != Viewport.Min.y) ||
+			(State->Viewport.Max.x != Viewport.Max.x) ||
+			(State->Viewport.Max.y != Viewport.Max.y))
 	{
-		GLState->Viewport.Size = {(float)Width, (float)Height};
-		glViewport(0, 0, Width, Height);
+		State->Viewport = Viewport;
+		v2 Size = RectSize(Viewport);
+		glViewport(Viewport.Min.x, Viewport.Min.y, Size.x, Size.y);
 		++DEBUGGLCurrentFrameStateChangeCount;
 	}
+}
+
+void SetViewport(render_state* GLState, int Width, int Height)
+{
+	rect2 ViewportRect = {V2(0, 0), V2(Width, Height)};
+	SetViewport(GLState, ViewportRect);
 }
 
 void BindFramebuffer(render_state* State, GLenum Target, u32 FramebufferID)

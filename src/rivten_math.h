@@ -1306,3 +1306,29 @@ mat4 RemoveTranslationPart(mat4 A)
 	return(Result);
 }
 
+
+/* ------------------------------
+ *           rect2
+ * ------------------------------ */
+
+struct rect2
+{
+	v2 Min;
+	v2 Max;
+};
+
+rect2 RectFromMinSize(v2 Min, v2 Size)
+{
+	rect2 Result = {};
+	Result.Min = Min;
+	Result.Max = Min + Size;
+	
+	return(Result);
+}
+
+v2 RectSize(rect2 Rect)
+{
+	v2 Result = Rect.Max - Rect.Min;
+
+	return(Result);
+}

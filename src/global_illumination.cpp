@@ -2,12 +2,16 @@
 void ComputeGlobalIlluminationWithPatch(game_state* State, 
 		camera Camera, 
 		mat4 LightProjectionMatrix,
-		u32 PatchSizeInPixels = 32)
+		u32 PatchSizeInPixels)
 {
 	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
 			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
 	{
 		UpdateHemicubeScreenFramebuffer(State->RenderState, &State->HemicubeFramebuffer, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
+		for(u32 BufferIndex = 0; BufferIndex < ArrayCount(State->MegaBuffers); ++BufferIndex)
+		{
+			UpdateBasicFramebuffer(State->RenderState, State->MegaBuffers + BufferIndex, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
+		}
 	}
 
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);
@@ -26,21 +30,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 
 	v3* Normals = AllocateArray(v3, PatchSizeInPixelsSqr);
 	float* Depths = AllocateArray(float, PatchSizeInPixelsSqr);
-	u32* FaceRenderedPixels = AllocateArray(u32, 
-			State->HemicubeFramebuffer.Width * State->HemicubeFramebuffer.Height);
-	u32* MegaTextures[5];
-	u32* MegaTexturePixels[5];
-	for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
-	{
-		MegaTextures[TextureIndex] = AllocateArray(u32, PatchSizeInPixels * PatchSizeInPixels * GlobalMicrobufferWidth * GlobalMicrobufferHeight);
-		MegaTexturePixels[TextureIndex] = MegaTextures[TextureIndex];
-	}
-
-	texture Megas[5];
-	for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
-	{
-		Megas[TextureIndex] = CreateTexture();
-	}
 
 	mat4 InvLookAtCamera = Inverse(LookAt(Camera));
 
@@ -48,12 +37,11 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	{
 		for(u32 PatchX = 0; PatchX < PatchXCount; ++PatchX)
 		{
-			// NOTE(hugo) : Reinit pixels
-			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
+			for(u32 BufferIndex = 0; BufferIndex < ArrayCount(State->MegaBuffers); ++BufferIndex)
 			{
-				MegaTexturePixels[TextureIndex] = MegaTextures[TextureIndex];
+				BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->MegaBuffers[BufferIndex].ID);
+				ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
 			}
-
 			u32 PatchWidth = PatchSizeInPixels;
 			u32 PatchHeight = PatchSizeInPixels;
 			// NOTE(hugo) : Only the last patches can have a different size
@@ -146,54 +134,34 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 								State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
 								MicroCamera,
 								MicroCameraProjections[FaceIndex]);
+						rect2 ViewportRect = RectFromMinSize(Hadamard(V2(X, Y), V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight)),
+								V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight));
+						SetViewport(State->RenderState, ViewportRect);
 						LightGBuffer(State, 
 								State->HemicubeFramebuffer.MicroBuffers[FaceIndex], 
-								State->HemicubeFramebuffer.BasicMicroBuffers[FaceIndex],
-								MicroCamera);
-
-						BindFramebuffer(State->RenderState, 
-								GL_FRAMEBUFFER, 
-								State->HemicubeFramebuffer.BasicMicroBuffers[FaceIndex].ID);
-
-						glReadPixels(0, 0, State->HemicubeFramebuffer.Width,
-								State->HemicubeFramebuffer.Height,
-								GL_RGBA, GL_UNSIGNED_BYTE,
-								FaceRenderedPixels);
-						BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-
-						for(u32 PixelIndex = 0; 
-								PixelIndex < State->HemicubeFramebuffer.Width * State->HemicubeFramebuffer.Height; 
-								++PixelIndex)
-						{
-							*(MegaTexturePixels[FaceIndex]) = *(FaceRenderedPixels + PixelIndex);
-							++(MegaTexturePixels[FaceIndex]);
-						}
-
+								State->MegaBuffers[FaceIndex],
+								MicroCamera, false);
 					}
+
 				}
 			}
-
-			image_texture_loading_params Params = {};
-			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
-			{
-				Params = DefaultImageTextureLoadingParams(
-						PatchWidth * GlobalMicrobufferWidth,
-						PatchHeight * GlobalMicrobufferHeight,
-						MegaTextures[TextureIndex]);
-				LoadImageToTexture(State->RenderState, &Megas[TextureIndex], Params);
-				Assert(!DetectErrors("GI"));
-			}
+#if 0
+			SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+			RenderTextureOnQuadScreen(State, State->MegaBuffers[0].Texture);
+			SDL_GL_SwapWindow(GlobalWindow);
+#endif
 
 			// NOTE(hugo) : The megatexture is full ! Now we apply the shader
 			UseShader(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional]);
 
-			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(Megas); ++TextureIndex)
+			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(State->MegaBuffers); ++TextureIndex)
 			{
 				ActiveTexture(State->RenderState, GL_TEXTURE0 + TextureIndex);
 				char Buffer[80];
 				sprintf(Buffer, "MegaTextures[%d]", TextureIndex);
 				SetUniform(State->Shaders[ShaderType_BRDFConvolutional], TextureIndex, Buffer);
-				BindTexture(State->RenderState, GL_TEXTURE_2D, Megas[TextureIndex].ID);
+				BindTexture(State->RenderState, GL_TEXTURE_2D, State->MegaBuffers[TextureIndex].Texture.ID);
 			}
 			
 			ActiveTexture(State->RenderState, GL_TEXTURE5);
@@ -235,7 +203,8 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowWidth, "WindowWidth");
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowHeight, "WindowHeight");
 
-			glViewport(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels, PatchWidth, PatchHeight);
+			rect2 ViewportRect = RectFromMinSize(PatchSizeInPixels * V2(PatchX, PatchY), V2(PatchWidth, PatchHeight));
+			SetViewport(State->RenderState, ViewportRect);
 			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);
 			BindVertexArray(State->RenderState, State->QuadVAO);
 			Disable(State->RenderState, GL_DEPTH_TEST);
@@ -252,13 +221,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		}
 	}
 
-	for(u32 TextureIndex = 0; TextureIndex < ArrayCount(MegaTextures); ++TextureIndex)
-	{
-		DeleteTexture(&Megas[TextureIndex]);
-		Free(MegaTextures[TextureIndex]);
-	}
-
-	Free(FaceRenderedPixels);
 	Free(Depths);
 	Free(Normals);
 }

@@ -177,6 +177,9 @@ struct game_state
 	basic_framebuffer PreFXAA;
 	hemicube_framebuffer HemicubeFramebuffer;
 	basic_framebuffer IndirectIlluminationFramebuffer;
+	basic_framebuffer MegaBuffers[5];
+
+	u32 PatchSizeInPixels;
 
 	GLuint RBO;
 	GLuint QuadVAO;

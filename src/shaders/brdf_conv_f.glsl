@@ -272,10 +272,8 @@ void main()
 				vec3 Wi = normalize(MicroPixelWorldPos.xyz - (FragmentWorldPos.xyz));
 				if(DotClamp(Normal, Wi) > 0.0f)
 				{
-					float AbsoluteIndex = X + Y * MicrobufferWidth + MicrobufferWidth * MicrobufferHeight * (int(PixelCoordInPatch.x) + PatchWidth * int(PixelCoordInPatch.y));
-					float XTexture = mod(AbsoluteIndex, PatchWidth * MicrobufferWidth);
-					float YTexture = (AbsoluteIndex - XTexture) / (PatchWidth * MicrobufferWidth);
-					vec2 SampleCoord = vec2(XTexture, YTexture) / (PatchWidth * MicrobufferWidth);
+					vec2 SampleCoord = PatchSizeInPixels * PixelCoordInPatch + vec2(X, Y);
+					SampleCoord = SampleCoord * MegaTextureTexelSize;
 					vec4 SampleColor = texture(MegaTextures[FaceIndex], SampleCoord);
 					//if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)
 					{
