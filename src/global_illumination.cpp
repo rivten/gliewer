@@ -10,7 +10,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		UpdateHemicubeScreenFramebuffer(State->RenderState, &State->HemicubeFramebuffer, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 		for(u32 BufferIndex = 0; BufferIndex < ArrayCount(State->MegaBuffers); ++BufferIndex)
 		{
-			UpdateBasicFramebuffer(State->RenderState, State->MegaBuffers + BufferIndex, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
+			UpdateBasicFramebuffer(State->RenderState, State->MegaBuffers + BufferIndex, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalMicrobufferHeight * State->PatchSizeInPixels);
 		}
 	}
 
@@ -117,6 +117,9 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 							// TODO(hugo) : Make the micro near/far plane parametrable
 							MicroCameras[MicroCameraIndex].NearPlane = MicroCameraNearPlane;
 							MicroCameras[MicroCameraIndex].FarPlane = 2.2f;
+							// TODO(hugo) : Why does changing the FarPlane value change the size of the
+							// result in the mega texture ?
+							//MicroCameras[MicroCameraIndex].FarPlane = 15.0f;
 
 							MicroCameraProjections[MicroCameraIndex] = GetCameraPerspective(MicroCameras[MicroCameraIndex]);
 						}
@@ -182,15 +185,13 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			BindTexture(State->RenderState, GL_TEXTURE_2D, State->PreProcess.Texture.ID);
 
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchSizeInPixels, "PatchSizeInPixels");
-			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchWidth, "PatchWidth");
-			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchHeight, "PatchHeight");
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchX, "PatchX");
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchY, "PatchY");
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Width, "MicrobufferWidth");
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Height, "MicrobufferHeight");
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.P, "CameraPos");
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PixelSurfaceInMeters, "PixelSurfaceInMeters");
-			//SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PixelsToMeters, "PixelsToMeters");
+
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->Alpha, "Alpha");
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->CookTorranceF0, "CookTorranceF0");
 			SetUniform(State->Shaders[ShaderType_BRDFConvolutional], MicroCameraNearPlane, "MicroCameraNearPlane");

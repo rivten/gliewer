@@ -3,8 +3,6 @@
 in vec2 TextureCoordinates;
 
 layout (location = 0) out vec4 Color;
-layout (location = 1) out vec3 NormalOut;
-layout (location = 2) out vec3 AlbedoOut;
 
 uniform sampler2D MegaTextures[5];
 uniform sampler2D DepthMap;
@@ -13,8 +11,6 @@ uniform sampler2D AlbedoMap;
 uniform sampler2D DirectIlluminationMap;
 
 uniform int PatchSizeInPixels;
-uniform int PatchWidth;
-uniform int PatchHeight;
 
 uniform int PatchX;
 uniform int PatchY;
@@ -162,16 +158,9 @@ mat4 GetLookAt(vec3 Eye, vec3 Target, vec3 Up)
 void main()
 {
 	// NOTE(hugo) : These coords are from the LOWER-LEFT corner
-	// NOTE(hugo) : If my viewport is the size of the patch, then
-	// first I need to find which pixel in the patch I am in, and then divides
-	// the result by the patch size in pixels to get in the texture range [0, 1]
-	// If my viewport is the size of the whole screen, then I just need to
-	// divide the fragment coord by the size of the screen to be in the proper
-	// texture range.
 	vec2 ScreenSize = vec2(WindowWidth, WindowHeight);
 	vec2 ScreenUV = gl_FragCoord.xy / ScreenSize;
 	vec2 PixelCoordInPatch = gl_FragCoord.xy - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
-	vec2 PatchSize = vec2(PatchWidth, PatchHeight);
 
 	float Depth = texture(DepthMap, ScreenUV).r;
 	float NearPlane = MainCameraNearPlane;
@@ -182,8 +171,7 @@ void main()
 	vec4 PixelPos = vec4(0.0f, 0.0f, 0.0f, 0.0f);
 	PixelPos.z = -Depth;
 	PixelPos.w = 1.0f;
-	PixelPos.x = float(gl_FragCoord.x) / float(WindowWidth);
-	PixelPos.y = float(gl_FragCoord.y) / float(WindowHeight);
+	PixelPos.xy = gl_FragCoord.xy / ScreenSize;
 
 	PixelPos.xy = 2.0f * PixelPos.xy - vec2(1.0f, 1.0f);
 	PixelPos.x = - MainCameraAspect * tan(0.5f * MainCameraFoV) * PixelPos.z * PixelPos.x;
@@ -195,15 +183,10 @@ void main()
 	Normal = normalize(2.0f * Normal - vec3(1.0f, 1.0f, 1.0f));
 
 	vec4 Albedo = texture(AlbedoMap, ScreenUV);
-	//if(length(Albedo.xyz) == 0.0f)
-	//{
-		//discard;
-	//}
 
-	float MegaTextureTexelSize = 1.0f / textureSize(MegaTextures[0], 0).x;
+	vec2 MegaTextureTexelSize = 1.0f / textureSize(MegaTextures[0], 0);
 
 	Color = texture(DirectIlluminationMap, ScreenUV);
-	//Color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	vec3 Wo = normalize(CameraPos - FragmentWorldPos.xyz);
 	float NormalDotWo = DotClamp(Normal, Wo);
 
@@ -215,7 +198,6 @@ void main()
 	for(int FaceIndex = 0; FaceIndex < 5; ++FaceIndex)
 	{
 		// NOTE(hugo) : getting microcamera variables
-		//vec3 MicroCameraLookingDir = GetLookingDir(Normal, WorldUp, FaceIndex);
 		vec3 MicroCameraLookingDir = vec3(0.0f, 0.0f, 0.0f);
 		if(FaceIndex == 0)
 		{
@@ -252,6 +234,8 @@ void main()
 		vec3 MicroCameraTarget = FragmentWorldPos.xyz + MicroCameraLookingDir;
 		mat4 InvMicroCameraLookAt = inverse(GetLookAt(FragmentWorldPos.xyz, MicroCameraTarget, MicroCameraUp));
 
+		vec2 MicrobufferSize = vec2(MicrobufferWidth, MicrobufferHeight);
+
 		for(int Y = StartingY; Y < MicrobufferHeight; ++Y)
 		{
 			for(int X = 0; X < MicrobufferWidth; ++X)
@@ -272,7 +256,7 @@ void main()
 				vec3 Wi = normalize(MicroPixelWorldPos.xyz - (FragmentWorldPos.xyz));
 				if(DotClamp(Normal, Wi) > 0.0f)
 				{
-					vec2 SampleCoord = PatchSizeInPixels * PixelCoordInPatch + vec2(X, Y);
+					vec2 SampleCoord = MicrobufferSize * PixelCoordInPatch + vec2(X, Y);
 					SampleCoord = SampleCoord * MegaTextureTexelSize;
 					vec4 SampleColor = texture(MegaTextures[FaceIndex], SampleCoord);
 					//if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)
@@ -289,6 +273,4 @@ void main()
 		}
 	}
 	Color.w = 1.0f;
-	AlbedoOut = vec3(0.0f, 0.0f, 0.0f);
-	NormalOut = vec3(0.0f, 0.0f, 0.0f);
 }

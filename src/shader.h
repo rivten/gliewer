@@ -93,8 +93,6 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"AlbedoMap",
 		"DirectIlluminationMap",
 		"PatchSizeInPixels",
-		"PatchWidth",
-		"PatchHeight",
 		"PatchX",
 		"PatchY",
 		"MicrobufferWidth",

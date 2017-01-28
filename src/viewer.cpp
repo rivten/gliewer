@@ -637,9 +637,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->ReferenceCamera.XAxis = Normalized(Cross(LookingDir, WorldUp));
 		State->ReferenceCamera.FoV = Radians(45);
 		State->ReferenceCamera.Aspect = float(GlobalWindowWidth) / float(GlobalWindowHeight);
-		float Epsilon = 0.2f;
-		State->ReferenceCamera.NearPlane = (1.0f - Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Max.z);
-		State->ReferenceCamera.FarPlane = (1.0f + Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Min.z);
+		//float Epsilon = 0.2f;
+		//State->ReferenceCamera.NearPlane = (1.0f - Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Max.z);
+		//State->ReferenceCamera.FarPlane = (1.0f + Epsilon) * Abs(State->ReferenceCamera.P.z - Box.Min.z);
 		//State->ReferenceCamera.NearPlane = 100.0f;
 		//State->ReferenceCamera.FarPlane = 2000.0f;
 		State->ReferenceCamera.NearPlane = 0.5f;
@@ -676,7 +676,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->IndirectIlluminationFramebuffer = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		for(u32 BufferIndex = 0; BufferIndex < ArrayCount(State->MegaBuffers); ++BufferIndex)
 		{
-			State->MegaBuffers[BufferIndex] = CreateBasicFramebuffer(State->RenderState, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalWindowHeight * State->PatchSizeInPixels);
+			State->MegaBuffers[BufferIndex] = CreateBasicFramebuffer(State->RenderState, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalMicrobufferHeight * State->PatchSizeInPixels);
 		}
 
 		State->SSAOParams.SampleCount = 0;
