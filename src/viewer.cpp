@@ -5,8 +5,6 @@
 static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
-static u32 GlobalMicrobufferWidth = 128;
-static u32 GlobalMicrobufferHeight = 128;
 
 GLuint LoadCubemap(game_state* State, const char** Filenames)
 {

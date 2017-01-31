@@ -1,3 +1,5 @@
+static u32 GlobalMicrobufferWidth = 32;
+static u32 GlobalMicrobufferHeight = 32;
 
 void ComputeGlobalIlluminationWithPatch(game_state* State, 
 		camera Camera, 

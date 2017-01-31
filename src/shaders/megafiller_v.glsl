@@ -81,22 +81,23 @@ mat4 GetLookAt(vec3 Eye, vec3 Target, vec3 Up)
 
 void main()
 {
-	// TODO(hugo) : Does not work for non-square patches. 
-	// We should use PatchWidth and PatchHeight here
 	//
 	// NOTE(hugo) : Computing micro view matrix
 	// {
 	//
+
+	// TODO(hugo) : Does not work for non-square patches. 
+	// We should use PatchWidth and PatchHeight here
 	float X = mod(gl_InstanceID, PatchSizeInPixels);
 	float Y = floor(float(gl_InstanceID) / float(PatchSizeInPixels));
 	vec2 PixelCoordInPatch = vec2(X, Y);
 
-	float WindowX = X + PatchX * PatchSizeInPixels;
-	float WindowY = Y + PatchY * PatchSizeInPixels;
+	vec2 PixelCoordInWindow = PixelCoordInPatch + 
+		PatchSizeInPixels * vec2(PatchX, PatchY);
 
 	vec2 WindowSize = textureSize(DepthMap, 0);
 	vec2 WindowSizeToUV = 1.0f / WindowSize;
-	vec2 UV = PixelCoordInPatch * WindowSizeToUV;
+	vec2 UV = PixelCoordInWindow * WindowSizeToUV;
 
 	float Depth = texture(DepthMap, UV).r;
 	vec3 Normal = texture(NormalMap, UV).xyz;
@@ -105,12 +106,13 @@ void main()
 	Normal = normalize(2.0f * Normal - vec3(1.0f, 1.0f, 1.0f));
 
 	vec4 UnprojectedPixelWorldSpace = UnprojectPixel(Depth,
-			WindowX, WindowY,
+			PixelCoordInWindow.x, PixelCoordInWindow.y,
 			WindowSize.x, WindowSize.y,
 			CameraFoV, CameraAspect, InvLookAtCamera);
 
 	// TODO(hugo) : Divide by w component ?
-	vec3 MicroEye = UnprojectedPixelWorldSpace.xyz;
+	vec3 MicroEye = UnprojectedPixelWorldSpace.xyz / 
+		UnprojectedPixelWorldSpace.w;
 
 	vec3 LookDir = Normal;
 	vec3 MicroUp = WorldUp;
@@ -145,8 +147,10 @@ void main()
 	mat4 MicroMVP = MicroProjection * MicroView * ObjectMatrix;
 
 	vec4 NDCPosition = MicroMVP * vec4(Position, 1.0f);
-	NDCPosition.w = 1.0f;
+	NDCPosition = NDCPosition / NDCPosition.w;
+	//NDCPosition.w = 1.0f;
 	NDCPosition.xy *= (2.0f / float(PatchSizeInPixels));
+	NDCPosition.xy -= (1.0f - (2.0f / float(PatchSizeInPixels))) * vec2(1.0f, 1.0f);
 	NDCPosition.xy += PixelCoordInPatch * (2.0f / float(PatchSizeInPixels));
 
 	gl_Position = NDCPosition;
