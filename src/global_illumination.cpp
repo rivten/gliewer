@@ -15,12 +15,10 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	}
 
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);
-	ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
+	ClearColorAndDepth(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
 
 	u32 PatchXCount = Ceil(GlobalWindowWidth / (float)PatchSizeInPixels);
 	u32 PatchYCount = Ceil(GlobalWindowHeight / (float)PatchSizeInPixels);
-
-	u32 PatchSizeInPixelsSqr = PatchSizeInPixels * PatchSizeInPixels;
 
 	float MicroCameraNearPlane = 0.2f;
 	// NOTE(hugo) : This works because all microbuffers have the same width (but different heights)
@@ -28,20 +26,18 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	float PixelsToMeters = MicrobufferWidthInMeters / float(State->HemicubeFramebuffer.Width);
 	float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
 
-	v3* Normals = AllocateArray(v3, PatchSizeInPixelsSqr);
-	float* Depths = AllocateArray(float, PatchSizeInPixelsSqr);
-
 	mat4 InvLookAtCamera = Inverse(LookAt(Camera));
+	v2 MicrobufferSize = V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 
 	for(u32 PatchY = 0; PatchY < PatchYCount; ++PatchY)
 	{
 		for(u32 PatchX = 0; PatchX < PatchXCount; ++PatchX)
 		{
-			for(u32 BufferIndex = 0; BufferIndex < ArrayCount(State->MegaBuffers); ++BufferIndex)
-			{
-				BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->MegaBuffers[BufferIndex].ID);
-				ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
-			}
+			//
+			// NOTE(hugo) : Filling the megatexture
+			//
+			// {
+
 			u32 PatchWidth = PatchSizeInPixels;
 			u32 PatchHeight = PatchSizeInPixels;
 			// NOTE(hugo) : Only the last patches can have a different size
@@ -56,106 +52,116 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			Assert(PatchWidth <= PatchSizeInPixels);
 			Assert(PatchHeight <= PatchSizeInPixels);
 
-			ReadBufferDepth(State->RenderState, State->GBuffer.ID,
-					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
-					PatchWidth, PatchHeight, Depths);
-
-			ReadBufferAttachement(State->RenderState, State->GBuffer.ID, 0,
-					PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
-					PatchWidth, PatchHeight, GL_RGB, GL_FLOAT, Normals);
+			u32 InstanceCount = PatchWidth * PatchHeight;
 
 			v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
 
-			float NearPlane = Camera.NearPlane;
-			float FarPlane = Camera.FarPlane;
-			for(u32 Y = 0; Y < PatchHeight; ++Y)
+			mat4 MicroProjection = Perspective(Radians(45), 1.0f, 0.2f, 2.2f);
+			mat4 NormalMatrix = Identity4();
+
+			// NOTE(hugo) : Calling the ShaderType_FillMegaTexture
+			UseShader(State->RenderState, State->Shaders[ShaderType_FillMegaTexture]);
+
+			ActiveTexture(State->RenderState, GL_TEXTURE4);
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], (u32)4, "DepthMap");
+			BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);
+
+			ActiveTexture(State->RenderState, GL_TEXTURE5);
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], (u32)5, "NormalMap");
+			BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
+
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchX, "PatchX");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchY, "PatchY");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchSizeInPixels, "PatchSizeInPixels");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], MicroProjection, "MicroProjection");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->ObjectModelMatrix, "ObjectMatrix");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], WorldUp, "WorldUp");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.NearPlane, "CameraNearPlane");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.FarPlane, "CameraFarPlane");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.FoV, "CameraFoV");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.Aspect, "CameraAspect");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], InvLookAtCamera, "InvLookAtCamera");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], NormalMatrix, "NormalMatrix");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->LightCount, "LightCount");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->LightIntensity, "LightIntensity");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Alpha, "Alpha");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->CookTorranceF0, "CTF0");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Ks, "Ks");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Kd, "Kd");
+			SetUniform(State->Shaders[ShaderType_FillMegaTexture], MicrobufferSize, "MicrobufferSize");
+			for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 			{
-				for(u32 X = 0; X < PatchWidth; ++X)
+				light* Light = State->Lights + LightIndex;
+
+				char Buffer[64];
+				sprintf(Buffer, "LightPos[%i]", LightIndex);
+				SetUniform(State->Shaders[ShaderType_FillMegaTexture], Light->Pos, Buffer);
+
+				memset(Buffer, 0, ArrayCount(Buffer));
+				sprintf(Buffer, "LightColor[%i]", LightIndex);
+				SetUniform(State->Shaders[ShaderType_FillMegaTexture], Light->Color, Buffer);
+
+				memset(Buffer, 0, ArrayCount(Buffer));
+				sprintf(Buffer, "LightSpaceMatrix[%i]", LightIndex);
+				v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
+				v3 LightZAxis = Normalized(Light->Pos - Light->Target);
+				v3 LightXAxis = Cross(LightYAxis, LightZAxis);
+				mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
+				SetUniform(State->Shaders[ShaderType_FillMegaTexture], LightViewProj, Buffer);
+
+				memset(Buffer, 0, ArrayCount(Buffer));
+				sprintf(Buffer, "ShadowMaps[%i]", LightIndex);
+				ActiveTexture(State->RenderState, GL_TEXTURE0 + LightIndex);
+				SetUniform(State->Shaders[ShaderType_FillMegaTexture], LightIndex, Buffer);
+				BindTexture(State->RenderState, GL_TEXTURE_2D, Light->DepthFramebuffer.Texture.ID);
+			}
+
+			for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->MegaBuffers); ++FaceIndex)
+			{
+				SetUniform(State->Shaders[ShaderType_FillMegaTexture], FaceIndex, "FaceIndex");
+				Assert(!DetectErrors("SetUniform"));
+				rect2 MegaViewport = RectFromMinSize(V2(0.0f, 0.0f), 
+						V2(State->MegaBuffers[FaceIndex].Width, State->MegaBuffers[FaceIndex].Height));
+						//V2(256.0f, 256.0f));
+				SetViewport(State->RenderState, MegaViewport);
+				Assert(!DetectErrors("SetViewport"));
+				BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->MegaBuffers[FaceIndex].ID);
+				Assert(!DetectErrors("BindFramebuffer"));
+				//ClearColorAndDepth(State->RenderState, V4(1.0f, 0.0f, 0.5f, 1.0f));
+				for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
 				{
-					u32 PixelIndex = X + PatchWidth * Y;
-					float PixelDepth = Depths[PixelIndex];
-					v3 Normal = Normals[PixelIndex];
-
-					PixelDepth = 2.0f * PixelDepth - 1.0f;
-					// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
-					PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
-
-
-					Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
-
-					// NOTE(hugo) : Render directions are, in order : FRONT / LEFT / RIGHT / TOP / BOTTOM
-					// with FRONT being the direction of the normal previously found;
-					camera MicroCameras[5];
-					mat4 MicroCameraProjections[5];
+					object* Object = State->Objects + ObjectIndex;
+					// TODO(hugo) : Should I do frustum culling here ?
+					if(Object->Visible)
 					{
-						v4 PixelPos = UnprojectPixel(PixelDepth, 
-								X + PatchX * PatchSizeInPixels, Y + PatchY * PatchSizeInPixels,
-								GlobalWindowWidth, GlobalWindowHeight,
-								Camera, InvLookAtCamera);
-						v3 MicroCameraPos = PixelPos.xyz;
+						SetUniform(State->Shaders[ShaderType_FillMegaTexture], 
+								ToV4(Object->Material.SpecularColor), "SpecularColor");
+						Assert(!DetectErrors("SetUniform"));
+						SetUniform(State->Shaders[ShaderType_FillMegaTexture], 
+								ToV4(Object->Material.DiffuseColor), "DiffuseColor");
+						Assert(!DetectErrors("SetUniform"));
 
-						v3 MicroRenderDir[5];
-						MicroRenderDir[0] = Normal;
-						MicroRenderDir[1] = Cross(Normal, WorldUp);
-						MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
-						MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
-						MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
-						for(u32 MicroCameraIndex = 0; MicroCameraIndex < ArrayCount(MicroCameras); ++MicroCameraIndex)
-						{
-							MicroCameras[MicroCameraIndex].P = MicroCameraPos;
-							MicroCameras[MicroCameraIndex].ZAxis = -1.0f * MicroRenderDir[MicroCameraIndex];
-
-							v3 MicroCameraUp = WorldUp;
-							if(MicroCameraIndex != 0)
-							{
-								MicroCameraUp = Normal;
-							}
-
-							MicroCameras[MicroCameraIndex].XAxis = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
-							MicroCameras[MicroCameraIndex].FoV = Radians(State->MicroFoVInDegrees);
-							MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
-							// TODO(hugo) : Make the micro near/far plane parametrable
-							MicroCameras[MicroCameraIndex].NearPlane = MicroCameraNearPlane;
-							MicroCameras[MicroCameraIndex].FarPlane = 2.2f;
-							// TODO(hugo) : Why does changing the FarPlane value change the size of the
-							// result in the mega texture ?
-							//MicroCameras[MicroCameraIndex].FarPlane = 15.0f;
-
-							MicroCameraProjections[MicroCameraIndex] = GetCameraPerspective(MicroCameras[MicroCameraIndex]);
-						}
+						DrawTriangleObjectInstances(State->RenderState, Object, InstanceCount);
+						Assert(!DetectErrors("Draw"));
 					}
-
-					for(u32 FaceIndex = 0; 
-							FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); 
-							++FaceIndex)
-					{
-						camera MicroCamera = MicroCameras[FaceIndex];
-						SetViewport(State->RenderState, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
-								State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
-
-						FillGBuffer(State, 
-								State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
-								MicroCamera,
-								MicroCameraProjections[FaceIndex]);
-						rect2 ViewportRect = RectFromMinSize(Hadamard(V2(X, Y), V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight)),
-								V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight));
-						SetViewport(State->RenderState, ViewportRect);
-						LightGBuffer(State, 
-								State->HemicubeFramebuffer.MicroBuffers[FaceIndex], 
-								State->MegaBuffers[FaceIndex],
-								MicroCamera, false);
-					}
-
 				}
 			}
-#if 0
+
+			// 
+			// }
+			//
+
+#if 1
 			SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
 			RenderTextureOnQuadScreen(State, State->MegaBuffers[0].Texture);
 			SDL_GL_SwapWindow(GlobalWindow);
 #endif
 
-			// NOTE(hugo) : The megatexture is full ! Now we apply the shader
+			//
+			// NOTE(hugo) : Lighting with the mega texture
+			// {
+			//
 			UseShader(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional]);
 
 			for(u32 TextureIndex = 0; TextureIndex < ArrayCount(State->MegaBuffers); ++TextureIndex)
@@ -213,6 +219,10 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			Enable(State->RenderState, GL_DEPTH_TEST);
 			BindVertexArray(State->RenderState, 0);
 
+			//
+			// }
+			//
+
 			SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
 			RenderTextureOnQuadScreen(State, State->IndirectIlluminationFramebuffer.Texture);
@@ -221,9 +231,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 
 		}
 	}
-
-	Free(Depths);
-	Free(Normals);
 }
 
 

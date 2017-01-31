@@ -9,6 +9,7 @@ enum shader_type
 	ShaderType_LowCost,
 	ShaderType_FXAA,
 	ShaderType_FillGBuffer,
+	ShaderType_FillMegaTexture,
 
 	ShaderType_Count,
 };
@@ -38,6 +39,7 @@ static shader_source Sources[ShaderType_Count] =
 	{"../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl"},
 	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/fxaa_f.glsl"},
 	{"../src/shaders/fillg_v.glsl", "../src/shaders/fillg_f.glsl"},
+	{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl"},
 };
 
 static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] = 
@@ -172,7 +174,53 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"UseTextureMapping",
 		"TextureMap",
 	},
-	
+
+	// NOTE(hugo) : ShaderType_FillMegaTexture
+	{
+		"DepthMap",
+		"NormalMap",
+		"PatchX",
+		"PatchY",
+		"PatchSizeInPixels",
+		"MicroProjection",
+		"ObjectMatrix",
+		"WorldUp",
+		"CameraNearPlane",
+		"CameraFarPlane",
+		"CameraFoV",
+		"CameraAspect",
+		"InvLookAtCamera",
+		"FaceIndex",
+		"NormalMatrix",
+		"LightCount",
+		"LightSpaceMatrix[0]",
+		"LightSpaceMatrix[1]",
+		"LightSpaceMatrix[2]",
+		"LightSpaceMatrix[3]",
+
+
+		"ShadowMaps[0]",
+		"ShadowMaps[1]",
+		"ShadowMaps[2]",
+		"ShadowMaps[3]",
+		"LightPos[0]",
+		"LightPos[1]",
+		"LightPos[2]",
+		"LightPos[3]",
+		"LightColor[0]",
+		"LightColor[1]",
+		"LightColor[2]",
+		"LightColor[3]",
+		"ViewMatrix",
+		"LightIntensity",
+		"DiffuseColor",
+		"SpecularColor",
+		"Alpha",
+		"CTF0",
+		"Ks",
+		"Kd",
+		"MicrobufferSize",
+	},
 };
 
 GLuint GetUniformLocation(shader Shader, const char* VariableName);
