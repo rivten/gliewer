@@ -142,8 +142,12 @@ void EndTemporaryMemory(temporary_memory TemporaryMemory)
 
 char* ReadFileContent(const char* Filename)
 {
+#ifdef _WIN32
 	FILE* File = 0;
 	fopen_s(&File, Filename, "rb");
+#else
+	FILE* File = fopen(Filename, "rb");
+#endif
 	Assert(File);
 
 	fseek(File, 0, SEEK_END);

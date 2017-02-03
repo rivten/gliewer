@@ -79,7 +79,7 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"CameraFarPlane",
 		"CameraFoV",
 		"CameraAspect",
-		"AmbientFactor",
+		//"AmbientFactor",
 	},
 
 	// NOTE(hugo) : ShaderType_BRDFConvolutional
@@ -219,11 +219,12 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"CTF0",
 		"Ks",
 		"Kd",
-		"MicrobufferSize",
+		//"MicrobufferSize",
 	},
 };
 
 GLuint GetUniformLocation(shader Shader, const char* VariableName);
+
 shader LoadShader(u32 ShaderType)
 {
 	const char* VertexPath = Sources[ShaderType].VertexSourceFilename;
@@ -234,14 +235,14 @@ shader LoadShader(u32 ShaderType)
 	char* VertexCode = ReadFileContent(VertexPath);
 	char* FragmentCode = ReadFileContent(FragmentPath);
 
-	GLint Success;
+	GLint CompileSuccess;
 	GLchar InfoLog[512];
 
 	GLuint Vertex = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(Vertex, 1, &VertexCode, 0);
 	glCompileShader(Vertex);
-	glGetShaderiv(Vertex, GL_COMPILE_STATUS, &Success);
-	if (!Success)
+	glGetShaderiv(Vertex, GL_COMPILE_STATUS, &CompileSuccess);
+	if (!CompileSuccess)
 	{
 		glGetShaderInfoLog(Vertex, 512, 0, InfoLog);
 		SDL_Log("%s\n", InfoLog);
@@ -252,8 +253,8 @@ shader LoadShader(u32 ShaderType)
 	GLuint Fragment = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(Fragment, 1, &FragmentCode, 0);
 	glCompileShader(Fragment);
-	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &Success);
-	if (!Success)
+	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &CompileSuccess);
+	if (!CompileSuccess)
 	{
 		glGetShaderInfoLog(Fragment, 512, 0, InfoLog);
 		SDL_Log("%s\n", InfoLog);
@@ -265,8 +266,8 @@ shader LoadShader(u32 ShaderType)
 	glAttachShader(Result.Program, Vertex);
 	glAttachShader(Result.Program, Fragment);
 	glLinkProgram(Result.Program);
-	glGetProgramiv(Result.Program, GL_LINK_STATUS, &Success);
-	if (!Success)
+	glGetProgramiv(Result.Program, GL_LINK_STATUS, &CompileSuccess);
+	if (!CompileSuccess)
 	{
 		glGetProgramInfoLog(Result.Program, 512, 0, InfoLog);
 		SDL_Log("%s\n", InfoLog);
@@ -298,14 +299,14 @@ shader LoadShader(const char* VertexPath, const char* GeometryPath, const char* 
 	char* GeometryCode = ReadFileContent(FragmentPath);
 	char* FragmentCode = ReadFileContent(FragmentPath);
 
-	GLint Success;
+	GLint CompileSuccess;
 	GLchar InfoLog[512];
 
 	GLuint Vertex = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(Vertex, 1, &VertexCode, 0);
 	glCompileShader(Vertex);
-	glGetShaderiv(Vertex, GL_COMPILE_STATUS, &Success);
-	if (!Success)
+	glGetShaderiv(Vertex, GL_COMPILE_STATUS, &CompileSuccess);
+	if (!CompileSuccess)
 	{
 		glGetShaderInfoLog(Vertex, 512, 0, InfoLog);
 		SDL_Log("%s\n", InfoLog);
@@ -315,8 +316,8 @@ shader LoadShader(const char* VertexPath, const char* GeometryPath, const char* 
 	GLuint Geometry = glCreateShader(GL_GEOMETRY_SHADER);
 	glShaderSource(Geometry, 1, &GeometryCode, 0);
 	glCompileShader(Geometry);
-	glGetShaderiv(Geometry, GL_COMPILE_STATUS, &Success);
-	if (!Success)
+	glGetShaderiv(Geometry, GL_COMPILE_STATUS, &CompileSuccess);
+	if (!CompileSuccess)
 	{
 		glGetShaderInfoLog(Geometry, 512, 0, InfoLog);
 		SDL_Log("%s\n", InfoLog);
@@ -326,8 +327,8 @@ shader LoadShader(const char* VertexPath, const char* GeometryPath, const char* 
 	GLuint Fragment = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(Fragment, 1, &FragmentCode, 0);
 	glCompileShader(Fragment);
-	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &Success);
-	if (!Success)
+	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &CompileSuccess);
+	if (!CompileSuccess)
 	{
 		glGetShaderInfoLog(Fragment, 512, 0, InfoLog);
 		SDL_Log("%s\n", InfoLog);
@@ -339,8 +340,8 @@ shader LoadShader(const char* VertexPath, const char* GeometryPath, const char* 
 	glAttachShader(Result.Program, Geometry);
 	glAttachShader(Result.Program, Fragment);
 	glLinkProgram(Result.Program);
-	glGetProgramiv(Result.Program, GL_LINK_STATUS, &Success);
-	if (!Success)
+	glGetProgramiv(Result.Program, GL_LINK_STATUS, &CompileSuccess);
+	if (!CompileSuccess)
 	{
 		glGetProgramInfoLog(Result.Program, 512, 0, InfoLog);
 		SDL_Log("%s\n", InfoLog);

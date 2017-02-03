@@ -179,6 +179,16 @@ void CullFace(render_state* State, GLenum CullFaceMode)
 	}
 }
 
+void FrontFace(render_state* State, GLenum FrontFaceMode)
+{
+	if(State->FrontFace != FrontFaceMode)
+	{
+		State->FrontFace = FrontFaceMode;
+		glFrontFace(FrontFaceMode);
+		++DEBUGGLCurrentFrameStateChangeCount;
+	}
+}
+
 void BindTexture(render_state* State, GLenum TextureTarget, u32 TextureID)
 {
 	switch(TextureTarget)

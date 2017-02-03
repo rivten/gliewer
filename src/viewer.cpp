@@ -356,7 +356,7 @@ void LightGBuffer(game_state* State,
 	SetUniform(State->Shaders[ShaderType_DirectLighting], Camera.FoV, "CameraFoV");
 	SetUniform(State->Shaders[ShaderType_DirectLighting], Camera.Aspect, "CameraAspect");
 
-	SetUniform(State->Shaders[ShaderType_DirectLighting], State->AmbientFactor, "AmbientFactor");
+	//SetUniform(State->Shaders[ShaderType_DirectLighting], State->AmbientFactor, "AmbientFactor");
 
 	SetUniform(State->Shaders[ShaderType_DirectLighting], State->LightCount, "LightCount");
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)

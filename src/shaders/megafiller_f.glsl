@@ -21,7 +21,7 @@ uniform float CTF0;
 uniform float Ks;
 uniform float Kd;
 
-uniform vec2 MicrobufferSize;
+//uniform vec2 MicrobufferSize;
 
 const float Pi = 3.14159265f;
 
@@ -99,7 +99,7 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 void main()
 {
 	// TODO(hugo) : not used
-	vec2 PixelCoordInPatch = floor(gl_FragCoord.xy / MicrobufferSize);
+	//vec2 PixelCoordInPatch = floor(gl_FragCoord.xy / MicrobufferSize);
 
 	vec3 FragmentPos = (ViewMatrix * FragmentPosInWorldSpace).xyz;
 	vec3 ViewDir = normalize(-FragmentPos);

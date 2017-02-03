@@ -90,7 +90,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->CookTorranceF0, "CTF0");
 			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Ks, "Ks");
 			SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Kd, "Kd");
-			SetUniform(State->Shaders[ShaderType_FillMegaTexture], MicrobufferSize, "MicrobufferSize");
+			//SetUniform(State->Shaders[ShaderType_FillMegaTexture], MicrobufferSize, "MicrobufferSize");
 			for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 			{
 				light* Light = State->Lights + LightIndex;

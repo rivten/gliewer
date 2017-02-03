@@ -30,7 +30,7 @@ uniform float CameraFarPlane;
 uniform float CameraFoV;
 uniform float CameraAspect;
 
-uniform float AmbientFactor;
+//uniform float AmbientFactor;
 
 const float Pi = 3.14159265f;
 
@@ -226,6 +226,6 @@ void main()
 		Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(VertexNormal, LightDir);
 	}
 
-	Color = max(Color, 0.0f * AmbientFactor * DiffuseColor);
+	//Color = max(Color, 0.0f * AmbientFactor * DiffuseColor);
 	Color.w = 1.0f;
 }
