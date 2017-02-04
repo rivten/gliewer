@@ -153,7 +153,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			// }
 			//
 
-#if 1
+#if 0
 			SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 			BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
 			RenderTextureOnQuadScreen(State, State->MegaBuffers[0].Texture);

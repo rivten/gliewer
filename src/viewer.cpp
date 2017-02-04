@@ -616,8 +616,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		//State->CameraType = CameraType_Arcball;
 		State->CameraType = CameraType_FirstPerson;
 		State->ReferenceCamera = {};
-		//State->ReferenceCamera.P = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
-		State->ReferenceCamera.P = V3(0.0f, 0.0f, 0.0f);
+		State->ReferenceCamera.P = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
+		//State->ReferenceCamera.P = V3(0.0f, 0.0f, 0.0f);
 		if(State->CameraType == CameraType_Arcball)
 		{
 			State->FixedTarget = 0.5f * (Box.Max + Box.Min);
@@ -665,8 +665,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 		State->MicroFoVInDegrees = 90;
 
-		//State->PatchSizeInPixels = 32;
-		State->PatchSizeInPixels = 16;
+		State->PatchSizeInPixels = 32;
+		//State->PatchSizeInPixels = 16;
 
 		State->GBuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->PreProcess = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
