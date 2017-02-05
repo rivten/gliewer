@@ -1,5 +1,5 @@
-static u32 GlobalMicrobufferWidth = 32;
-static u32 GlobalMicrobufferHeight = 32;
+static u32 GlobalMicrobufferWidth = 128;
+static u32 GlobalMicrobufferHeight = 128;
 
 void ComputeOnePatchOfGI(game_state* State,
 		camera Camera,

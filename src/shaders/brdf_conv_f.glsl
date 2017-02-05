@@ -159,19 +159,22 @@ void main()
 {
 	// NOTE(hugo) : These coords are from the LOWER-LEFT corner
 	vec2 ScreenSize = vec2(WindowWidth, WindowHeight);
-	vec2 ScreenUV = gl_FragCoord.xy / ScreenSize;
-	vec2 PixelCoordInPatch = gl_FragCoord.xy - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
+	vec2 FragCoord = gl_FragCoord.xy + 1.0f * vec2(0.5f, 0.5f);
+	vec2 ScreenUV = FragCoord / ScreenSize;
+	vec2 PixelCoordInPatch = FragCoord - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
 
+	// NOTE(hugo) : Unlinearize depth
 	float Depth = texture(DepthMap, ScreenUV).r;
 	float NearPlane = MainCameraNearPlane;
 	float FarPlane = MainCameraFarPlane;
 	Depth = 2.0f * Depth - 1.0f;
 	Depth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - Depth * (FarPlane - NearPlane));
 
+	// NOTE(hugo) : Unprojection the pixel
 	vec4 PixelPos = vec4(0.0f, 0.0f, 0.0f, 0.0f);
 	PixelPos.z = -Depth;
 	PixelPos.w = 1.0f;
-	PixelPos.xy = gl_FragCoord.xy / ScreenSize;
+	PixelPos.xy = FragCoord / ScreenSize;
 
 	PixelPos.xy = 2.0f * PixelPos.xy - vec2(1.0f, 1.0f);
 	PixelPos.x = - MainCameraAspect * tan(0.5f * MainCameraFoV) * PixelPos.z * PixelPos.x;

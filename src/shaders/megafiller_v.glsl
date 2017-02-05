@@ -33,6 +33,61 @@ out vec3 NormalWorldSpace;
 out vec4 FragmentPosInWorldSpace;
 out vec4 FragmentPosInLightSpace[4];
 
+// NOTE(hugo) : These functions helper are 
+// here to avoid branching which is _very_ costly
+// in shaders. These are inspired by
+// http://theorangeduck.com/page/avoiding-shader-conditionals
+// {
+
+float WhenEquals(float A, float B)
+{
+	return(1.0f - abs(sign(A - B)));
+}
+
+float WhenNotEquals(float A, float B)
+{
+	return(abs(sign(A - B)));
+}
+
+float WhenGreaterThan(float A, float B)
+{
+	return(max(sign(A - B), 0.0f));
+}
+
+float WhenLesserThan(float A, float B)
+{
+	return(max(sign(B - A), 0.0f));
+}
+
+float WhenGreaterOrEqual(float A, float B)
+{
+	return(1.0f - WhenLesserThan(A, B));
+}
+
+float WhenLesserOrEqual(float A, float B)
+{
+	return(1.0f - WhenGreaterThan(A, B));
+}
+
+float And(float A, float B)
+{
+	return(A * B);
+}
+
+float Or(float A, float B)
+{
+	return(min(A + B, 1.0f));
+}
+
+float Not(float A)
+{
+	return(1.0f - A);
+}
+
+//
+// }
+//
+
 float UnlinearizeDepth(float Depth, float NearPlane, float FarPlane)
 {
 	float Result = 2.0f * Depth - 1.0f;
@@ -114,29 +169,12 @@ void main()
 	vec3 MicroEye = UnprojectedPixelWorldSpace.xyz / 
 		UnprojectedPixelWorldSpace.w;
 
-	vec3 LookDir = Normal;
-	vec3 MicroUp = WorldUp;
-	if(FaceIndex == 1)
-	{
-		LookDir = cross(Normal, WorldUp);
-	}
-	else if(FaceIndex == 2)
-	{
-		LookDir = - cross(Normal, WorldUp);
-	}
-	else if(FaceIndex == 3)
-	{
-		LookDir = cross(Normal, cross(Normal, WorldUp));
-	}
-	else if(FaceIndex == 4)
-	{
-		LookDir = - cross(Normal, cross(Normal, WorldUp));
-	}
-
-	if(FaceIndex != 0)
-	{
-		MicroUp = Normal;
-	}
+	vec3 LookDir = Normal * WhenEquals(FaceIndex, 0) +
+		cross(Normal, WorldUp) * WhenEquals(FaceIndex, 1) -
+		cross(Normal, WorldUp) * WhenEquals(FaceIndex, 2) +
+		cross(Normal, cross(Normal, WorldUp)) * WhenEquals(FaceIndex, 3) -
+		cross(Normal, cross(Normal, WorldUp)) * WhenEquals(FaceIndex, 4);
+	vec3 MicroUp = WorldUp * WhenEquals(FaceIndex, 0) + Normal * Not(WhenEquals(FaceIndex, 0));
 
 	vec3 MicroTarget = MicroEye + LookDir;
 
@@ -144,14 +182,24 @@ void main()
 	//
 	// }
 	//
+
 	mat4 MicroMVP = MicroProjection * MicroView * ObjectMatrix;
 
 	vec4 NDCPosition = MicroMVP * vec4(Position, 1.0f);
 	NDCPosition = NDCPosition / NDCPosition.w;
 	//NDCPosition.w = 1.0f;
-	NDCPosition.xy *= (2.0f / float(PatchSizeInPixels));
-	NDCPosition.xy -= (1.0f - (2.0f / float(PatchSizeInPixels))) * vec2(1.0f, 1.0f);
-	NDCPosition.xy += PixelCoordInPatch * (2.0f / float(PatchSizeInPixels));
+
+	//float ShouldBeClipped = Or(
+			//Or(WhenGreaterOrEqual(NDCPosition.x, 1.0f), WhenLesserOrEqual(NDCPosition.x, -1.0f)),
+			//Or(WhenGreaterOrEqual(NDCPosition.y, 1.0f), WhenLesserOrEqual(NDCPosition.y, -1.0f)));
+	float ShouldBeClipped = 0.0f;
+
+	float Scaling = (2.0f / float(PatchSizeInPixels));
+	
+	NDCPosition.xy = ShouldBeClipped * NDCPosition.xy * float(PatchSizeInPixels) +
+		Not(ShouldBeClipped) * ((NDCPosition.xy * Scaling) 
+				- (1.0f - Scaling * vec2(1.0f, 1.0f)) 
+				+ PixelCoordInPatch * Scaling);
 
 	gl_Position = NDCPosition;
 

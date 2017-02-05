@@ -665,8 +665,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 		State->MicroFoVInDegrees = 90;
 
-		State->PatchSizeInPixels = 32;
-		//State->PatchSizeInPixels = 16;
+		//State->PatchSizeInPixels = 32;
+		State->PatchSizeInPixels = 16;
 
 		State->GBuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->PreProcess = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
