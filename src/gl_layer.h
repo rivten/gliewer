@@ -964,3 +964,62 @@ bool DetectErrors(char* Tag)
 
 	return(ErrorFound);
 }
+
+u32 ColorV4ToU32(v4 Color)
+{
+	u32 Result = 0;
+
+	u8 Red   = Floor(255.0f * Color.r) & 0x000000FF;
+	u8 Green = Floor(255.0f * Color.g) & 0x000000FF;
+	u8 Blue  = Floor(255.0f * Color.b) & 0x000000FF;
+	u8 Alpha = Floor(255.0f * Color.a) & 0x000000FF;
+
+	Result = (Red << 0) | (Green << 8) | (Blue << 16) | (Alpha << 24);
+
+	return(Result);
+}
+
+v4 ColorU32ToV4(u32 Color)
+{
+	v4 Result = {};
+
+	Result.r = float(((Color >>  0) & 0x000000FF)) / 255.0f;
+	Result.g = float(((Color >>  8) & 0x000000FF)) / 255.0f;
+	Result.b = float(((Color >> 16) & 0x000000FF)) / 255.0f;
+	Result.a = float(((Color >> 24) & 0x000000FF)) / 255.0f;
+
+	return(Result);
+}
+
+void SaveScreenshot(char* OutputFilename,
+		u32 Width, u32 Height,
+		u32* Buffer)
+{
+	u32* ScreenshotBuffer = AllocateArray(u32, Width * Height);
+	for(u32 Y = 0; Y < Height; ++Y)
+	{
+		for(u32 X = 0; X < Width; ++X)
+		{
+			v4 UncorrectedColor = ColorU32ToV4(Buffer[Width * (Height - Y - 1) + X]);
+			UncorrectedColor = SquareRoot4(UncorrectedColor);
+			ScreenshotBuffer[Width * Y + X] = ColorV4ToU32(UncorrectedColor);
+		}
+	}
+
+	u32 Stride = sizeof(u32) * Width;
+	stbi_write_png(OutputFilename, Width, Height, 4, ScreenshotBuffer, Stride);
+
+	Free(ScreenshotBuffer);
+}
+
+void ScreenshotBufferAttachment(char* OutputFilename,
+		render_state* State, u32 FramebufferID,
+		u32 AttachmentID, u32 Width, u32 Height,
+		GLenum Format, GLenum Type)
+{
+	u32* Buffer = AllocateArray(u32, Width * Height);
+	ReadBufferAttachement(State, FramebufferID, AttachmentID,
+			0, 0, Width, Height, Format, Type, Buffer);
+	SaveScreenshot(OutputFilename, Width, Height, Buffer);
+	Free(Buffer);
+}

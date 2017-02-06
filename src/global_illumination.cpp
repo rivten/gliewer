@@ -30,7 +30,7 @@ void MegaConvolution(game_state* State,
 	
 	ActiveTexture(State->RenderState, GL_TEXTURE5);
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)5, "DepthMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);	
 
 	ActiveTexture(State->RenderState, GL_TEXTURE6);
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)6, "NormalMap");
@@ -195,10 +195,10 @@ void ComputeOnePatchOfGIWithoutInstancing(game_state* State,
 					MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
 					// TODO(hugo) : Make the micro near/far plane parametrable
 					MicroCameras[MicroCameraIndex].NearPlane = MicroCameraNearPlane;
-					MicroCameras[MicroCameraIndex].FarPlane = 2.2f;
+					//MicroCameras[MicroCameraIndex].FarPlane = 2.2f;
 					// TODO(hugo) : Why does changing the FarPlane value change the size of the
 					// result in the mega texture ?
-					//MicroCameras[MicroCameraIndex].FarPlane = 15.0f;
+					MicroCameras[MicroCameraIndex].FarPlane = 5.0f;
 
 					MicroCameraProjections[MicroCameraIndex] = GetCameraPerspective(MicroCameras[MicroCameraIndex]);
 				}
@@ -234,6 +234,14 @@ void ComputeOnePatchOfGIWithoutInstancing(game_state* State,
 	RenderTextureOnQuadScreen(State, State->MegaBuffers[0].Texture);
 	SDL_GL_SwapWindow(GlobalWindow);
 #endif
+	if(PatchX == 0 && PatchY == 0)
+	{
+		ScreenshotBufferAttachment("MegatextureFace0.png",
+			State->RenderState, State->MegaBuffers[0].ID,
+			0, State->MegaBuffers[0].Width, 
+			State->MegaBuffers[0].Height,
+			GL_RGBA, GL_UNSIGNED_BYTE);
+	}
 
 	MegaConvolution(State, Camera, PatchSizeInPixels,
 			PixelSurfaceInMeters,
@@ -404,7 +412,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		camera Camera, 
 		mat4 LightProjectionMatrix,
 		u32 PatchSizeInPixels,
-		bool UseInstancing = true)
+		bool UseInstancing = false)
 {
 	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
 			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
@@ -431,14 +439,13 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	mat4 InvLookAtCamera = Inverse(LookAt(Camera));
 	v2 MicrobufferSize = V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 
-	printf("Hello, sailor!");
 	float* Depths = 0;
 	v3* Normals = 0;
 
 	if(!UseInstancing)
 	{
-		Depths = AllocateArray(float, PatchSizeInPixels);
-		Normals = AllocateArray(v3, PatchSizeInPixels);
+		Depths = AllocateArray(float, PatchSizeInPixels * PatchSizeInPixels);
+		Normals = AllocateArray(v3, PatchSizeInPixels * PatchSizeInPixels);
 	}
 
 	for(u32 PatchY = 0; PatchY < PatchYCount; ++PatchY)
@@ -447,7 +454,6 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		{
 			if(UseInstancing)
 			{
-				printf("Hello, sailor!");
 				ComputeOnePatchOfGI(State, Camera, LightProjectionMatrix, PatchSizeInPixels,
 						PatchX, PatchY, PatchXCount, PatchYCount,
 						InvLookAtCamera,
@@ -467,6 +473,12 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			}
 		}
 	}
+
+	ScreenshotBufferAttachment("GI_result.png",
+		State->RenderState, State->IndirectIlluminationFramebuffer.ID,
+		0, State->IndirectIlluminationFramebuffer.Width, 
+		State->IndirectIlluminationFramebuffer.Height,
+		GL_RGBA, GL_UNSIGNED_BYTE);
 
 	if(!UseInstancing)
 	{

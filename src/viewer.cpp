@@ -191,32 +191,6 @@ float GGXBRDF(v3 Normal, v3 LightDir, v3 HalfDir, float NormalDotViewDir, float 
 	return(Result);
 }
 
-u32 ColorV4ToU32(v4 Color)
-{
-	u32 Result = 0;
-
-	u8 Red   = Floor(255.0f * Color.r) & 0x000000FF;
-	u8 Green = Floor(255.0f * Color.g) & 0x000000FF;
-	u8 Blue  = Floor(255.0f * Color.b) & 0x000000FF;
-	u8 Alpha = Floor(255.0f * Color.a) & 0x000000FF;
-
-	Result = (Red << 0) | (Green << 8) | (Blue << 16) | (Alpha << 24);
-
-	return(Result);
-}
-
-v4 ColorU32ToV4(u32 Color)
-{
-	v4 Result = {};
-
-	Result.r = float(((Color >>  0) & 0x000000FF)) / 255.0f;
-	Result.g = float(((Color >>  8) & 0x000000FF)) / 255.0f;
-	Result.b = float(((Color >> 16) & 0x000000FF)) / 255.0f;
-	Result.a = float(((Color >> 24) & 0x000000FF)) / 255.0f;
-
-	return(Result);
-}
-
 v3 NormalizedLInf(v3 A)
 {
 	v3 Result = {};
@@ -665,8 +639,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 
 		State->MicroFoVInDegrees = 90;
 
-		//State->PatchSizeInPixels = 32;
-		State->PatchSizeInPixels = 16;
+		State->PatchSizeInPixels = 32;
+		//State->PatchSizeInPixels = 16;
 
 		State->GBuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		State->PreProcess = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
