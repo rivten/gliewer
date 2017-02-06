@@ -376,7 +376,8 @@ void ComputeOnePatchOfGI(game_state* State,
 void ComputeGlobalIlluminationWithPatch(game_state* State, 
 		camera Camera, 
 		mat4 LightProjectionMatrix,
-		u32 PatchSizeInPixels)
+		u32 PatchSizeInPixels,
+		bool UseInstancing = false)
 {
 	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
 			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
@@ -403,15 +404,45 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	mat4 InvLookAtCamera = Inverse(LookAt(Camera));
 	v2 MicrobufferSize = V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 
+	float* Depths = 0;
+	v3* Normals = 0;
+
+	if(!UseInstancing)
+	{
+		Depths = AllocateArray(float, PatchSizeInPixels);
+		Normals = AllocateArray(v3, PatchSizeInPixels);
+	}
+
 	for(u32 PatchY = 0; PatchY < PatchYCount; ++PatchY)
 	{
 		for(u32 PatchX = 0; PatchX < PatchXCount; ++PatchX)
 		{
-			ComputeOnePatchOfGI(State, Camera, LightProjectionMatrix, PatchSizeInPixels,
-					PatchX, PatchY, PatchXCount, PatchYCount,
-					InvLookAtCamera,
-					PixelSurfaceInMeters, MicroCameraNearPlane);
+			if(UseInstancing)
+			{
+				ComputeOnePatchOfGI(State, Camera, LightProjectionMatrix, PatchSizeInPixels,
+						PatchX, PatchY, PatchXCount, PatchYCount,
+						InvLookAtCamera,
+						PixelSurfaceInMeters, MicroCameraNearPlane);
+			}
+			else
+			{
+				ComputeOnePatchOfGIWithoutInstancing(State,
+						Camera, LightProjectionMatrix,
+						PatchSizeInPixels,
+						PatchX, PatchY,
+						PatchXCount, PatchYCount,
+						InvLookAtCamera,
+						PixelSurfaceInMeters,
+						MicroCameraNearPlane,
+						Depths, Normals);
+			}
 		}
+	}
+
+	if(!UseInstancing)
+	{
+		Free(Depths);
+		Free(Normals);
 	}
 }
 
