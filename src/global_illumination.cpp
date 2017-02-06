@@ -1,9 +1,11 @@
 static u32 GlobalMicrobufferWidth = 128;
 static u32 GlobalMicrobufferHeight = 128;
 
+#define GL_CHECK Assert(!DetectErrors(""))
+
 void MegaConvolution(game_state* State,
 		camera Camera,
-		float PatchSizeInPixels,
+		u32 PatchSizeInPixels,
 		float PixelSurfaceInMeters,
 		u32 PatchX, u32 PatchY,
 		u32 PatchWidth, u32 PatchHeight,
@@ -42,35 +44,60 @@ void MegaConvolution(game_state* State,
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)8, "DirectIlluminationMap");
 	// TODO(hugo) : maybe PreFXAA framebuffer ??
 	BindTexture(State->RenderState, GL_TEXTURE_2D, State->PreProcess.Texture.ID);
+	GL_CHECK;
 
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchSizeInPixels, "PatchSizeInPixels");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchX, "PatchX");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchY, "PatchY");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Width, "MicrobufferWidth");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Height, "MicrobufferHeight");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.P, "CameraPos");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PixelSurfaceInMeters, "PixelSurfaceInMeters");
+	GL_CHECK;
 
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->Alpha, "Alpha");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->CookTorranceF0, "CookTorranceF0");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], MicroCameraNearPlane, "MicroCameraNearPlane");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], WorldUp, "WorldUp");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.Aspect, "MainCameraAspect");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FoV, "MainCameraFoV");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.NearPlane, "MainCameraNearPlane");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FarPlane, "MainCameraFarPlane");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], InvLookAtCamera, "InvLookAtCamera");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowWidth, "WindowWidth");
+	GL_CHECK;
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowHeight, "WindowHeight");
+	GL_CHECK;
 
 	rect2 ViewportRect = RectFromMinSize(PatchSizeInPixels * V2(PatchX, PatchY), V2(PatchWidth, PatchHeight));
 	SetViewport(State->RenderState, ViewportRect);
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);
+	GL_CHECK;
 	BindVertexArray(State->RenderState, State->QuadVAO);
+	GL_CHECK;
 	Disable(State->RenderState, GL_DEPTH_TEST);
+	GL_CHECK;
 	glDrawArrays(GL_TRIANGLES, 0, 6);
+	GL_CHECK;
 	Enable(State->RenderState, GL_DEPTH_TEST);
+	GL_CHECK;
 	BindVertexArray(State->RenderState, 0);
+	GL_CHECK;
 
 	//
 	// }
@@ -377,7 +404,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		camera Camera, 
 		mat4 LightProjectionMatrix,
 		u32 PatchSizeInPixels,
-		bool UseInstancing = false)
+		bool UseInstancing = true)
 {
 	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
 			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
@@ -404,6 +431,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	mat4 InvLookAtCamera = Inverse(LookAt(Camera));
 	v2 MicrobufferSize = V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 
+	printf("Hello, sailor!");
 	float* Depths = 0;
 	v3* Normals = 0;
 
@@ -419,6 +447,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		{
 			if(UseInstancing)
 			{
+				printf("Hello, sailor!");
 				ComputeOnePatchOfGI(State, Camera, LightProjectionMatrix, PatchSizeInPixels,
 						PatchX, PatchY, PatchXCount, PatchYCount,
 						InvLookAtCamera,
