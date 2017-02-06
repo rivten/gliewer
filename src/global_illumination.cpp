@@ -1,6 +1,228 @@
 static u32 GlobalMicrobufferWidth = 128;
 static u32 GlobalMicrobufferHeight = 128;
 
+void MegaConvolution(game_state* State,
+		camera Camera,
+		float PatchSizeInPixels,
+		float PixelSurfaceInMeters,
+		u32 PatchX, u32 PatchY,
+		u32 PatchWidth, u32 PatchHeight,
+		float MicroCameraNearPlane,
+		mat4 InvLookAtCamera,
+		v3 WorldUp)
+{
+	//
+	// NOTE(hugo) : Lighting with the mega texture
+	// {
+	//
+	UseShader(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional]);
+
+	for(u32 TextureIndex = 0; TextureIndex < ArrayCount(State->MegaBuffers); ++TextureIndex)
+	{
+		ActiveTexture(State->RenderState, GL_TEXTURE0 + TextureIndex);
+		char Buffer[80];
+		sprintf(Buffer, "MegaTextures[%d]", TextureIndex);
+		SetUniform(State->Shaders[ShaderType_BRDFConvolutional], TextureIndex, Buffer);
+		BindTexture(State->RenderState, GL_TEXTURE_2D, State->MegaBuffers[TextureIndex].Texture.ID);
+	}
+	
+	ActiveTexture(State->RenderState, GL_TEXTURE5);
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)5, "DepthMap");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);
+
+	ActiveTexture(State->RenderState, GL_TEXTURE6);
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)6, "NormalMap");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
+
+	ActiveTexture(State->RenderState, GL_TEXTURE7);
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)7, "AlbedoMap");
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.AlbedoTexture.ID);
+
+	ActiveTexture(State->RenderState, GL_TEXTURE8);
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)8, "DirectIlluminationMap");
+	// TODO(hugo) : maybe PreFXAA framebuffer ??
+	BindTexture(State->RenderState, GL_TEXTURE_2D, State->PreProcess.Texture.ID);
+
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchSizeInPixels, "PatchSizeInPixels");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchX, "PatchX");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchY, "PatchY");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Width, "MicrobufferWidth");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Height, "MicrobufferHeight");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.P, "CameraPos");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PixelSurfaceInMeters, "PixelSurfaceInMeters");
+
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->Alpha, "Alpha");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->CookTorranceF0, "CookTorranceF0");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], MicroCameraNearPlane, "MicroCameraNearPlane");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], WorldUp, "WorldUp");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.Aspect, "MainCameraAspect");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FoV, "MainCameraFoV");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.NearPlane, "MainCameraNearPlane");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FarPlane, "MainCameraFarPlane");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], InvLookAtCamera, "InvLookAtCamera");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowWidth, "WindowWidth");
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowHeight, "WindowHeight");
+
+	rect2 ViewportRect = RectFromMinSize(PatchSizeInPixels * V2(PatchX, PatchY), V2(PatchWidth, PatchHeight));
+	SetViewport(State->RenderState, ViewportRect);
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);
+	BindVertexArray(State->RenderState, State->QuadVAO);
+	Disable(State->RenderState, GL_DEPTH_TEST);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	Enable(State->RenderState, GL_DEPTH_TEST);
+	BindVertexArray(State->RenderState, 0);
+
+	//
+	// }
+	//
+
+}
+
+void ComputeOnePatchOfGIWithoutInstancing(game_state* State,
+		camera Camera,
+		mat4 LightProjectionMatrix,
+		u32 PatchSizeInPixels,
+		u32 PatchX, u32 PatchY,
+		u32 PatchXCount, u32 PatchYCount,
+		mat4 InvLookAtCamera,
+		float PixelSurfaceInMeters,
+		float MicroCameraNearPlane,
+		float* Depths, v3* Normals)
+{
+	//
+	// NOTE(hugo) : Filling the megatexture
+	//
+	// {
+
+	u32 PatchWidth = PatchSizeInPixels;
+	u32 PatchHeight = PatchSizeInPixels;
+	// NOTE(hugo) : Only the last patches can have a different size
+	if(PatchX == PatchXCount - 1)
+	{
+		PatchWidth = GlobalWindowWidth - (PatchXCount - 1) * PatchSizeInPixels;
+	}
+	if(PatchY == PatchYCount - 1)
+	{
+		PatchHeight = GlobalWindowHeight - (PatchYCount - 1) * PatchSizeInPixels;
+	}
+	Assert(PatchWidth <= PatchSizeInPixels);
+	Assert(PatchHeight <= PatchSizeInPixels);
+
+	ReadBufferDepth(State->RenderState, State->GBuffer.ID,
+			PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
+			PatchWidth, PatchHeight, Depths);
+
+	ReadBufferAttachement(State->RenderState, State->GBuffer.ID, 0,
+			PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels,
+			PatchWidth, PatchHeight, GL_RGB, GL_FLOAT, Normals);
+
+	v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
+
+	float NearPlane = Camera.NearPlane;
+	float FarPlane = Camera.FarPlane;
+	for(u32 Y = 0; Y < PatchHeight; ++Y)
+	{
+		for(u32 X = 0; X < PatchWidth; ++X)
+		{
+			u32 PixelIndex = X + PatchWidth * Y;
+			float PixelDepth = Depths[PixelIndex];
+			v3 Normal = Normals[PixelIndex];
+
+			PixelDepth = 2.0f * PixelDepth - 1.0f;
+			// TODO(hugo) : I don't think this next computation works if I am using an orthographic projection
+			PixelDepth = 2.0f * NearPlane * FarPlane / (NearPlane + FarPlane - PixelDepth * (FarPlane - NearPlane));
+
+
+			Normal = Normalized(2.0f * Normal - V3(1.0f, 1.0f, 1.0f));
+
+			// NOTE(hugo) : Render directions are, in order : FRONT / LEFT / RIGHT / TOP / BOTTOM
+			// with FRONT being the direction of the normal previously found;
+			camera MicroCameras[5];
+			mat4 MicroCameraProjections[5];
+			{
+				v4 PixelPos = UnprojectPixel(PixelDepth, 
+						X + PatchX * PatchSizeInPixels, Y + PatchY * PatchSizeInPixels,
+						GlobalWindowWidth, GlobalWindowHeight,
+						Camera, InvLookAtCamera);
+				v3 MicroCameraPos = PixelPos.xyz;
+
+				v3 MicroRenderDir[5];
+				MicroRenderDir[0] = Normal;
+				MicroRenderDir[1] = Cross(Normal, WorldUp);
+				MicroRenderDir[2] = -1.0f * MicroRenderDir[1];
+				MicroRenderDir[3] = Cross(Normal, MicroRenderDir[1]);
+				MicroRenderDir[4] = -1.0f * MicroRenderDir[3];
+				for(u32 MicroCameraIndex = 0; MicroCameraIndex < ArrayCount(MicroCameras); ++MicroCameraIndex)
+				{
+					MicroCameras[MicroCameraIndex].P = MicroCameraPos;
+					MicroCameras[MicroCameraIndex].ZAxis = -1.0f * MicroRenderDir[MicroCameraIndex];
+
+					v3 MicroCameraUp = WorldUp;
+					if(MicroCameraIndex != 0)
+					{
+						MicroCameraUp = Normal;
+					}
+
+					MicroCameras[MicroCameraIndex].XAxis = Normalized(Cross(MicroRenderDir[MicroCameraIndex], MicroCameraUp));
+					MicroCameras[MicroCameraIndex].FoV = Radians(State->MicroFoVInDegrees);
+					MicroCameras[MicroCameraIndex].Aspect = float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Width) / float(State->HemicubeFramebuffer.MicroBuffers[MicroCameraIndex].Height);
+					// TODO(hugo) : Make the micro near/far plane parametrable
+					MicroCameras[MicroCameraIndex].NearPlane = MicroCameraNearPlane;
+					MicroCameras[MicroCameraIndex].FarPlane = 2.2f;
+					// TODO(hugo) : Why does changing the FarPlane value change the size of the
+					// result in the mega texture ?
+					//MicroCameras[MicroCameraIndex].FarPlane = 15.0f;
+
+					MicroCameraProjections[MicroCameraIndex] = GetCameraPerspective(MicroCameras[MicroCameraIndex]);
+				}
+			}
+
+			for(u32 FaceIndex = 0; 
+					FaceIndex < ArrayCount(State->HemicubeFramebuffer.MicroBuffers); 
+					++FaceIndex)
+			{
+				camera MicroCamera = MicroCameras[FaceIndex];
+				SetViewport(State->RenderState, State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Width, 
+						State->HemicubeFramebuffer.MicroBuffers[FaceIndex].Height);
+
+				FillGBuffer(State, 
+						State->HemicubeFramebuffer.MicroBuffers[FaceIndex],
+						MicroCamera,
+						MicroCameraProjections[FaceIndex]);
+				rect2 ViewportRect = RectFromMinSize(Hadamard(V2(X, Y), V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight)),
+						V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight));
+				SetViewport(State->RenderState, ViewportRect);
+				LightGBuffer(State, 
+						State->HemicubeFramebuffer.MicroBuffers[FaceIndex], 
+						State->MegaBuffers[FaceIndex],
+						MicroCamera, false);
+			}
+
+		}
+	}
+
+#if 0
+	SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+	RenderTextureOnQuadScreen(State, State->MegaBuffers[0].Texture);
+	SDL_GL_SwapWindow(GlobalWindow);
+#endif
+
+	MegaConvolution(State, Camera, PatchSizeInPixels,
+			PixelSurfaceInMeters,
+			PatchX, PatchY,
+			PatchWidth, PatchHeight,
+			MicroCameraNearPlane,
+			InvLookAtCamera, WorldUp);
+
+	SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+	RenderTextureOnQuadScreen(State, State->IndirectIlluminationFramebuffer.Texture);
+	Assert(!DetectErrors("GI2"));
+	SDL_GL_SwapWindow(GlobalWindow);
+
+}
+
 void ComputeOnePatchOfGI(game_state* State,
 		camera Camera,
 		mat4 LightProjectionMatrix,
@@ -136,70 +358,12 @@ void ComputeOnePatchOfGI(game_state* State,
 	SDL_GL_SwapWindow(GlobalWindow);
 #endif
 
-	//
-	// NOTE(hugo) : Lighting with the mega texture
-	// {
-	//
-	UseShader(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional]);
-
-	for(u32 TextureIndex = 0; TextureIndex < ArrayCount(State->MegaBuffers); ++TextureIndex)
-	{
-		ActiveTexture(State->RenderState, GL_TEXTURE0 + TextureIndex);
-		char Buffer[80];
-		sprintf(Buffer, "MegaTextures[%d]", TextureIndex);
-		SetUniform(State->Shaders[ShaderType_BRDFConvolutional], TextureIndex, Buffer);
-		BindTexture(State->RenderState, GL_TEXTURE_2D, State->MegaBuffers[TextureIndex].Texture.ID);
-	}
-	
-	ActiveTexture(State->RenderState, GL_TEXTURE5);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)5, "DepthMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);
-
-	ActiveTexture(State->RenderState, GL_TEXTURE6);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)6, "NormalMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
-
-	ActiveTexture(State->RenderState, GL_TEXTURE7);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)7, "AlbedoMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.AlbedoTexture.ID);
-
-	ActiveTexture(State->RenderState, GL_TEXTURE8);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)8, "DirectIlluminationMap");
-	// TODO(hugo) : maybe PreFXAA framebuffer ??
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->PreProcess.Texture.ID);
-
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchSizeInPixels, "PatchSizeInPixels");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchX, "PatchX");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchY, "PatchY");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Width, "MicrobufferWidth");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Height, "MicrobufferHeight");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.P, "CameraPos");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PixelSurfaceInMeters, "PixelSurfaceInMeters");
-
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->Alpha, "Alpha");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->CookTorranceF0, "CookTorranceF0");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], MicroCameraNearPlane, "MicroCameraNearPlane");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], WorldUp, "WorldUp");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.Aspect, "MainCameraAspect");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FoV, "MainCameraFoV");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.NearPlane, "MainCameraNearPlane");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FarPlane, "MainCameraFarPlane");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], InvLookAtCamera, "InvLookAtCamera");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowWidth, "WindowWidth");
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowHeight, "WindowHeight");
-
-	rect2 ViewportRect = RectFromMinSize(PatchSizeInPixels * V2(PatchX, PatchY), V2(PatchWidth, PatchHeight));
-	SetViewport(State->RenderState, ViewportRect);
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);
-	BindVertexArray(State->RenderState, State->QuadVAO);
-	Disable(State->RenderState, GL_DEPTH_TEST);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
-	Enable(State->RenderState, GL_DEPTH_TEST);
-	BindVertexArray(State->RenderState, 0);
-
-	//
-	// }
-	//
+	MegaConvolution(State, Camera, PatchSizeInPixels,
+			PixelSurfaceInMeters,
+			PatchX, PatchY,
+			PatchWidth, PatchHeight,
+			MicroCameraNearPlane,
+			InvLookAtCamera, WorldUp);
 
 	SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
