@@ -960,6 +960,13 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				State->Camera, 
 				State->LightProjectionMatrix, State->PatchSizeInPixels);
 	}
+	if(ImGui::Button("Screenshot"))
+	{
+		ScreenshotBufferAttachment("screenshot.png",
+				State->RenderState, State->PreFXAA.ID,
+				0, GlobalWindowWidth, GlobalWindowHeight,
+				GL_RGBA, GL_UNSIGNED_BYTE);
+	}
 
 #if 1
 	if(ImGui::CollapsingHeader("BRDF Data"))
