@@ -159,7 +159,8 @@ void main()
 {
 	// NOTE(hugo) : These coords are from the LOWER-LEFT corner
 	vec2 ScreenSize = vec2(WindowWidth, WindowHeight);
-	vec2 FragCoord = gl_FragCoord.xy + 1.0f * vec2(0.5f, 0.5f);
+	//vec2 FragCoord = gl_FragCoord.xy + 1.0f * vec2(0.5f, 0.5f);
+	vec2 FragCoord = gl_FragCoord.xy - vec2(0.5f, 0.5f);
 	vec2 ScreenUV = FragCoord / ScreenSize;
 	vec2 PixelCoordInPatch = FragCoord - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
 
