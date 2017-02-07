@@ -16,8 +16,8 @@
 #include "rivten_math.h"
 
 global_variable bool GlobalRunning = false;
-global_variable u32 GlobalWindowWidth = 256;
-global_variable u32 GlobalWindowHeight = 256;
+global_variable u32 GlobalWindowWidth = 2 * 256;
+global_variable u32 GlobalWindowHeight = 2 * 256;
 global_variable SDL_Window* GlobalWindow = 0;
 
 const u32 FrameTrackingCount = 128;

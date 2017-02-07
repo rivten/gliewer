@@ -518,7 +518,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->RenderState = RenderState;
 		rect3 Box = MaxBoundingBox();
 		{
-			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
+			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
+			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Project.obj");
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/house/", "house.obj");
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
@@ -559,7 +560,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->ObjectModelMatrix = Identity4();
 		LoadShaders(State);
 
-		light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		//light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		light Light = {0, V3(0.0f, 2.0f, -0.3f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
 		//light Light = {0, V3(-60.0f, 700.0f, -38.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(-61.0f, 700.0f, -38.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(State->RenderState, GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light);
@@ -590,8 +592,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		//State->CameraType = CameraType_Arcball;
 		State->CameraType = CameraType_FirstPerson;
 		State->ReferenceCamera = {};
-		State->ReferenceCamera.P = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
+		//State->ReferenceCamera.P = V3(0.0f, 0.0f, 2.0f * (Box.Max.z - Box.Min.z));
 		//State->ReferenceCamera.P = V3(0.0f, 0.0f, 0.0f);
+		State->ReferenceCamera.P = V3(0.0f, 1.33f, 3.10f);
 		if(State->CameraType == CameraType_Arcball)
 		{
 			State->FixedTarget = 0.5f * (Box.Max + Box.Min);

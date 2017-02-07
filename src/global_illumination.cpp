@@ -234,6 +234,8 @@ void ComputeOnePatchOfGIWithoutInstancing(game_state* State,
 	RenderTextureOnQuadScreen(State, State->MegaBuffers[0].Texture);
 	SDL_GL_SwapWindow(GlobalWindow);
 #endif
+
+#if 0
 	if(PatchX == 0 && PatchY == 0)
 	{
 		ScreenshotBufferAttachment("MegatextureFace0.png",
@@ -242,6 +244,7 @@ void ComputeOnePatchOfGIWithoutInstancing(game_state* State,
 			State->MegaBuffers[0].Height,
 			GL_RGBA, GL_UNSIGNED_BYTE);
 	}
+#endif
 
 	MegaConvolution(State, Camera, PatchSizeInPixels,
 			PixelSurfaceInMeters,
@@ -414,6 +417,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		u32 PatchSizeInPixels,
 		bool UseInstancing = false)
 {
+	u32 BeginTicks = SDL_GetTicks();
 	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
 			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
 	{
@@ -473,6 +477,11 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			}
 		}
 	}
+	u32 EndTicks = SDL_GetTicks();
+	float Duration = float(EndTicks - BeginTicks);
+	printf("%fms to compute the frame.\n", Duration);
+	float MillisecondsPerPatch = Duration / float(PatchXCount * PatchYCount);
+	printf("%fms on average per patch.\n", MillisecondsPerPatch);
 
 	ScreenshotBufferAttachment("GI_result.png",
 		State->RenderState, State->IndirectIlluminationFramebuffer.ID,
