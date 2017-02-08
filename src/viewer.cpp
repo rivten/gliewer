@@ -520,6 +520,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		{
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
 			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Project.obj");
+			std::vector<object> DragonObject = LoadOBJ(State->RenderState, "../models/", "dragon_modified.obj");
+			Objects.push_back(DragonObject[0]);
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/house/", "house.obj");
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)

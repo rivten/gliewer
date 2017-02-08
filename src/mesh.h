@@ -351,7 +351,8 @@ std::vector<object> LoadOBJ(render_state* RenderState, const std::string BaseDir
 
 		// TODO(hugo) : Implement several materials per objects (which
 		// is actually the real case scenario but a little harder to handle)
-		if(Shapes[ShapeIndex].mesh.material_ids.size() > 0)
+		if((Shapes[ShapeIndex].mesh.material_ids.size() > 0) &&
+				(Shapes[ShapeIndex].mesh.material_ids[0] != -1))
 		{
 			tinyobj::material_t ObjectMaterial = Materials[Shapes[ShapeIndex].mesh.material_ids[0]];
 			CopyArray(Object.Material.Name, ObjectMaterial.name.c_str(), char, ArrayCount(Object.Material.Name));
