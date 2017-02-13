@@ -62,4 +62,8 @@ void main()
 		Color = vec4(Color1, 1.0f);
 	}
 	//Color = vec4(Dir / TexelSize, 0.0f, 1.0f);
+
+	// NOTE(hugo) : Reinhard Tone Mapping
+	Color.xyz = Color.xyz / (Color.xyz + vec3(1.0f, 1.0f, 1.0f));
+	Color.w = 1.0f;
 }

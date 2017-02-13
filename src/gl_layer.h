@@ -675,14 +675,19 @@ struct basic_framebuffer
 	u32 Height;
 	u32 ID;
 	texture Texture;
+
+	bool IsHDR;
 };
 
-basic_framebuffer CreateBasicFramebuffer(render_state* State, u32 BufferWidth, u32 BufferHeight)
+basic_framebuffer CreateBasicFramebuffer(render_state* State, 
+		u32 BufferWidth, u32 BufferHeight,
+		bool IsHDR = false)
 {
 	basic_framebuffer Result = {};
 
 	Result.Width = BufferWidth;
 	Result.Height = BufferHeight;
+	Result.IsHDR = IsHDR;
 
 	glGenFramebuffers(1, &Result.ID);
 
@@ -691,6 +696,12 @@ basic_framebuffer CreateBasicFramebuffer(render_state* State, u32 BufferWidth, u
 	BindFramebuffer(State, GL_FRAMEBUFFER, Result.ID);
 
 	image_texture_loading_params Params = DefaultImageTextureLoadingParams(BufferWidth, BufferHeight, 0);
+	if(IsHDR)
+	{
+		Params.InternalFormat = GL_RGBA16F;
+		Params.ExternalType = GL_FLOAT;
+	}
+
 	LoadImageToTexture(State, &Result.Texture, Params);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.Texture.ID, 0);
 
@@ -722,7 +733,7 @@ void UpdateBasicFramebuffer(render_state* State, basic_framebuffer* Framebuffer,
 	glDeleteFramebuffers(1, &Framebuffer->ID);
 	DeleteTexture(&Framebuffer->Texture);
 
-	*Framebuffer = CreateBasicFramebuffer(State, Width, Height);
+	*Framebuffer = CreateBasicFramebuffer(State, Width, Height, Framebuffer->IsHDR);
 }
 
 // NOTE(hugo) : If we wanted to do a real GBuffer, we

@@ -520,8 +520,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		{
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Original.obj");
 			std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/cornell_box/", "CornellBox-Project.obj");
-			std::vector<object> DragonObject = LoadOBJ(State->RenderState, "../models/", "dragon_modified.obj");
-			Objects.push_back(DragonObject[0]);
+			//std::vector<object> DragonObject = LoadOBJ(State->RenderState, "../models/", "dragon_modified.obj");
+			//Objects.push_back(DragonObject[0]);
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/house/", "house.obj");
 			//std::vector<object> Objects = LoadOBJ(State->RenderState, "../models/sponza/", "sponza.obj");
 			for(u32 ObjectIndex = 0; ObjectIndex < Objects.size(); ++ObjectIndex)
@@ -563,7 +563,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		LoadShaders(State);
 
 		//light Light = {0, V3(0.0f, 1.0f, 3.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
-		light Light = {0, V3(0.0f, 2.0f, -0.3f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
+		light Light = {0, V3(0.0f, 2.0f, 0.3f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(0.0f, 1.0f, 0.0f)};
 		//light Light = {0, V3(-60.0f, 700.0f, -38.0f), V4(1.0f, 1.0f, 1.0f, 1.0f), V3(-61.0f, 700.0f, -38.0f)};
 		Light.DepthFramebuffer = CreateDepthFramebuffer(State->RenderState, GlobalShadowWidth, GlobalShadowHeight);
 		PushLight(State, Light);
@@ -648,13 +648,13 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		//State->PatchSizeInPixels = 16;
 
 		State->GBuffer = CreateGeometryFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
-		State->PreProcess = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
-		State->PreFXAA = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+		State->PreProcess = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight, true);
+		State->PreFXAA = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight, true);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->RenderState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 		State->IndirectIlluminationFramebuffer = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		for(u32 BufferIndex = 0; BufferIndex < ArrayCount(State->MegaBuffers); ++BufferIndex)
 		{
-			State->MegaBuffers[BufferIndex] = CreateBasicFramebuffer(State->RenderState, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalMicrobufferHeight * State->PatchSizeInPixels);
+			State->MegaBuffers[BufferIndex] = CreateBasicFramebuffer(State->RenderState, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalMicrobufferHeight * State->PatchSizeInPixels, true);
 		}
 
 		State->SSAOParams.SampleCount = 0;

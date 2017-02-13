@@ -1,5 +1,5 @@
-static u32 GlobalMicrobufferWidth = 128;
-static u32 GlobalMicrobufferHeight = 128;
+static u32 GlobalMicrobufferWidth = 16;
+static u32 GlobalMicrobufferHeight = 16;
 
 #define GL_CHECK Assert(!DetectErrors(""))
 
@@ -403,11 +403,14 @@ void ComputeOnePatchOfGI(game_state* State,
 			MicroCameraNearPlane,
 			InvLookAtCamera, WorldUp);
 
-	SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
-	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
-	RenderTextureOnQuadScreen(State, State->IndirectIlluminationFramebuffer.Texture);
-	Assert(!DetectErrors("GI2"));
-	SDL_GL_SwapWindow(GlobalWindow);
+	if(PatchX == 0)
+	{
+		SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+		BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+		RenderTextureOnQuadScreen(State, State->IndirectIlluminationFramebuffer.Texture);
+		Assert(!DetectErrors("GI2"));
+		SDL_GL_SwapWindow(GlobalWindow);
+	}
 
 }
 
@@ -415,7 +418,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		camera Camera, 
 		mat4 LightProjectionMatrix,
 		u32 PatchSizeInPixels,
-		bool UseInstancing = false)
+		bool UseInstancing = true)
 {
 	u32 BeginTicks = SDL_GetTicks();
 	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
