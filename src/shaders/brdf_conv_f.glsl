@@ -38,6 +38,7 @@ uniform int WindowWidth;
 uniform int WindowHeight;
 
 const float Pi = 3.14159265f;
+const float GammaCor = 2.2f;
 
 float DotClamp(vec3 A, vec3 B)
 {
@@ -191,6 +192,7 @@ void main()
 	vec2 MegaTextureTexelSize = 1.0f / textureSize(MegaTextures[0], 0);
 
 	Color = texture(DirectIlluminationMap, ScreenUV);
+	
 	vec3 Wo = normalize(CameraPos - FragmentWorldPos.xyz);
 	float NormalDotWo = DotClamp(Normal, Wo);
 
@@ -280,4 +282,7 @@ void main()
 	// NOTE(hugo) : Reinhard Tone Mapping
 	Color.xyz = Color.xyz / (Color.xyz + vec3(1.0f, 1.0f, 1.0f));
 	Color.w = 1.0f;
+
+	// NOTE(hugo) : Gamma correction
+	Color.xyz = pow(Color.xyz, vec3(1.0f / GammaCor));
 }

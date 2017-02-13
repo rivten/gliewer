@@ -10,6 +10,8 @@ uniform float FXAAMultiplicationFactor;
 uniform float FXAAMinimalReduction;
 uniform float FXAASpanMax;
 
+const float GammaCor = 2.2f;
+
 void main()
 {
 	vec2 TexelSize = 1.0f / textureSize(Texture, 0);
@@ -66,4 +68,7 @@ void main()
 	// NOTE(hugo) : Reinhard Tone Mapping
 	Color.xyz = Color.xyz / (Color.xyz + vec3(1.0f, 1.0f, 1.0f));
 	Color.w = 1.0f;
+
+	// NOTE(hugo) : Gamma correction
+	Color.xyz = pow(Color.xyz, vec3(1.0f / GammaCor));
 }
