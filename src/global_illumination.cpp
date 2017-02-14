@@ -235,7 +235,7 @@ void ComputeOnePatchOfGIWithoutInstancing(game_state* State,
 	SDL_GL_SwapWindow(GlobalWindow);
 #endif
 
-#if 0
+#if 1
 	if(PatchX == 0 && PatchY == 0)
 	{
 		ScreenshotBufferAttachment("MegatextureFace0.png",

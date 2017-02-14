@@ -973,6 +973,11 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 					State->LightProjectionMatrix, State->PatchSizeInPixels,
 					State->UseInstancing, State->SaveFirstMegaTexture);
 		}
+		ImGui::SliderInt("Microbuffer Pixel Size", (int*)&GlobalMicrobufferWidth, 0, 128);
+		if(GlobalMicrobufferHeight != GlobalMicrobufferWidth)
+		{
+			GlobalMicrobufferHeight = GlobalMicrobufferWidth;
+		}
 	}
 	if(IsKeyPressed(Input, SCANCODE_RETURN))
 	{
@@ -998,12 +1003,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		ImGui::SliderFloat("Cook-Torrance M", (float*)&State->CookTorranceM, 0.0f, 1.0f);
 		ImGui::SliderFloat("Blur Sigma", (float*)&State->Sigma, 0.0f, 50.0f);
 		ImGui::SliderFloat("Alpha", (float*)&State->Alpha, 0.0f, 1.0f);
-		ImGui::SliderInt("Microbuffer Pixel Size", (int*)&GlobalMicrobufferWidth, 0, 128);
 		ImGui::SliderFloat("Ambient factor", (float*)&State->AmbientFactor, 0.0f, 1.0f);
-		if(GlobalMicrobufferHeight != GlobalMicrobufferWidth)
-		{
-			GlobalMicrobufferHeight = GlobalMicrobufferWidth;
-		}
 
 		bool UsingSSAO = (State->SSAOParams.SampleCount == 1);
 		ImGui::Checkbox("Using SSAO", &UsingSSAO);
