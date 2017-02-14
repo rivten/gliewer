@@ -258,7 +258,9 @@ void ComputeOnePatchOfGIWithoutInstancing(game_state* State,
 	RenderTextureOnQuadScreen(State, State->IndirectIlluminationFramebuffer.Texture);
 	Assert(!DetectErrors("GI2"));
 	SDL_GL_SwapWindow(GlobalWindow);
-
+	//
+	// }
+	//
 }
 
 void ComputeOnePatchOfGI(game_state* State,
@@ -269,7 +271,8 @@ void ComputeOnePatchOfGI(game_state* State,
 		u32 PatchXCount, u32 PatchYCount,
 		mat4 InvLookAtCamera,
 		float PixelSurfaceInMeters,
-		float MicroCameraNearPlane)
+		float MicroCameraNearPlane,
+		bool SaveFirstMegaTexture)
 {
 	//
 	// NOTE(hugo) : Filling the megatexture
@@ -396,6 +399,15 @@ void ComputeOnePatchOfGI(game_state* State,
 	SDL_GL_SwapWindow(GlobalWindow);
 #endif
 
+	if(SaveFirstMegaTexture && (PatchX == 0) && (PatchY == 0))
+	{
+		ScreenshotBufferAttachment("MegatextureFace0.png",
+			State->RenderState, State->MegaBuffers[0].ID,
+			0, State->MegaBuffers[0].Width, 
+			State->MegaBuffers[0].Height,
+			GL_RGBA, GL_UNSIGNED_BYTE);
+	}
+
 	MegaConvolution(State, Camera, PatchSizeInPixels,
 			PixelSurfaceInMeters,
 			PatchX, PatchY,
@@ -418,7 +430,8 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 		camera Camera, 
 		mat4 LightProjectionMatrix,
 		u32 PatchSizeInPixels,
-		bool UseInstancing = true)
+		bool UseInstancing = true,
+		bool SaveFirstMegaTexture = false)
 {
 	u32 BeginTicks = SDL_GetTicks();
 	if((State->HemicubeFramebuffer.Width != GlobalMicrobufferWidth) ||
@@ -464,7 +477,8 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 				ComputeOnePatchOfGI(State, Camera, LightProjectionMatrix, PatchSizeInPixels,
 						PatchX, PatchY, PatchXCount, PatchYCount,
 						InvLookAtCamera,
-						PixelSurfaceInMeters, MicroCameraNearPlane);
+						PixelSurfaceInMeters, MicroCameraNearPlane,
+						SaveFirstMegaTexture);
 			}
 			else
 			{

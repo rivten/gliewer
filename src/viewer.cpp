@@ -674,6 +674,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->Ks = 1.5f;
 		State->Kd = 0.2f;
 
+		State->UseInstancing = true;
+		State->SaveFirstMegaTexture = false;
+
 		// NOTE(hugo) : Initializing Quad data 
 		// {
 		glGenVertexArrays(1, &State->QuadVAO);
@@ -959,12 +962,26 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	
 	State->PreviousViewProj = State->CameraProj * LookAt(State->Camera);
 
-	if(ImGui::Button("Compute Indirect Illumination"))
+	if(ImGui::CollapsingHeader("GI"))
 	{
-		ComputeGlobalIlluminationWithPatch(State, 
-				State->Camera, 
-				State->LightProjectionMatrix, State->PatchSizeInPixels);
+		ImGui::Checkbox("Use Instancing", &State->UseInstancing);
+		ImGui::Checkbox("Save First MegaTexture", &State->SaveFirstMegaTexture);
+		if(ImGui::Button("Compute Indirect Illumination"))
+		{
+			ComputeGlobalIlluminationWithPatch(State, 
+					State->Camera, 
+					State->LightProjectionMatrix, State->PatchSizeInPixels,
+					State->UseInstancing, State->SaveFirstMegaTexture);
+		}
 	}
+	if(IsKeyPressed(Input, SCANCODE_RETURN))
+	{
+			ComputeGlobalIlluminationWithPatch(State, 
+					State->Camera, 
+					State->LightProjectionMatrix, State->PatchSizeInPixels,
+					State->UseInstancing, State->SaveFirstMegaTexture);
+	}
+
 	if(ImGui::Button("Screenshot"))
 	{
 		ScreenshotBufferAttachment("screenshot.png",

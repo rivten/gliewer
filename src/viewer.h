@@ -179,8 +179,16 @@ struct game_state
 	basic_framebuffer PreProcess;
 	basic_framebuffer PreFXAA;
 	hemicube_framebuffer HemicubeFramebuffer;
+
+	// NOTE(hugo): Global illumination
+	// {
 	basic_framebuffer IndirectIlluminationFramebuffer;
 	basic_framebuffer MegaBuffers[5];
+
+	bool UseInstancing;
+	bool SaveFirstMegaTexture;
+
+	// }
 
 	u32 PatchSizeInPixels;
 
