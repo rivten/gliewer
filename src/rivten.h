@@ -163,6 +163,10 @@ char* ReadFileContent(const char* Filename)
 	return(Content);
 }
 
+// 
+// NOTE(hugo) : String
+// 
+
 u32 StringLength(char* Str)
 {
 	char* C = Str;
@@ -204,3 +208,4 @@ bool AreStringIdentical(char* A, char* B)
 	}
 	return(Identical);
 }
+

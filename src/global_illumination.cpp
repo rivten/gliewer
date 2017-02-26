@@ -401,11 +401,16 @@ void ComputeOnePatchOfGI(game_state* State,
 
 	if(SaveFirstMegaTexture && (PatchX == 0) && (PatchY == 0))
 	{
-		ScreenshotBufferAttachment("MegatextureFace0.png",
-			State->RenderState, State->MegaBuffers[0].ID,
-			0, State->MegaBuffers[0].Width, 
-			State->MegaBuffers[0].Height,
-			GL_RGBA, GL_UNSIGNED_BYTE);
+		for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->MegaBuffers); ++FaceIndex)
+		{
+			char Filename[64];
+			sprintf(Filename, "MegatextureFace%i.png", FaceIndex);
+			ScreenshotBufferAttachment(Filename,
+				State->RenderState, State->MegaBuffers[FaceIndex].ID,
+				0, State->MegaBuffers[FaceIndex].Width, 
+				State->MegaBuffers[FaceIndex].Height,
+				GL_RGBA, GL_UNSIGNED_BYTE);
+		}
 	}
 
 	MegaConvolution(State, Camera, PatchSizeInPixels,

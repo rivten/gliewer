@@ -33,6 +33,9 @@ out vec3 NormalWorldSpace;
 out vec4 FragmentPosInWorldSpace;
 out vec4 FragmentPosInLightSpace[4];
 
+out float IsVertexValid;
+
+
 // NOTE(hugo) : These functions helper are 
 // here to avoid branching which is _very_ costly
 // in shaders. These are inspired by
@@ -189,17 +192,18 @@ void main()
 	NDCPosition = NDCPosition / NDCPosition.w;
 	//NDCPosition.w = 1.0f;
 
-	//float ShouldBeClipped = Or(
-			//Or(WhenGreaterOrEqual(NDCPosition.x, 1.0f), WhenLesserOrEqual(NDCPosition.x, -1.0f)),
-			//Or(WhenGreaterOrEqual(NDCPosition.y, 1.0f), WhenLesserOrEqual(NDCPosition.y, -1.0f)));
-	float ShouldBeClipped = 0.0f;
+	float ShouldBeClipped = Or(Or(
+			Or(WhenGreaterOrEqual(NDCPosition.x, 1.0f), WhenLesserOrEqual(NDCPosition.x, -1.0f)),
+			Or(WhenGreaterOrEqual(NDCPosition.y, 1.0f), WhenLesserOrEqual(NDCPosition.y, -1.0f))),
+			Or(WhenGreaterOrEqual(NDCPosition.z, 1.0f), WhenLesserOrEqual(NDCPosition.z, -1.0f)));
+
+	IsVertexValid = Not(ShouldBeClipped);
 
 	float Scaling = (2.0f / float(PatchSizeInPixels));
-	
-	NDCPosition.xy = ShouldBeClipped * NDCPosition.xy * float(PatchSizeInPixels) +
-		Not(ShouldBeClipped) * ((NDCPosition.xy * Scaling) 
-				- (1.0f - Scaling * vec2(1.0f, 1.0f)) 
-				+ PixelCoordInPatch * Scaling);
+
+	NDCPosition.xy *= Scaling;
+	NDCPosition.xy -= (1.0f - Scaling) * vec2(1.0f, 1.0f);
+	NDCPosition.xy += PixelCoordInPatch * Scaling;
 
 	gl_Position = NDCPosition;
 

@@ -7,6 +7,8 @@ in vec3 NormalWorldSpace;
 in vec4 FragmentPosInWorldSpace;
 in vec4 FragmentPosInLightSpace[4];
 
+in float IsVertexValid;
+
 uniform sampler2D ShadowMaps[4];
 uniform vec3 LightPos[4];
 uniform vec4 LightColor[4];
@@ -98,6 +100,10 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 
 void main()
 {
+	if(IsVertexValid != 1.0f)
+	{
+		discard;
+	}
 	// TODO(hugo) : not used
 	//vec2 PixelCoordInPatch = floor(gl_FragCoord.xy / MicrobufferSize);
 
@@ -119,5 +125,5 @@ void main()
 	}
 
 	Color = DiffuseColor;
-	//Color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	Color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 }
