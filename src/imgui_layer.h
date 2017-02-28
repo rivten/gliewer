@@ -306,7 +306,12 @@ void ImGuiNewFrame(SDL_Window* window, game_input* Input)
     io.MouseDown[2] = Input->MouseButtons[1].EndedDown;
 	memcpy(io.KeysDown, Input->KeyboardButtons, ArrayCount(Input->KeyboardButtons));
 
-	// TODO(hugo) : Get TextInput and KeyModifiers (Shift, Ctrl, Alt, Super)
+	io.KeyCtrl = IsKeyPressed(Input, SCANCODE_LCTRL) || IsKeyPressed(Input, SCANCODE_RCTRL);
+	io.KeyShift = IsKeyPressed(Input, SCANCODE_LSHIFT) || IsKeyPressed(Input, SCANCODE_RSHIFT);
+	io.KeyAlt = IsKeyPressed(Input, SCANCODE_LALT) || IsKeyPressed(Input, SCANCODE_RALT);
+	io.KeySuper = IsKeyPressed(Input, SCANCODE_LGUI) || IsKeyPressed(Input, SCANCODE_RGUI);
+
+	io.AddInputCharactersUTF8(Input->Text);
 
     io.MouseWheel = (float)Input->MouseZ;
 

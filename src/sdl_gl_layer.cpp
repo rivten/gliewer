@@ -261,7 +261,13 @@ static void SDLProcessPendingMessages(game_input* Input)
             case SDL_MOUSEWHEEL:
 				{
 					Input->MouseZ = Event.wheel.y;
-				};
+				} break;
+
+			case SDL_TEXTINPUT:
+				{
+					memcpy(Input->Text, Event.text.text, 
+							ArrayCount(Input->Text));
+				} break;
             default:
                 {
                 } break;
@@ -602,6 +608,8 @@ int main(int argc, char** argv)
 
 				// TODO(hugo) : Properly cleanup Input::MouseZ value
 				NewInput->MouseZ = 0;
+				ZeroStruct(NewInput->Text);
+
                 game_input* Temp = NewInput;
                 NewInput = OldInput;
                 OldInput = Temp;

@@ -418,7 +418,6 @@ enum mouse_button
 	MouseButton_Count = 5,
 };
 
-// TODO(hugo) : Get textinput event and MouseWheel (mostly for ImGui)
 struct game_input
 {
     game_button_state MouseButtons[MouseButton_Count];
@@ -430,6 +429,8 @@ struct game_input
     game_controller_input Controllers[5];
     // NOTE(hugo) : From the SDL doc -- SDL_scancode.h, there is at most 512 keys.
     u8 KeyboardButtons[512];
+
+	char Text[32];
 
 	bool WindowResized;
 };
