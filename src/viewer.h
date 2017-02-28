@@ -6,7 +6,6 @@
 		- I think the render_state should hold the data about the shaders and
 		    then I should use some sort of state mode to set uniform (the goal
 			being not to pass the same shader each time because this is boring)
-		- proper SDL-ImGui layer
 		- proper normal / UV etc. computation in the normal / tangent / bitangent space
 		- full material handling when OBJ parsing
 		- asset streaming

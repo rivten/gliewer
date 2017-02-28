@@ -539,7 +539,7 @@ int main(int argc, char** argv)
 					NewInput->WindowResized = false;
 				}
 
-				ImGuiNewFrame(Window, Input);
+				ImGuiNewFrame(Window, NewInput);
 
                 GameUpdateAndRender(&GameMemory, NewInput, &RenderState);
 				ImGui::Render();
@@ -569,8 +569,7 @@ int main(int argc, char** argv)
 					for(u32 CounterIndex = 0; CounterIndex < (ArrayCount(DEBUGCounters) - 1); ++CounterIndex)
 					{
 						DEBUGCounters[CounterIndex] = DEBUGCounters[CounterIndex + 1];
-					}
-					DEBUGCounters[DEBUGCurrentCounter - 1] = SecondsElapsedForFrame * 1000.0f;
+					} DEBUGCounters[DEBUGCurrentCounter - 1] = SecondsElapsedForFrame * 1000.0f;
 				}
 
 				if(DEBUGRenderStateChangeCurrentCounter < ArrayCount(DEBUGRenderStateChangeCounters))
