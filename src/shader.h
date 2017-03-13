@@ -28,6 +28,7 @@ struct shader_source
 {
 	char* VertexSourceFilename;
 	char* FragmentSourceFilename;
+	char* GeometrySourceFilename; // NOTE(hugo) : If this pointer is NULL, then the shader has to geometry stage implemented.
 };
 
 static shader_source Sources[ShaderType_Count] = 
@@ -39,6 +40,7 @@ static shader_source Sources[ShaderType_Count] =
 	{"../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl"},
 	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/fxaa_f.glsl"},
 	{"../src/shaders/fillg_v.glsl", "../src/shaders/fillg_f.glsl"},
+	//{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl", "../src/shaders/megafiller_g.glsl"},
 	{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl"},
 };
 
@@ -229,11 +231,20 @@ shader LoadShader(u32 ShaderType)
 {
 	const char* VertexPath = Sources[ShaderType].VertexSourceFilename;
 	const char* FragmentPath = Sources[ShaderType].FragmentSourceFilename;
+
+	const char* GeometryPath = Sources[ShaderType].GeometrySourceFilename;
+	bool UseGeometry = (GeometryPath != 0);
+
 	shader Result = {};
 	Result.Type = (shader_type)ShaderType;
 
 	char* VertexCode = ReadFileContent(VertexPath);
 	char* FragmentCode = ReadFileContent(FragmentPath);
+	char* GeometryCode = 0;
+	if(UseGeometry)
+	{
+		GeometryCode = ReadFileContent(GeometryPath);
+	}
 
 	GLint CompileSuccess;
 	GLchar InfoLog[512];
@@ -262,9 +273,32 @@ shader LoadShader(u32 ShaderType)
 	}
 	Free(FragmentCode);
 
+	GLuint Geometry = 0;
+	if(UseGeometry)
+	{
+		Geometry = glCreateShader(GL_GEOMETRY_SHADER);;
+		glShaderSource(Geometry, 1, &GeometryCode, 0);
+		glCompileShader(Geometry);
+		glGetShaderiv(Geometry, GL_COMPILE_STATUS, &CompileSuccess);
+		if (!CompileSuccess)
+		{
+			glGetShaderInfoLog(Geometry, 512, 0, InfoLog);
+			SDL_Log("%s\n", InfoLog);
+			InvalidCodePath;
+		}
+		Free(GeometryCode);
+	}
+
 	Result.Program = glCreateProgram();
 	glAttachShader(Result.Program, Vertex);
+
+	if(UseGeometry)
+	{
+		glAttachShader(Result.Program, Geometry);
+	}
+
 	glAttachShader(Result.Program, Fragment);
+
 	glLinkProgram(Result.Program);
 	glGetProgramiv(Result.Program, GL_LINK_STATUS, &CompileSuccess);
 	if (!CompileSuccess)
@@ -290,67 +324,3 @@ shader LoadShader(u32 ShaderType)
 
 	return(Result);
 }
-
-shader LoadShader(const char* VertexPath, const char* GeometryPath, const char* FragmentPath)
-{
-	shader Result = {};
-
-	char* VertexCode = ReadFileContent(VertexPath);
-	char* GeometryCode = ReadFileContent(FragmentPath);
-	char* FragmentCode = ReadFileContent(FragmentPath);
-
-	GLint CompileSuccess;
-	GLchar InfoLog[512];
-
-	GLuint Vertex = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(Vertex, 1, &VertexCode, 0);
-	glCompileShader(Vertex);
-	glGetShaderiv(Vertex, GL_COMPILE_STATUS, &CompileSuccess);
-	if (!CompileSuccess)
-	{
-		glGetShaderInfoLog(Vertex, 512, 0, InfoLog);
-		SDL_Log("%s\n", InfoLog);
-	}
-	Free(VertexCode);
-
-	GLuint Geometry = glCreateShader(GL_GEOMETRY_SHADER);
-	glShaderSource(Geometry, 1, &GeometryCode, 0);
-	glCompileShader(Geometry);
-	glGetShaderiv(Geometry, GL_COMPILE_STATUS, &CompileSuccess);
-	if (!CompileSuccess)
-	{
-		glGetShaderInfoLog(Geometry, 512, 0, InfoLog);
-		SDL_Log("%s\n", InfoLog);
-	}
-	Free(GeometryCode);
-
-	GLuint Fragment = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(Fragment, 1, &FragmentCode, 0);
-	glCompileShader(Fragment);
-	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &CompileSuccess);
-	if (!CompileSuccess)
-	{
-		glGetShaderInfoLog(Fragment, 512, 0, InfoLog);
-		SDL_Log("%s\n", InfoLog);
-	}
-	Free(FragmentCode);
-
-	Result.Program = glCreateProgram();
-	glAttachShader(Result.Program, Vertex);
-	glAttachShader(Result.Program, Geometry);
-	glAttachShader(Result.Program, Fragment);
-	glLinkProgram(Result.Program);
-	glGetProgramiv(Result.Program, GL_LINK_STATUS, &CompileSuccess);
-	if (!CompileSuccess)
-	{
-		glGetProgramInfoLog(Result.Program, 512, 0, InfoLog);
-		SDL_Log("%s\n", InfoLog);
-	}
-
-	glDeleteShader(Vertex);
-	glDeleteShader(Geometry);
-	glDeleteShader(Fragment);
-
-	return(Result);
-}
-
