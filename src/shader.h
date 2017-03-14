@@ -40,8 +40,8 @@ static shader_source Sources[ShaderType_Count] =
 	{"../src/shaders/basic_v.glsl", "../src/shaders/basic_f.glsl"},
 	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/fxaa_f.glsl"},
 	{"../src/shaders/fillg_v.glsl", "../src/shaders/fillg_f.glsl"},
-	//{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl", "../src/shaders/megafiller_g.glsl"},
-	{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl"},
+	{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl", "../src/shaders/megafiller_g.glsl"},
+	//{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl"},
 };
 
 static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] = 
@@ -240,6 +240,7 @@ shader LoadShader(u32 ShaderType)
 
 	char* VertexCode = ReadFileContent(VertexPath);
 	char* FragmentCode = ReadFileContent(FragmentPath);
+
 	char* GeometryCode = 0;
 	if(UseGeometry)
 	{
@@ -261,18 +262,6 @@ shader LoadShader(u32 ShaderType)
 	}
 	Free(VertexCode);
 
-	GLuint Fragment = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(Fragment, 1, &FragmentCode, 0);
-	glCompileShader(Fragment);
-	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &CompileSuccess);
-	if (!CompileSuccess)
-	{
-		glGetShaderInfoLog(Fragment, 512, 0, InfoLog);
-		SDL_Log("%s\n", InfoLog);
-		InvalidCodePath;
-	}
-	Free(FragmentCode);
-
 	GLuint Geometry = 0;
 	if(UseGeometry)
 	{
@@ -288,6 +277,18 @@ shader LoadShader(u32 ShaderType)
 		}
 		Free(GeometryCode);
 	}
+
+	GLuint Fragment = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(Fragment, 1, &FragmentCode, 0);
+	glCompileShader(Fragment);
+	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &CompileSuccess);
+	if (!CompileSuccess)
+	{
+		glGetShaderInfoLog(Fragment, 512, 0, InfoLog);
+		SDL_Log("%s\n", InfoLog);
+		InvalidCodePath;
+	}
+	Free(FragmentCode);
 
 	Result.Program = glCreateProgram();
 	glAttachShader(Result.Program, Vertex);
@@ -309,6 +310,10 @@ shader LoadShader(u32 ShaderType)
 	}
 
 	glDeleteShader(Vertex);
+	if(UseGeometry)
+	{
+		glDeleteShader(Geometry);
+	}
 	glDeleteShader(Fragment);
 
 	// NOTE(hugo) : Setting uniform location

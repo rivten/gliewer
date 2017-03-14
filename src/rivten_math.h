@@ -137,6 +137,30 @@ float Minf(float A, float B)
 	}
 }
 
+float Maxu(u32 A, u32 B)
+{
+	if(A >= B)
+	{
+		return(A);
+	}
+	else
+	{
+		return(B);
+	}
+}
+
+float Minu(u32 A, u32 B)
+{
+	if(A <= B)
+	{
+		return(A);
+	}
+	else
+	{
+		return(B);
+	}
+}
+
 float Power(float X, u32 N)
 {
 	// TODO(hugo) : This is a naive implementation of power function

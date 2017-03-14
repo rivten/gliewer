@@ -2,12 +2,15 @@
 
 layout (location = 0) out vec4 Color;
 
-in vec3 VertexNormal;
-in vec3 NormalWorldSpace;
-in vec4 FragmentPosInWorldSpace;
-in vec4 FragmentPosInLightSpace[4];
+in GS_OUT
+{
+	vec3 VertexNormal;
+	vec3 NormalWorldSpace;
+	vec4 FragmentPosInWorldSpace;
+	vec4 FragmentPosInLightSpace[4];
 
-in float IsVertexValid;
+	vec4 DEBUGColor;
+} fs_in;
 
 uniform sampler2D ShadowMaps[4];
 uniform vec3 LightPos[4];
@@ -100,14 +103,10 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 
 void main()
 {
-	if(IsVertexValid != 1.0f)
-	{
-		discard;
-	}
 	// TODO(hugo) : not used
 	//vec2 PixelCoordInPatch = floor(gl_FragCoord.xy / MicrobufferSize);
 
-	vec3 FragmentPos = (ViewMatrix * FragmentPosInWorldSpace).xyz;
+	vec3 FragmentPos = (ViewMatrix * fs_in.FragmentPosInWorldSpace).xyz;
 	vec3 ViewDir = normalize(-FragmentPos);
 
 	Color = vec4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -116,14 +115,15 @@ void main()
 		vec3 LightDir = normalize((ViewMatrix * vec4(LightPos[LightIndex], 1.0f)).xyz - FragmentPos);
 		vec3 HalfDir = normalize(ViewDir + LightDir);
 
-		float ShadowMappingBias = max(0.01f * (1.0f - dot(VertexNormal, LightDir)), 0.005f);
-		float Shadow = ShadowFactor(FragmentPosInLightSpace[LightIndex], ShadowMaps[LightIndex], ShadowMappingBias);
+		float ShadowMappingBias = max(0.01f * (1.0f - dot(fs_in.VertexNormal, LightDir)), 0.005f);
+		float Shadow = ShadowFactor(fs_in.FragmentPosInLightSpace[LightIndex], ShadowMaps[LightIndex], ShadowMappingBias);
 		vec4 BRDFLambert = DiffuseColor / Pi;
-		vec4 BRDFSpec = SpecularColor * GGXBRDF(VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
+		vec4 BRDFSpec = SpecularColor * GGXBRDF(fs_in.VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
 		vec4 Li = LightIntensity * LightColor[LightIndex];
-		Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(VertexNormal, LightDir);
+		Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(fs_in.VertexNormal, LightDir);
 	}
 
 	Color = DiffuseColor;
-	Color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	//Color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+	Color = fs_in.DEBUGColor;
 }

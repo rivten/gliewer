@@ -1,6 +1,8 @@
 static u32 GlobalMicrobufferWidth = 16;
 static u32 GlobalMicrobufferHeight = 16;
 
+static u32 MaxInstanceDrawn = 16;
+
 #define GL_CHECK Assert(!DetectErrors(""))
 
 void MegaConvolution(game_state* State,
@@ -295,6 +297,29 @@ void ComputeOnePatchOfGI(game_state* State,
 
 	u32 InstanceCount = PatchWidth * PatchHeight;
 
+	// NOTE(hugo) : Compute Viewport Array
+	// There is as many viewports as there are pixels in the patch
+	v2 ViewportSize = V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
+#if 0
+	//
+	// TODO(hugo) : If I re-use this, do not forget to turn on the Free(Viewports)
+	//
+	float* Viewports = AllocateArray(float, 4 * InstanceCount);
+
+	for(u32 Y = 0; Y < PatchHeight; ++Y)
+	{
+		for(u32 X = 0; X < PatchWidth; ++X)
+		{
+			u32 ViewportIndex = X + Y * PatchWidth;
+			v2 ViewportMin = Hadamard(ViewportSize, V2(X, Y));
+			Viewports[4 * ViewportIndex + 0] = ViewportMin.x;
+			Viewports[4 * ViewportIndex + 1] = ViewportMin.y;
+			Viewports[4 * ViewportIndex + 2] = ViewportSize.x;
+			Viewports[4 * ViewportIndex + 3] = ViewportSize.y;
+		}
+	}
+#endif
+
 	v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
 
 	mat4 MicroProjection = Perspective(Radians(45), 1.0f, 0.2f, 2.2f);
@@ -382,8 +407,42 @@ void ComputeOnePatchOfGI(game_state* State,
 						ToV4(Object->Material.DiffuseColor), "DiffuseColor");
 				Assert(!DetectErrors("SetUniform"));
 
-				DrawTriangleObjectInstances(State->RenderState, Object, InstanceCount);
-				Assert(!DetectErrors("Draw"));
+				// NOTE(hugo) : Split the draw call by patch of sixteen
+				u32 InstanceDrawnCount = 0;
+				while(InstanceDrawnCount < InstanceCount)
+				{
+					u32 DrawCount = Minu(MaxInstanceDrawn, InstanceCount - InstanceDrawnCount);
+
+#if 0
+					// TODO(hugo) : Here I recompute the viewports for each object.
+					// Maybe I could, for each viewport sets, draw all the objects... ?
+					float* FirstViewport = Viewports + 4 * InstanceDrawnCount;
+#else
+					u32 BaseTileID = InstanceDrawnCount;
+					float* FirstViewport = AllocateArray(float, 4 * DrawCount);
+					for(u32 ViewportIndex = 0; ViewportIndex < DrawCount; ++ViewportIndex)
+					{
+						u32 TileID = InstanceDrawnCount + ViewportIndex;
+						u32 TileX = TileID % PatchWidth;
+						u32 TileY = (TileID - TileX) / PatchWidth;
+
+						v2 ViewportMin = Hadamard(ViewportSize, V2(TileX, TileY));
+						FirstViewport[4 * ViewportIndex + 0] = ViewportMin.x;
+						FirstViewport[4 * ViewportIndex + 1] = ViewportMin.y;
+						FirstViewport[4 * ViewportIndex + 2] = ViewportSize.x;
+						FirstViewport[4 * ViewportIndex + 3] = ViewportSize.y;
+					}
+#endif
+
+					glViewportArrayv(0, DrawCount, FirstViewport);
+					GL_CHECK;
+					DrawTriangleObjectInstances(State->RenderState, Object, DrawCount);
+					Assert(!DetectErrors("Draw"));
+
+					Free(FirstViewport);
+
+					InstanceDrawnCount += DrawCount;
+				}
 			}
 		}
 	}
@@ -429,6 +488,7 @@ void ComputeOnePatchOfGI(game_state* State,
 		SDL_GL_SwapWindow(GlobalWindow);
 	}
 
+	//Free(Viewports);
 }
 
 void ComputeGlobalIlluminationWithPatch(game_state* State, 

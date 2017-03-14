@@ -28,12 +28,18 @@ uniform mat4 NormalMatrix;
 uniform int LightCount;
 uniform mat4 LightSpaceMatrix[4];
 
-out vec3 VertexNormal;
-out vec3 NormalWorldSpace;
-out vec4 FragmentPosInWorldSpace;
-out vec4 FragmentPosInLightSpace[4];
+// NOTE(hugo) : This goes to the geometry shader
+out VS_OUT
+{
+	int ViewportIndex;
 
-out float IsVertexValid;
+	vec3 VertexNormal;
+	vec3 NormalWorldSpace;
+	vec4 FragmentPosInWorldSpace;
+	vec4 FragmentPosInLightSpace[4];
+
+	vec4 DEBUGColor;
+} vs_out;
 
 
 // NOTE(hugo) : These functions helper are 
@@ -139,12 +145,13 @@ mat4 GetLookAt(vec3 Eye, vec3 Target, vec3 Up)
 
 void main()
 {
+	vs_out.ViewportIndex = gl_InstanceID;
 	//
 	// NOTE(hugo) : Computing micro view matrix
 	// {
 	//
 
-	// TODO(hugo) : Does not work for non-square patches. 
+	// TODO(hugo) : Dhhes not work for non-square patches. 
 	// We should use PatchWidth and PatchHeight here
 	float X = mod(gl_InstanceID, PatchSizeInPixels);
 	float Y = floor(float(gl_InstanceID) / float(PatchSizeInPixels));
@@ -177,7 +184,8 @@ void main()
 		cross(Normal, WorldUp) * WhenEquals(FaceIndex, 2) +
 		cross(Normal, cross(Normal, WorldUp)) * WhenEquals(FaceIndex, 3) -
 		cross(Normal, cross(Normal, WorldUp)) * WhenEquals(FaceIndex, 4);
-	vec3 MicroUp = WorldUp * WhenEquals(FaceIndex, 0) + Normal * Not(WhenEquals(FaceIndex, 0));
+	float IsFaceZero = WhenEquals(FaceIndex, 0);
+	vec3 MicroUp = WorldUp * IsFaceZero + Normal * Not(IsFaceZero);
 
 	vec3 MicroTarget = MicroEye + LookDir;
 
@@ -188,30 +196,15 @@ void main()
 
 	mat4 MicroMVP = MicroProjection * MicroView * ObjectMatrix;
 
-	vec4 NDCPosition = MicroMVP * vec4(Position, 1.0f);
-	NDCPosition = NDCPosition / NDCPosition.w;
-	//NDCPosition.w = 1.0f;
+	gl_Position = MicroMVP * vec4(Position, 1.0f);
 
-	float ShouldBeClipped = Or(Or(
-			Or(WhenGreaterOrEqual(NDCPosition.x, 1.0f), WhenLesserOrEqual(NDCPosition.x, -1.0f)),
-			Or(WhenGreaterOrEqual(NDCPosition.y, 1.0f), WhenLesserOrEqual(NDCPosition.y, -1.0f))),
-			Or(WhenGreaterOrEqual(NDCPosition.z, 1.0f), WhenLesserOrEqual(NDCPosition.z, -1.0f)));
-
-	IsVertexValid = Not(ShouldBeClipped);
-
-	float Scaling = (2.0f / float(PatchSizeInPixels));
-
-	NDCPosition.xy *= Scaling;
-	NDCPosition.xy -= (1.0f - Scaling) * vec2(1.0f, 1.0f);
-	NDCPosition.xy += PixelCoordInPatch * Scaling;
-
-	gl_Position = NDCPosition;
-
-	NormalWorldSpace = Normal;
-	VertexNormal = normalize((NormalMatrix * vec4(Normal, 1.0f)).xyz);
-	FragmentPosInWorldSpace = ObjectMatrix * vec4(Position, 1.0f);
+	vs_out.NormalWorldSpace = Normal;
+	vs_out.VertexNormal = normalize((NormalMatrix * vec4(Normal, 1.0f)).xyz);
+	vs_out.FragmentPosInWorldSpace = ObjectMatrix * vec4(Position, 1.0f);
 	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
 	{
-		FragmentPosInLightSpace[LightIndex] = LightSpaceMatrix[LightIndex] * FragmentPosInWorldSpace;
+		vs_out.FragmentPosInLightSpace[LightIndex] = LightSpaceMatrix[LightIndex] * vs_out.FragmentPosInWorldSpace;
 	}
+
+	vs_out.DEBUGColor = vec4(gl_InstanceID / 255.0f, 0.0f, 0.0f, 1.0f);
 }

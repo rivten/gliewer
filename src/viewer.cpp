@@ -1147,5 +1147,5 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	ImGui::PlotLines("FPS", &DEBUGCounters[0], ArrayCount(DEBUGCounters));
 	ImGui::PlotLines("OpenGL Stage Changes", &DEBUGRenderStateChangeCounters[0], ArrayCount(DEBUGRenderStateChangeCounters));
 
-	ImGui::ShowTestWindow();
+	//ImGui::ShowTestWindow();
 }
