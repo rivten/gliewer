@@ -34,11 +34,8 @@ out VS_OUT
 	int ViewportIndex;
 
 	vec3 VertexNormal;
-	vec3 NormalWorldSpace;
 	vec4 FragmentPosInWorldSpace;
 	vec4 FragmentPosInLightSpace[4];
-
-	vec4 DEBUGColor;
 } vs_out;
 
 
@@ -179,13 +176,36 @@ void main()
 	vec3 MicroEye = UnprojectedPixelWorldSpace.xyz / 
 		UnprojectedPixelWorldSpace.w;
 
-	vec3 LookDir = Normal * WhenEquals(FaceIndex, 0) +
-		cross(Normal, WorldUp) * WhenEquals(FaceIndex, 1) -
-		cross(Normal, WorldUp) * WhenEquals(FaceIndex, 2) +
-		cross(Normal, cross(Normal, WorldUp)) * WhenEquals(FaceIndex, 3) -
-		cross(Normal, cross(Normal, WorldUp)) * WhenEquals(FaceIndex, 4);
-	float IsFaceZero = WhenEquals(FaceIndex, 0);
-	vec3 MicroUp = WorldUp * IsFaceZero + Normal * Not(IsFaceZero);
+	//vec3 LookDir = Normal * WhenEquals(FaceIndex, 0) +
+	//	cross(Normal, WorldUp) * WhenEquals(FaceIndex, 1) -
+	//	cross(Normal, WorldUp) * WhenEquals(FaceIndex, 2) +
+	//	cross(Normal, cross(Normal, WorldUp)) * WhenEquals(FaceIndex, 3) -
+	//	cross(Normal, cross(Normal, WorldUp)) * WhenEquals(FaceIndex, 4);
+	vec3 LookDir = Normal;
+	if(FaceIndex == 1)
+	{
+		LookDir = cross(Normal, WorldUp);
+	}
+	else if(FaceIndex == 2)
+	{
+		LookDir = - cross(Normal, WorldUp);
+	}
+	else if(FaceIndex == 3)
+	{
+		LookDir = cross(Normal, cross(Normal, WorldUp));
+	}
+	else if(FaceIndex == 4)
+	{
+		LookDir = - cross(Normal, cross(Normal, WorldUp));
+	}
+
+	//float IsFaceZero = WhenEquals(FaceIndex, 0);
+	//vec3 MicroUp = WorldUp * IsFaceZero + Normal * Not(IsFaceZero);
+	vec3 MicroUp = WorldUp;
+	if(FaceIndex != 0)
+	{
+		MicroUp = Normal;
+	}
 
 	vec3 MicroTarget = MicroEye + LookDir;
 
@@ -198,13 +218,10 @@ void main()
 
 	gl_Position = MicroMVP * vec4(Position, 1.0f);
 
-	vs_out.NormalWorldSpace = Normal;
 	vs_out.VertexNormal = normalize((NormalMatrix * vec4(Normal, 1.0f)).xyz);
 	vs_out.FragmentPosInWorldSpace = ObjectMatrix * vec4(Position, 1.0f);
 	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
 	{
 		vs_out.FragmentPosInLightSpace[LightIndex] = LightSpaceMatrix[LightIndex] * vs_out.FragmentPosInWorldSpace;
 	}
-
-	vs_out.DEBUGColor = vec4(gl_InstanceID / 255.0f, 0.0f, 0.0f, 1.0f);
 }

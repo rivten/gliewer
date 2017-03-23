@@ -5,11 +5,8 @@ layout (location = 0) out vec4 Color;
 in GS_OUT
 {
 	vec3 VertexNormal;
-	vec3 NormalWorldSpace;
 	vec4 FragmentPosInWorldSpace;
 	vec4 FragmentPosInLightSpace[4];
-
-	vec4 DEBUGColor;
 } fs_in;
 
 uniform sampler2D ShadowMaps[4];
@@ -109,7 +106,7 @@ void main()
 	vec3 FragmentPos = (ViewMatrix * fs_in.FragmentPosInWorldSpace).xyz;
 	vec3 ViewDir = normalize(-FragmentPos);
 
-	Color = vec4(0.0f, 0.0f, 0.0f, 0.0f);
+	Color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
 	{
 		vec3 LightDir = normalize((ViewMatrix * vec4(LightPos[LightIndex], 1.0f)).xyz - FragmentPos);
@@ -122,8 +119,4 @@ void main()
 		vec4 Li = LightIntensity * LightColor[LightIndex];
 		Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(fs_in.VertexNormal, LightDir);
 	}
-
-	Color = DiffuseColor;
-	//Color = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-	Color = fs_in.DEBUGColor;
 }

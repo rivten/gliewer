@@ -354,6 +354,8 @@ void ComputeOnePatchOfGI(game_state* State,
 	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->CookTorranceF0, "CTF0");
 	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Ks, "Ks");
 	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Kd, "Kd");
+	mat4 ViewMatrix = LookAt(State->Camera);
+	SetUniform(State->Shaders[ShaderType_FillMegaTexture], ViewMatrix, "ViewMatrix");
 	//SetUniform(State->Shaders[ShaderType_FillMegaTexture], MicrobufferSize, "MicrobufferSize");
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
@@ -392,6 +394,7 @@ void ComputeOnePatchOfGI(game_state* State,
 		SetViewport(State->RenderState, MegaViewport);
 		Assert(!DetectErrors("SetViewport"));
 		BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->MegaBuffers[FaceIndex].ID);
+		ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
 		Assert(!DetectErrors("BindFramebuffer"));
 		//ClearColorAndDepth(State->RenderState, V4(1.0f, 0.0f, 0.5f, 1.0f));
 		for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
@@ -458,6 +461,7 @@ void ComputeOnePatchOfGI(game_state* State,
 	SDL_GL_SwapWindow(GlobalWindow);
 #endif
 
+	//if(SaveFirstMegaTexture && (PatchX == 3) && (PatchY == 3))
 	if(SaveFirstMegaTexture && (PatchX == 0) && (PatchY == 0))
 	{
 		for(u32 FaceIndex = 0; FaceIndex < ArrayCount(State->MegaBuffers); ++FaceIndex)

@@ -675,7 +675,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->Kd = 0.2f;
 
 		State->UseInstancing = true;
-		State->SaveFirstMegaTexture = false;
+		State->SaveFirstMegaTexture = true;
 
 		// NOTE(hugo) : Initializing Quad data 
 		// {
