@@ -27,7 +27,8 @@ out GS_OUT
 
 void main()
 {
-	for(int VertexIndex = 0; VertexIndex < gl_in.length(); ++VertexIndex)
+	int InLength = gl_in.length();
+	for(int VertexIndex = 0; VertexIndex < InLength; ++VertexIndex)
 	{
 		gl_ViewportIndex = gs_in[VertexIndex].ViewportIndex;
 		gl_Position = gl_in[VertexIndex].gl_Position;

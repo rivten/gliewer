@@ -167,10 +167,10 @@ void main()
 	vec2 UV = PixelCoordInWindow * WindowSizeToUV;
 
 	float Depth = texture(DepthMap, UV).r;
-	vec3 Normal = texture(NormalMap, UV).xyz;
+	vec3 PatchNormal = texture(NormalMap, UV).xyz;
 	
 	Depth = UnlinearizeDepth(Depth, CameraNearPlane, CameraFarPlane);
-	Normal = normalize(2.0f * Normal - vec3(1.0f, 1.0f, 1.0f));
+	PatchNormal = normalize(2.0f * PatchNormal - vec3(1.0f, 1.0f, 1.0f));
 
 	vec4 UnprojectedPixelWorldSpace = UnprojectPixel(Depth,
 			PixelCoordInWindow.x, PixelCoordInWindow.y,
@@ -181,35 +181,35 @@ void main()
 	vec3 MicroEye = UnprojectedPixelWorldSpace.xyz / 
 		UnprojectedPixelWorldSpace.w;
 
-	//vec3 LookDir = Normal * WhenEquals(FaceIndex, 0) +
-	//	cross(Normal, WorldUp) * WhenEquals(FaceIndex, 1) -
-	//	cross(Normal, WorldUp) * WhenEquals(FaceIndex, 2) +
-	//	cross(Normal, cross(Normal, WorldUp)) * WhenEquals(FaceIndex, 3) -
-	//	cross(Normal, cross(Normal, WorldUp)) * WhenEquals(FaceIndex, 4);
-	vec3 LookDir = Normal;
+	//vec3 LookDir = PatchNormal * WhenEquals(FaceIndex, 0) +
+	//	cross(PatchNormal, WorldUp) * WhenEquals(FaceIndex, 1) -
+	//	cross(PatchNormal, WorldUp) * WhenEquals(FaceIndex, 2) +
+	//	cross(PatchNormal, cross(PatchNormal, WorldUp)) * WhenEquals(FaceIndex, 3) -
+	//	cross(PatchNormal, cross(PatchNormal, WorldUp)) * WhenEquals(FaceIndex, 4);
+	vec3 LookDir = PatchNormal;
 	if(FaceIndex == 1)
 	{
-		LookDir = cross(Normal, WorldUp);
+		LookDir = cross(PatchNormal, WorldUp);
 	}
 	else if(FaceIndex == 2)
 	{
-		LookDir = - cross(Normal, WorldUp);
+		LookDir = - cross(PatchNormal, WorldUp);
 	}
 	else if(FaceIndex == 3)
 	{
-		LookDir = cross(Normal, cross(Normal, WorldUp));
+		LookDir = cross(PatchNormal, cross(PatchNormal, WorldUp));
 	}
 	else if(FaceIndex == 4)
 	{
-		LookDir = - cross(Normal, cross(Normal, WorldUp));
+		LookDir = - cross(PatchNormal, cross(PatchNormal, WorldUp));
 	}
 
 	//float IsFaceZero = WhenEquals(FaceIndex, 0);
-	//vec3 MicroUp = WorldUp * IsFaceZero + Normal * Not(IsFaceZero);
+	//vec3 MicroUp = WorldUp * IsFaceZero + PatchNormal * Not(IsFaceZero);
 	vec3 MicroUp = WorldUp;
 	if(FaceIndex != 0)
 	{
-		MicroUp = Normal;
+		MicroUp = PatchNormal;
 	}
 
 	vec3 MicroTarget = MicroEye + LookDir;

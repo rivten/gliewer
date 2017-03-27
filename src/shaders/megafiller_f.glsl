@@ -119,4 +119,5 @@ void main()
 		vec4 Li = LightIntensity * LightColor[LightIndex];
 		Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(fs_in.VertexNormal, LightDir);
 	}
+	Color.w = 1.0f;
 }
