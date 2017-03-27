@@ -199,6 +199,7 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"LightSpaceMatrix[1]",
 		"LightSpaceMatrix[2]",
 		"LightSpaceMatrix[3]",
+		"BaseTileID",
 
 
 		"ShadowMaps[0]",

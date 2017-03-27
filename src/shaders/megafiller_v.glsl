@@ -28,6 +28,8 @@ uniform mat4 NormalMatrix;
 uniform int LightCount;
 uniform mat4 LightSpaceMatrix[4];
 
+uniform int BaseTileID;
+
 // NOTE(hugo) : This goes to the geometry shader
 out VS_OUT
 {
@@ -150,8 +152,11 @@ void main()
 
 	// TODO(hugo) : Dhhes not work for non-square patches. 
 	// We should use PatchWidth and PatchHeight here
-	float X = mod(gl_InstanceID, PatchSizeInPixels);
-	float Y = floor(float(gl_InstanceID) / float(PatchSizeInPixels));
+	// TODO(hugo) : This computation is already done in
+	// the CPU. Just pass the result as uniform
+	int RealInstanceID = gl_InstanceID + BaseTileID;
+	float X = mod(RealInstanceID, PatchSizeInPixels);
+	float Y = floor(float(RealInstanceID) / float(PatchSizeInPixels));
 	vec2 PixelCoordInPatch = vec2(X, Y);
 
 	vec2 PixelCoordInWindow = PixelCoordInPatch + 

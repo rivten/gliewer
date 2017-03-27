@@ -436,6 +436,9 @@ void ComputeOnePatchOfGI(game_state* State,
 						FirstViewport[4 * ViewportIndex + 3] = ViewportSize.y;
 					}
 #endif
+					SetUniform(State->Shaders[ShaderType_FillMegaTexture],
+							BaseTileID, "BaseTileID");
+					GL_CHECK;
 
 					glViewportArrayv(0, DrawCount, FirstViewport);
 					GL_CHECK;
