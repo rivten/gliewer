@@ -100,9 +100,6 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 
 void main()
 {
-	// TODO(hugo) : not used
-	//vec2 PixelCoordInPatch = floor(gl_FragCoord.xy / MicrobufferSize);
-
 	vec3 FragmentPos = (ViewMatrix * fs_in.FragmentPosInWorldSpace).xyz;
 	vec3 ViewDir = normalize(-FragmentPos);
 

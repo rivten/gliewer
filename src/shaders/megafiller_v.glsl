@@ -181,36 +181,14 @@ void main()
 	vec3 MicroEye = UnprojectedPixelWorldSpace.xyz / 
 		UnprojectedPixelWorldSpace.w;
 
-	//vec3 LookDir = PatchNormal * WhenEquals(FaceIndex, 0) +
-	//	cross(PatchNormal, WorldUp) * WhenEquals(FaceIndex, 1) -
-	//	cross(PatchNormal, WorldUp) * WhenEquals(FaceIndex, 2) +
-	//	cross(PatchNormal, cross(PatchNormal, WorldUp)) * WhenEquals(FaceIndex, 3) -
-	//	cross(PatchNormal, cross(PatchNormal, WorldUp)) * WhenEquals(FaceIndex, 4);
-	vec3 LookDir = PatchNormal;
-	if(FaceIndex == 1)
-	{
-		LookDir = cross(PatchNormal, WorldUp);
-	}
-	else if(FaceIndex == 2)
-	{
-		LookDir = - cross(PatchNormal, WorldUp);
-	}
-	else if(FaceIndex == 3)
-	{
-		LookDir = cross(PatchNormal, cross(PatchNormal, WorldUp));
-	}
-	else if(FaceIndex == 4)
-	{
-		LookDir = - cross(PatchNormal, cross(PatchNormal, WorldUp));
-	}
+	vec3 LookDir = PatchNormal * WhenEquals(FaceIndex, 0) +
+		cross(PatchNormal, WorldUp) * WhenEquals(FaceIndex, 1) -
+		cross(PatchNormal, WorldUp) * WhenEquals(FaceIndex, 2) +
+		cross(PatchNormal, cross(PatchNormal, WorldUp)) * WhenEquals(FaceIndex, 3) -
+		cross(PatchNormal, cross(PatchNormal, WorldUp)) * WhenEquals(FaceIndex, 4);
 
-	//float IsFaceZero = WhenEquals(FaceIndex, 0);
-	//vec3 MicroUp = WorldUp * IsFaceZero + PatchNormal * Not(IsFaceZero);
-	vec3 MicroUp = WorldUp;
-	if(FaceIndex != 0)
-	{
-		MicroUp = PatchNormal;
-	}
+	float IsFaceZero = WhenEquals(FaceIndex, 0);
+	vec3 MicroUp = WorldUp * IsFaceZero + PatchNormal * Not(IsFaceZero);
 
 	vec3 MicroTarget = MicroEye + LookDir;
 
