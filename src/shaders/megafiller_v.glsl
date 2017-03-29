@@ -20,6 +20,8 @@ uniform float CameraFarPlane;
 uniform float CameraFoV;
 uniform float CameraAspect;
 
+uniform vec3 LightPos[4];
+
 uniform mat4 InvLookAtCamera;
 
 uniform int FaceIndex; // NOTE(hugo) : this uniform tells us which face of the hemicube we are considering
@@ -27,6 +29,7 @@ uniform int FaceIndex; // NOTE(hugo) : this uniform tells us which face of the h
 uniform mat4 NormalMatrix;
 uniform int LightCount;
 uniform mat4 LightSpaceMatrix[4];
+uniform mat4 ViewMatrix;
 
 uniform int BaseTileID;
 
@@ -36,8 +39,11 @@ out VS_OUT
 	int ViewportIndex;
 
 	vec3 VertexNormal;
-	vec4 FragmentPosInWorldSpace;
 	vec4 FragmentPosInLightSpace[4];
+	vec3 ViewDir;
+	vec3 FragmentPos;
+	vec3 LightDir[4];
+	vec3 HalfDir[4];
 } vs_out;
 
 
@@ -202,9 +208,13 @@ void main()
 	gl_Position = MicroMVP * vec4(Position, 1.0f);
 
 	vs_out.VertexNormal = normalize((NormalMatrix * vec4(Normal, 1.0f)).xyz);
-	vs_out.FragmentPosInWorldSpace = ObjectMatrix * vec4(Position, 1.0f);
+	vec4 FragmentPosInWorldSpace = ObjectMatrix * vec4(Position, 1.0f);
+	vs_out.FragmentPos = (ViewMatrix * FragmentPosInWorldSpace).xyz;
+	vs_out.ViewDir = normalize(-vs_out.FragmentPos);
 	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
 	{
-		vs_out.FragmentPosInLightSpace[LightIndex] = LightSpaceMatrix[LightIndex] * vs_out.FragmentPosInWorldSpace;
+		vs_out.FragmentPosInLightSpace[LightIndex] = LightSpaceMatrix[LightIndex] * FragmentPosInWorldSpace;
+		vs_out.LightDir[LightIndex] = normalize((ViewMatrix * vec4(LightPos[LightIndex], 1.0f)).xyz - vs_out.FragmentPos);
+		vs_out.HalfDir[LightIndex] = normalize(vs_out.ViewDir[LightIndex] + vs_out.LightDir[LightIndex]);
 	}
 }

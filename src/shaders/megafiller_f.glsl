@@ -5,12 +5,14 @@ layout (location = 0) out vec4 Color;
 in GS_OUT
 {
 	vec3 VertexNormal;
-	vec4 FragmentPosInWorldSpace;
 	vec4 FragmentPosInLightSpace[4];
+	vec3 FragmentPos;
+	vec3 ViewDir;
+	vec3 LightDir[4];
+	vec3 HalfDir[4];
 } fs_in;
 
 uniform sampler2D ShadowMaps[4];
-uniform vec3 LightPos[4];
 uniform vec4 LightColor[4];
 uniform int LightCount;
 uniform mat4 ViewMatrix;
@@ -100,14 +102,14 @@ float GGXBRDF(vec3 Normal, vec3 LightDir, vec3 HalfDir, vec3 ViewDir, float Alph
 
 void main()
 {
-	vec3 FragmentPos = (ViewMatrix * fs_in.FragmentPosInWorldSpace).xyz;
-	vec3 ViewDir = normalize(-FragmentPos);
+	vec3 FragmentPos = fs_in.FragmentPos;
+	vec3 ViewDir = fs_in.ViewDir;
 
 	Color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
 	{
-		vec3 LightDir = normalize((ViewMatrix * vec4(LightPos[LightIndex], 1.0f)).xyz - FragmentPos);
-		vec3 HalfDir = normalize(ViewDir + LightDir);
+		vec3 LightDir = fs_in.LightDir[LightIndex];
+		vec3 HalfDir = fs_in.HalfDir[LightIndex];
 
 		float ShadowMappingBias = max(0.01f * (1.0f - dot(fs_in.VertexNormal, LightDir)), 0.005f);
 		float Shadow = ShadowFactor(fs_in.FragmentPosInLightSpace[LightIndex], ShadowMaps[LightIndex], ShadowMappingBias);
