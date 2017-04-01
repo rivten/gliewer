@@ -1,5 +1,5 @@
-static u32 GlobalMicrobufferWidth = 32;
-static u32 GlobalMicrobufferHeight = 32;
+static u32 GlobalMicrobufferWidth = 64;
+static u32 GlobalMicrobufferHeight = 64;
 
 static u32 MaxInstanceDrawn = 16;
 

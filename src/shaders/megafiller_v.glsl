@@ -43,62 +43,6 @@ out VS_OUT
 	vec3 HalfDir[4];
 } vs_out;
 
-
-// NOTE(hugo) : These functions helper are 
-// here to avoid branching which is _very_ costly
-// in shaders. These are inspired by
-// http://theorangeduck.com/page/avoiding-shader-conditionals
-// {
-
-float WhenEquals(float A, float B)
-{
-	return(1.0f - abs(sign(A - B)));
-}
-
-float WhenNotEquals(float A, float B)
-{
-	return(abs(sign(A - B)));
-}
-
-float WhenGreaterThan(float A, float B)
-{
-	return(max(sign(A - B), 0.0f));
-}
-
-float WhenLesserThan(float A, float B)
-{
-	return(max(sign(B - A), 0.0f));
-}
-
-float WhenGreaterOrEqual(float A, float B)
-{
-	return(1.0f - WhenLesserThan(A, B));
-}
-
-float WhenLesserOrEqual(float A, float B)
-{
-	return(1.0f - WhenGreaterThan(A, B));
-}
-
-float And(float A, float B)
-{
-	return(A * B);
-}
-
-float Or(float A, float B)
-{
-	return(min(A + B, 1.0f));
-}
-
-float Not(float A)
-{
-	return(1.0f - A);
-}
-
-//
-// }
-//
-
 float UnlinearizeDepth(float Depth, float NearPlane, float FarPlane)
 {
 	float Result = 2.0f * Depth - 1.0f;
@@ -192,7 +136,6 @@ void main()
 	// }
 	//
 
-	// TODO(hugo): Apply paraboloid proj
 	vec4 ViewPosition = MicroView * ObjectMatrix * vec4(Position, 1.0f);
 	ViewPosition = normalize(ViewPosition);
 	float Z = -ViewPosition.z;

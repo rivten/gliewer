@@ -134,7 +134,6 @@ void main()
 {
 	// NOTE(hugo) : These coords are from the LOWER-LEFT corner
 	vec2 ScreenSize = vec2(WindowWidth, WindowHeight);
-	//vec2 FragCoord = gl_FragCoord.xy + 1.0f * vec2(0.5f, 0.5f);
 	vec2 FragCoord = gl_FragCoord.xy - vec2(0.5f, 0.5f);
 	vec2 ScreenUV = FragCoord / ScreenSize;
 	vec2 PixelCoordInPatch = FragCoord - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
@@ -223,7 +222,6 @@ void main()
 					float DistanceMicroCameraPixelSqr = LengthSqr(FragmentWorldPos - MicroPixelWorldPos);
 					float SolidAngle = dot(Wi, MicroCameraLookingDir) * (PixelSurfaceInMeters / DistanceMicroCameraPixelSqr);
 					float BRDF = GGXBRDF(Normal, Wi, H, NormalDotWo, Alpha, CookTorranceF0);
-					// TODO(hugo) : Check earlier if Albedo.rgb == 0
 					Color += BRDF * DotClamp(Normal, Wi) * SolidAngle * Albedo * SampleColor;
 				}
 			}
