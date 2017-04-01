@@ -87,11 +87,7 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 	// NOTE(hugo) : ShaderType_BRDFConvolutional
 	{
 		// NOTE(hugo) : Fragment shader
-		"MegaTextures[0]",
-		"MegaTextures[1]",
-		"MegaTextures[2]",
-		"MegaTextures[3]",
-		"MegaTextures[4]",
+		"MegaTexture",
 		"DepthMap",
 		"NormalMap",
 		"AlbedoMap",
@@ -105,7 +101,6 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"PixelSurfaceInMeters",
 		"Alpha",
 		"CookTorranceF0",
-		"MicroCameraNearPlane",
 		"WorldUp",
 		"MainCameraAspect",
 		"MainCameraFoV",
@@ -184,7 +179,6 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"PatchX",
 		"PatchY",
 		"PatchSizeInPixels",
-		"MicroProjection",
 		"ObjectMatrix",
 		"WorldUp",
 		"CameraNearPlane",
@@ -192,7 +186,6 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"CameraFoV",
 		"CameraAspect",
 		"InvLookAtCamera",
-		"FaceIndex",
 		"NormalMatrix",
 		"LightCount",
 		"LightSpaceMatrix[0]",
@@ -200,7 +193,6 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"LightSpaceMatrix[2]",
 		"LightSpaceMatrix[3]",
 		"BaseTileID",
-
 
 		"ShadowMaps[0]",
 		"ShadowMaps[1]",
@@ -222,7 +214,6 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"CTF0",
 		"Ks",
 		"Kd",
-		//"MicrobufferSize",
 	},
 };
 

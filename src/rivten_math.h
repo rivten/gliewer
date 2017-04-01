@@ -1031,6 +1031,11 @@ mat4 Rotation(float Angle, v3 Axis)
     return(Result);
 }
 
+// NOTE(hugo).
+// A projection matrix (such that perspective or orthogonal)
+// send a vector (x, y, z) in [-1, 1]^3 if we consider that the division
+// by w has happened (it will after the vertex shader).
+
 // NOTE(hugo) : FoV is assumed to be given in radians
 mat4 Perspective(float FoV, float Aspect, float NearPlane, float FarPlane)
 {

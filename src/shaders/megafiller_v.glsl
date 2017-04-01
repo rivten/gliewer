@@ -11,7 +11,6 @@ uniform int PatchX;
 uniform int PatchY;
 uniform int PatchSizeInPixels;
 
-uniform mat4 MicroProjection;
 uniform mat4 ObjectMatrix;
 uniform vec3 WorldUp;
 
@@ -23,8 +22,6 @@ uniform float CameraAspect;
 uniform vec3 LightPos[4];
 
 uniform mat4 InvLookAtCamera;
-
-uniform int FaceIndex; // NOTE(hugo) : this uniform tells us which face of the hemicube we are considering
 
 uniform mat4 NormalMatrix;
 uniform int LightCount;
@@ -187,25 +184,25 @@ void main()
 	vec3 MicroEye = UnprojectedPixelWorldSpace.xyz / 
 		UnprojectedPixelWorldSpace.w;
 
-	vec3 NormalLeft = cross(PatchNormal, WorldUp);
-	vec3 NormalDown = cross(PatchNormal, NormalLeft);
-	vec3 LookDir = PatchNormal * WhenEquals(FaceIndex, 0) +
-		NormalLeft * WhenEquals(FaceIndex, 1) - NormalLeft * WhenEquals(FaceIndex, 2) +
-		NormalDown * WhenEquals(FaceIndex, 3) - NormalDown * WhenEquals(FaceIndex, 4);
-
-	float IsFaceZero = WhenEquals(FaceIndex, 0);
-	vec3 MicroUp = WorldUp * IsFaceZero + PatchNormal * Not(IsFaceZero);
-
-	vec3 MicroTarget = MicroEye + LookDir;
+	vec3 MicroUp = WorldUp;
+	vec3 MicroTarget = MicroEye + PatchNormal;
 
 	mat4 MicroView = GetLookAt(MicroEye, MicroTarget, MicroUp);
 	//
 	// }
 	//
 
-	mat4 MicroMVP = MicroProjection * MicroView * ObjectMatrix;
+	// TODO(hugo): Apply paraboloid proj
+	vec4 ViewPosition = MicroView * ObjectMatrix * vec4(Position, 1.0f);
+	ViewPosition = normalize(ViewPosition);
+	float Z = -ViewPosition.z;
+	float ZPlusOne = Z + 1.0f;
+	vec4 ParaboloidPosition = ViewPosition;
+	ParaboloidPosition.xy = ParaboloidPosition.xy / ZPlusOne;
+	ParaboloidPosition.z = (Z / CameraFarPlane) * 2.0f - 1.0f;
+	ParaboloidPosition.w = 1.0f;
 
-	gl_Position = MicroMVP * vec4(Position, 1.0f);
+	gl_Position = ParaboloidPosition;
 
 	vs_out.VertexNormal = normalize((NormalMatrix * vec4(Normal, 1.0f)).xyz);
 	vec4 FragmentPosInWorldSpace = ObjectMatrix * vec4(Position, 1.0f);
