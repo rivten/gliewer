@@ -504,7 +504,7 @@ u32 GetUniformLocation(shader Shader, char* VariableName)
 	for(u32 UniformIndex = 0; !Found && (UniformIndex < ArrayCount(Uniforms[ShaderType])); ++UniformIndex)
 	{
 		char* UniformName = Uniforms[ShaderType][UniformIndex];
-		if(UniformName && AreStringIdentical(VariableName, UniformName))
+		if(UniformName && StringMatch(VariableName, UniformName))
 		{
 			Result = Shader.Locations[UniformIndex];
 			Found = true;
@@ -905,13 +905,13 @@ void PushTexture(render_state* RenderState, texture Texture)
 bool TextureExists(render_state* RenderState, char* TextureName, u32* Location)
 {
 	Assert(TextureName);
-	Assert(!IsEmptyString(TextureName));
+	Assert(!StringEmpty(TextureName));
 
 	bool Found = false;
 	for(u32 TextureIndex = 0; (!Found) && (TextureIndex < RenderState->TextureCount); ++TextureIndex)
 	{
 		texture* Texture = RenderState->Textures + TextureIndex;
-		if(AreStringIdentical(Texture->Name, TextureName))
+		if(StringMatch(Texture->Name, TextureName))
 		{
 			Found = true;
 			if(Location)

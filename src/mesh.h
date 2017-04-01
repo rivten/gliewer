@@ -364,7 +364,7 @@ std::vector<object> LoadOBJ(render_state* RenderState, const std::string BaseDir
 			Object.Material.SpecularComponent = ObjectMaterial.shininess;
 			
 			char* DiffuseTexName = (char*) ObjectMaterial.diffuse_texname.c_str();
-			if(!IsEmptyString(DiffuseTexName))
+			if(!StringEmpty(DiffuseTexName))
 			{
 				Object.Material.UseTextureMapping = true;
 				u32 TextureLocation = 0;
@@ -384,7 +384,7 @@ std::vector<object> LoadOBJ(render_state* RenderState, const std::string BaseDir
 			}
 
 			char* NormalTexName = (char*) ObjectMaterial.bump_texname.c_str();
-			if(!IsEmptyString(NormalTexName))
+			if(!StringEmpty(NormalTexName))
 			{
 				Object.Material.UseNormalMapping = false;
 				u32 NormalMapLocation = 0;

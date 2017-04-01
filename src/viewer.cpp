@@ -1101,7 +1101,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		{
 			object* Object = State->Objects + ObjectIndex;
 			char Buffer[64];
-			if(IsEmptyString(Object->Name))
+			if(StringEmpty(Object->Name))
 			{
 				sprintf(Buffer, "Object #%i", ObjectIndex);
 			}
@@ -1111,7 +1111,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 			}
 			if(ImGui::TreeNode(Buffer))
 			{
-				if(!IsEmptyString(Object->Name))
+				if(!StringEmpty(Object->Name))
 				{
 					ImGui::Text("Name: %s", Object->Name);
 				}
@@ -1123,7 +1123,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 				ImGui::Checkbox("Is Frustum Culled", &Object->IsFrustumCulled);
 				if(ImGui::TreeNode("Material"))
 				{
-					if(!IsEmptyString(Object->Material.Name))
+					if(!StringEmpty(Object->Material.Name))
 					{
 						ImGui::Text("Name: %s", Object->Material.Name);
 					}

@@ -312,7 +312,7 @@ shader LoadShader(u32 ShaderType)
 	for(u32 UniformIndex = 0; UniformIndex < ArrayCount(Uniforms[ShaderType]); ++UniformIndex)
 	{
 		char* UniformName = Uniforms[ShaderType][UniformIndex];
-		if(UniformName && (!IsEmptyString(UniformName)))
+		if(UniformName && (!StringEmpty(UniformName)))
 		{
 			Result.Locations[UniformIndex] = glGetUniformLocation(Result.Program, UniformName);
 			Assert(Result.Locations[UniformIndex] != -1);
