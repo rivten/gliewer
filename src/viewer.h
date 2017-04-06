@@ -204,5 +204,3 @@ struct game_state
 	rect3 FrustumBoundingBox;
 };
 
-#include "viewer.cpp"
-

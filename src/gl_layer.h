@@ -621,54 +621,6 @@ depth_framebuffer CreateDepthFramebuffer(render_state* State, int BufferWidth, i
 	return(Result);
 }
 
-#if 0
-struct screen_normal_framebuffer
-{
-	u32 ID;
-	u32 ScreenTexture;
-	u32 NormalTexture;
-	u32 RBO;
-};
-
-screen_normal_framebuffer CreateScreenNormalFramebuffer(int BufferWidth, int BufferHeight)
-{
-	screen_normal_framebuffer Result = {};
-	glGenFramebuffers(1, &Result.ID);
-
-	glGenTextures(1, &Result.ScreenTexture);
-	glGenTextures(1, &Result.NormalTexture);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, Result.ID);
-
-	glBindTexture(GL_TEXTURE_2D, Result.ScreenTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, BufferWidth, BufferHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.ScreenTexture, 0);
-
-	glBindTexture(GL_TEXTURE_2D, Result.NormalTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, BufferWidth, BufferHeight, 0, GL_RGB, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, Result.NormalTexture, 0);
-
-	glGenRenderbuffers(1, &Result.RBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, Result.RBO);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, BufferWidth, BufferHeight);
-
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, Result.RBO);
-
-	GLuint Attachements[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-	glDrawBuffers(2, Attachements);
-
-	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	return(Result);
-}
-#endif
-
 struct basic_framebuffer
 {
 	u32 Width;
@@ -704,17 +656,6 @@ basic_framebuffer CreateBasicFramebuffer(render_state* State,
 
 	LoadImageToTexture(State, &Result.Texture, Params);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.Texture.ID, 0);
-
-#if 0
-	glBindTexture(GL_TEXTURE_2D, Result.DepthTexture.ID);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, BufferWidth, BufferHeight, 0, 
-			GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Result.DepthTexture.ID, 0);
-#endif
 
 	GLuint Attachements[1] = {GL_COLOR_ATTACHMENT0};
 	glDrawBuffers(1, Attachements);
@@ -809,8 +750,6 @@ void UpdateGeometryFramebuffer(render_state* State, geometry_framebuffer* Frameb
 	DeleteTexture(&Framebuffer->AlbedoTexture);
 	DeleteTexture(&Framebuffer->DepthTexture);
 
-	//glDeleteRenderbuffers(1, &Framebuffer->RBO);
-
 	*Framebuffer = CreateGeometryFramebuffer(State, Width, Height);
 }
 
@@ -853,12 +792,6 @@ hemicube_framebuffer CreateHemicubeScreenFramebuffer(render_state* State, int Bu
 	{
 		u32 Width = BufferWidth;
 		u32 Height = BufferHeight;
-#if 0
-		if(FramebufferIndex > 0)
-		{
-			Height /= 2;
-		}
-#endif
 		Result.MicroBuffers[FramebufferIndex] = CreateGeometryFramebuffer(State, Width, Height);
 	}
 

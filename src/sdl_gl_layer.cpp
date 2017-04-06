@@ -33,6 +33,7 @@ global_variable u32 DEBUGRenderStateChangeCurrentCounter = 0;
 #include "mesh.h"
 
 #include "viewer.h"
+#include "viewer.cpp"
 
 struct platform_work_queue;
 #define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(platform_work_queue* Queue, void* Data)
