@@ -1,5 +1,7 @@
 #pragma once
 
+#define GL_CHECK(Str) Assert(!DetectErrors(Str))
+
 static GLfloat QuadVertices[] = { 
 	// Positions   // TexCoords
 	-1.0f,  1.0f,  0.0f, 1.0f,
@@ -69,6 +71,7 @@ struct render_state
 	u32 ShaderID;
 	u32 Texture2ID;
 	u32 TextureCubeMapID;
+	u32 Texture2ArrayID;
 	GLenum ActiveTexture;
 
 	u32 VertexArrayID;
@@ -208,6 +211,15 @@ void BindTexture(render_state* State, GLenum TextureTarget, u32 TextureID)
 				{
 					State->Texture2ID = TextureID;
 					glBindTexture(TextureTarget, State->Texture2ID);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		case GL_TEXTURE_2D_ARRAY:
+			{
+				if(State->Texture2ArrayID != TextureID)
+				{
+					State->Texture2ArrayID = TextureID;
+					glBindTexture(TextureTarget, State->Texture2ArrayID);
 					++DEBUGGLCurrentFrameStateChangeCount;
 				}
 			} break;
@@ -861,7 +873,7 @@ bool TextureExists(render_state* RenderState, char* TextureName, u32* Location)
 //  NOTE(hugo) : Error handling
 // --------------------------------
 
-bool DetectErrors(char* Tag)
+bool DetectErrors(char* Tag = "")
 {
 	bool ErrorFound = false;
 	for(GLenum Error; (Error = glGetError()) != GL_NO_ERROR;)

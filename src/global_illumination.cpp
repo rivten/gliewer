@@ -1,9 +1,9 @@
+#pragma once
+
 static u32 GlobalMicrobufferWidth = 64;
 static u32 GlobalMicrobufferHeight = 64;
 
 static u32 MaxInstanceDrawn = 16;
-
-#define GL_CHECK Assert(!DetectErrors(""))
 
 void MegaConvolution(game_state* State,
 		camera Camera,
@@ -22,76 +22,80 @@ void MegaConvolution(game_state* State,
 
 	ActiveTexture(State->RenderState, GL_TEXTURE0);
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)0, "MegaTexture");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->MegaBuffer.Texture.ID);
+	BindTexture(State->RenderState, GL_TEXTURE_2D_ARRAY, State->MegaBuffer.TextureArray.ID);
+	GL_CHECK("BindTextureA");
 	
 	ActiveTexture(State->RenderState, GL_TEXTURE5);
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)5, "DepthMap");
 	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);	
+	GL_CHECK("BindTextureB");
 
 	ActiveTexture(State->RenderState, GL_TEXTURE6);
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)6, "NormalMap");
 	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
+	GL_CHECK("BindTextureC");
 
 	ActiveTexture(State->RenderState, GL_TEXTURE7);
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)7, "AlbedoMap");
 	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.AlbedoTexture.ID);
+	GL_CHECK("BindTextureD");
 
 	ActiveTexture(State->RenderState, GL_TEXTURE8);
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)8, "DirectIlluminationMap");
 	// TODO(hugo) : maybe PreFXAA framebuffer ??
 	BindTexture(State->RenderState, GL_TEXTURE_2D, State->PreProcess.Texture.ID);
-	GL_CHECK;
+	GL_CHECK("BindTextureE");
 
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchSizeInPixels, "PatchSizeInPixels");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchX, "PatchX");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchY, "PatchY");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Width, "MicrobufferWidth");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Height, "MicrobufferHeight");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.P, "CameraPos");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PixelSurfaceInMeters, "PixelSurfaceInMeters");
-	GL_CHECK;
+	GL_CHECK();
 
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->Alpha, "Alpha");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->CookTorranceF0, "CookTorranceF0");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], WorldUp, "WorldUp");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.Aspect, "MainCameraAspect");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FoV, "MainCameraFoV");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.NearPlane, "MainCameraNearPlane");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FarPlane, "MainCameraFarPlane");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], InvLookAtCamera, "InvLookAtCamera");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowWidth, "WindowWidth");
-	GL_CHECK;
+	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowHeight, "WindowHeight");
-	GL_CHECK;
+	GL_CHECK();
 
 	rect2 ViewportRect = RectFromMinSize(PatchSizeInPixels * V2(PatchX, PatchY), V2(PatchWidth, PatchHeight));
 	SetViewport(State->RenderState, ViewportRect);
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);
-	GL_CHECK;
+	GL_CHECK("BindFramebuffer");
 	BindVertexArray(State->RenderState, State->QuadVAO);
-	GL_CHECK;
+	GL_CHECK("BindVertexArray");
 	Disable(State->RenderState, GL_DEPTH_TEST);
-	GL_CHECK;
+	GL_CHECK("DisableDepthTest");
 	glDrawArrays(GL_TRIANGLES, 0, 6);
-	GL_CHECK;
+	GL_CHECK("DrawArrays");
 	Enable(State->RenderState, GL_DEPTH_TEST);
-	GL_CHECK;
+	GL_CHECK("EnableDepthTest");
 	BindVertexArray(State->RenderState, 0);
-	GL_CHECK;
+	GL_CHECK("BindVertexArray");
 
 	//
 	// }
@@ -265,10 +269,10 @@ void ComputeOnePatchOfGI(game_state* State,
 #endif
 				SetUniform(State->Shaders[ShaderType_FillMegaTexture],
 						BaseTileID, "BaseTileID");
-				GL_CHECK;
+				GL_CHECK("SetUniform");
 
 				glViewportArrayv(0, DrawCount, FirstViewport);
-				GL_CHECK;
+				GL_CHECK("ViewportArrayv");
 				DrawTriangleObjectInstances(State->RenderState, Object, DrawCount);
 				Assert(!DetectErrors("Draw"));
 
@@ -330,7 +334,7 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
 	{
 		UpdateHemicubeScreenFramebuffer(State->RenderState, &State->HemicubeFramebuffer, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
-		UpdateBasicFramebuffer(State->RenderState, &State->MegaBuffer, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalMicrobufferHeight * State->PatchSizeInPixels);
+		UpdateMegaBuffer(State->RenderState, &State->MegaBuffer, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalMicrobufferHeight * State->PatchSizeInPixels);
 	}
 
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);

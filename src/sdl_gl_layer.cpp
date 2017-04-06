@@ -32,6 +32,7 @@ global_variable u32 DEBUGRenderStateChangeCurrentCounter = 0;
 #include "gl_layer.h"
 #include "mesh.h"
 
+#include "global_illumination.h"
 #include "viewer.h"
 #include "viewer.cpp"
 

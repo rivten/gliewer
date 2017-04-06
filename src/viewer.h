@@ -182,7 +182,7 @@ struct game_state
 	// NOTE(hugo): Global illumination
 	// {
 	basic_framebuffer IndirectIlluminationFramebuffer;
-	basic_framebuffer MegaBuffer;
+	mega_buffer MegaBuffer;
 
 	bool SaveFirstMegaTexture;
 
