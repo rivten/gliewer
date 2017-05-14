@@ -42,6 +42,7 @@ mega_buffer CreateMegaBuffer(render_state* State, u32 BufferWidth, u32 BufferHei
 	glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &MaxColorAttachment);
 	SDL_Log("%i", MaxColorAttachment);
 #endif
+
 	for(u32 LayerIndex = 0; LayerIndex < LAYER_COUNT; ++LayerIndex)
 	{
 		glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + LayerIndex, 

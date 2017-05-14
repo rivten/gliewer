@@ -4,7 +4,7 @@ in vec2 TextureCoordinates;
 
 layout (location = 0) out vec4 Color;
 
-uniform sampler2D MegaTexture;
+uniform sampler2DArray MegaTexture;
 uniform sampler2D DepthMap;
 uniform sampler2D NormalMap;
 uniform sampler2D AlbedoMap;
@@ -162,7 +162,7 @@ void main()
 
 	vec4 Albedo = texture(AlbedoMap, ScreenUV);
 
-	vec2 MegaTextureTexelSize = 1.0f / textureSize(MegaTexture, 0);
+	vec2 MegaTextureTexelSize = 1.0f / textureSize(MegaTexture, 0).xy;
 
 	Color = texture(DirectIlluminationMap, ScreenUV);
 	
@@ -215,7 +215,10 @@ void main()
 			{
 				vec2 SampleCoord = MicrobufferSize * PixelCoordInPatch + vec2(X, Y);
 				SampleCoord = SampleCoord * MegaTextureTexelSize;
-				vec4 SampleColor = texture(MegaTexture, SampleCoord);
+
+				// TODO(hugo) : temp
+				vec4 SampleColor = texture(MegaTexture, vec3(SampleCoord, 0.0f));
+
 				//if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)
 				{
 					vec3 H = normalize(0.5f * (Wi + Wo));

@@ -5,6 +5,16 @@ static u32 GlobalMicrobufferHeight = 64;
 
 static u32 MaxInstanceDrawn = 16;
 
+void SetUniformTexture(render_state* RenderState, shader Shader,
+		u32 BufferID, u32 UniformID, char* UniformName,
+		u32 Target = GL_TEXTURE_2D)
+{
+	ActiveTexture(RenderState, GL_TEXTURE0 + UniformID);
+	SetUniform(Shader, UniformID, UniformName);
+	BindTexture(RenderState, Target, BufferID);
+	GL_CHECK("BindTexture");
+}
+
 void MegaConvolution(game_state* State,
 		camera Camera,
 		u32 PatchSizeInPixels,
@@ -20,31 +30,16 @@ void MegaConvolution(game_state* State,
 	//
 	UseShader(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional]);
 
-	ActiveTexture(State->RenderState, GL_TEXTURE0);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)0, "MegaTexture");
-	BindTexture(State->RenderState, GL_TEXTURE_2D_ARRAY, State->MegaBuffer.TextureArray.ID);
-	GL_CHECK("BindTextureA");
-	
-	ActiveTexture(State->RenderState, GL_TEXTURE5);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)5, "DepthMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);	
-	GL_CHECK("BindTextureB");
-
-	ActiveTexture(State->RenderState, GL_TEXTURE6);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)6, "NormalMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
-	GL_CHECK("BindTextureC");
-
-	ActiveTexture(State->RenderState, GL_TEXTURE7);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)7, "AlbedoMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.AlbedoTexture.ID);
-	GL_CHECK("BindTextureD");
-
-	ActiveTexture(State->RenderState, GL_TEXTURE8);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)8, "DirectIlluminationMap");
-	// TODO(hugo) : maybe PreFXAA framebuffer ??
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->PreProcess.Texture.ID);
-	GL_CHECK("BindTextureE");
+	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional],
+			State->MegaBuffer.TextureArray.ID, 0, "MegaTexture", GL_TEXTURE_2D_ARRAY);
+	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional],
+			State->GBuffer.DepthTexture.ID, 5, "DepthMap");
+	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional],
+			State->GBuffer.NormalTexture.ID, 6, "NormalMap");
+	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional],
+			State->GBuffer.AlbedoTexture.ID, 7, "AlbedoMap");
+	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional],
+			State->PreProcess.Texture.ID, 8, "DirectIlluminationMap");
 
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchSizeInPixels, "PatchSizeInPixels");
 	GL_CHECK();
@@ -164,13 +159,10 @@ void ComputeOnePatchOfGI(game_state* State,
 	// NOTE(hugo) : Calling the ShaderType_FillMegaTexture
 	UseShader(State->RenderState, State->Shaders[ShaderType_FillMegaTexture]);
 
-	ActiveTexture(State->RenderState, GL_TEXTURE4);
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], (u32)4, "DepthMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);
-
-	ActiveTexture(State->RenderState, GL_TEXTURE5);
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], (u32)5, "NormalMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
+	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_FillMegaTexture],
+			State->GBuffer.DepthTexture.ID, 4, "DepthMap");
+	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_FillMegaTexture],
+			State->GBuffer.NormalTexture.ID, 5, "NormalMap");
 
 	SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchX, "PatchX");
 	SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchY, "PatchY");
