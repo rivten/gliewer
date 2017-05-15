@@ -5,6 +5,30 @@ static u32 GlobalMicrobufferHeight = 64;
 
 static u32 MaxInstanceDrawn = 16;
 
+// NOTE(hugo): IMPORTANT(hugo): All those values must be powers of two
+v2 GetMegaBufferSize(u32 PatchSizeInPixels,
+		u32 MicrobufferWidth, u32 MicrobufferHeight,
+		u32 LayerCount)
+{
+	v2 TileCount = {};
+
+#if 0
+	u32 NumberOfTiles = PatchSizeInPixels * PatchSizeInPixels;
+	u32 NumberOfTilesPerLayer = NumberOfTiles / LayerCount;
+	// TODO(hugo) : Find the powers of two which match the total number of tiles.
+#else
+	// TODO(hugo): Wow ! Much flexibility...
+	Assert(PatchSizeInPixels == 32);
+	Assert(LayerCount == 8);
+	TileCount.x = 16;
+	TileCount.y = 8;
+#endif
+
+	v2 Result = Hadamard(V2(MicrobufferWidth, MicrobufferHeight), TileCount);
+
+	return(Result);
+}
+
 void SetUniformTexture(render_state* RenderState, shader Shader,
 		u32 BufferID, u32 UniformID, char* UniformName,
 		u32 Target = GL_TEXTURE_2D)
@@ -76,6 +100,8 @@ void MegaConvolution(game_state* State,
 	GL_CHECK();
 	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowHeight, "WindowHeight");
 	GL_CHECK();
+	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)LAYER_COUNT, "LayerCount");
+	GL_CHECK();
 
 	rect2 ViewportRect = RectFromMinSize(PatchSizeInPixels * V2(PatchX, PatchY), V2(PatchWidth, PatchHeight));
 	SetViewport(State->RenderState, ViewportRect);
@@ -108,6 +134,9 @@ void ComputeOnePatchOfGI(game_state* State,
 		float PixelSurfaceInMeters,
 		bool SaveFirstMegaTexture)
 {
+	Assert(PatchSizeInPixels == 32);
+	Assert(LAYER_COUNT == 8);
+	u32 TileCountX = 16;
 	//
 	// NOTE(hugo) : Filling the megatexture
 	//
@@ -181,6 +210,7 @@ void ComputeOnePatchOfGI(game_state* State,
 	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->CookTorranceF0, "CTF0");
 	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Ks, "Ks");
 	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Kd, "Kd");
+	SetUniform(State->Shaders[ShaderType_FillMegaTexture], (u32)LAYER_COUNT, "LayerCount");
 	mat4 ViewMatrix = LookAt(State->Camera);
 	SetUniform(State->Shaders[ShaderType_FillMegaTexture], ViewMatrix, "ViewMatrix");
 	//SetUniform(State->Shaders[ShaderType_FillMegaTexture], MicrobufferSize, "MicrobufferSize");
@@ -206,9 +236,9 @@ void ComputeOnePatchOfGI(game_state* State,
 
 		memset(Buffer, 0, ArrayCount(Buffer));
 		sprintf(Buffer, "ShadowMaps[%i]", LightIndex);
-		ActiveTexture(State->RenderState, GL_TEXTURE0 + LightIndex);
-		SetUniform(State->Shaders[ShaderType_FillMegaTexture], LightIndex, Buffer);
-		BindTexture(State->RenderState, GL_TEXTURE_2D, Light->DepthFramebuffer.Texture.ID);
+
+		SetUniformTexture(State->RenderState, State->Shaders[ShaderType_FillMegaTexture],
+				Light->DepthFramebuffer.Texture.ID, LightIndex, Buffer);
 	}
 
 	rect2 MegaViewport = RectFromMinSize(V2(0.0f, 0.0f), 
@@ -237,20 +267,21 @@ void ComputeOnePatchOfGI(game_state* State,
 			u32 InstanceDrawnCount = 0;
 			while(InstanceDrawnCount < InstanceCount)
 			{
-				u32 DrawCount = Minu(MaxInstanceDrawn, InstanceCount - InstanceDrawnCount);
+				u32 DrawLeft = InstanceCount - InstanceDrawnCount;
+				u32 DrawCount = Minu(MaxInstanceDrawn, DrawLeft);
 
 #if 0
 				// TODO(hugo) : Here I recompute the viewports for each object.
 				// Maybe I could, for each viewport sets, draw all the objects... ?
 				float* FirstViewport = Viewports + 4 * InstanceDrawnCount;
 #else
-				u32 BaseTileID = InstanceDrawnCount;
+				u32 BaseTileID = InstanceDrawnCount / LAYER_COUNT;
 				float* FirstViewport = AllocateArray(float, 4 * DrawCount);
 				for(u32 ViewportIndex = 0; ViewportIndex < DrawCount; ++ViewportIndex)
 				{
-					u32 TileID = InstanceDrawnCount + ViewportIndex;
-					u32 TileX = TileID % PatchWidth;
-					u32 TileY = (TileID - TileX) / PatchWidth;
+					u32 TileID = (InstanceDrawnCount / LAYER_COUNT) + ViewportIndex;
+					u32 TileX = TileID % TileCountX;
+					u32 TileY = (TileID - TileX) / TileCountX;
 
 					v2 ViewportMin = Hadamard(ViewportSize, V2(TileX, TileY));
 					FirstViewport[4 * ViewportIndex + 0] = ViewportMin.x;
@@ -270,7 +301,7 @@ void ComputeOnePatchOfGI(game_state* State,
 
 				Free(FirstViewport);
 
-				InstanceDrawnCount += DrawCount;
+				InstanceDrawnCount += DrawCount * LAYER_COUNT;
 			}
 		}
 	}
@@ -288,11 +319,16 @@ void ComputeOnePatchOfGI(game_state* State,
 	if(SaveFirstMegaTexture && (PatchX == 0) && (PatchY == 0))
 	{
 		char Filename[64];
-		ScreenshotBufferAttachment("Megatexture",
-			State->RenderState, State->MegaBuffer.ID,
-			0, State->MegaBuffer.Width, 
-			State->MegaBuffer.Height,
-			GL_RGBA, GL_UNSIGNED_BYTE);
+		for(u32 LayerIndex = 0; LayerIndex < LAYER_COUNT; ++LayerIndex)
+		{
+			char Buffer[64];
+			sprintf(Buffer, "Megatexture_%i.png", LayerIndex);
+			ScreenshotBufferAttachment(Buffer,
+				State->RenderState, State->MegaBuffer.ID,
+				LayerIndex, State->MegaBuffer.Width,
+				State->MegaBuffer.Height,
+				GL_RGBA, GL_UNSIGNED_BYTE);
+		}
 	}
 
 	MegaConvolution(State, Camera, PatchSizeInPixels,
@@ -326,7 +362,9 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
 	{
 		UpdateHemicubeScreenFramebuffer(State->RenderState, &State->HemicubeFramebuffer, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
-		UpdateMegaBuffer(State->RenderState, &State->MegaBuffer, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalMicrobufferHeight * State->PatchSizeInPixels);
+
+		v2 MegaBufferSize = GetMegaBufferSize(State->PatchSizeInPixels, GlobalMicrobufferWidth, GlobalMicrobufferHeight, LAYER_COUNT);
+		UpdateMegaBuffer(State->RenderState, &State->MegaBuffer, MegaBufferSize.x, MegaBufferSize.y);
 	}
 
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);

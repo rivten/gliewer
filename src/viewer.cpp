@@ -652,7 +652,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->PreFXAA = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight, true);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->RenderState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 		State->IndirectIlluminationFramebuffer = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
-		State->MegaBuffer = CreateMegaBuffer(State->RenderState, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalMicrobufferHeight * State->PatchSizeInPixels);
+		v2 MegaBufferSize = GetMegaBufferSize(State->PatchSizeInPixels, GlobalMicrobufferWidth, GlobalMicrobufferHeight, LAYER_COUNT);
+		State->MegaBuffer = CreateMegaBuffer(State->RenderState, MegaBufferSize.x, MegaBufferSize.y);
 
 		State->SSAOParams.SampleCount = 0;
 		State->SSAOParams.Intensity = 1.0f;

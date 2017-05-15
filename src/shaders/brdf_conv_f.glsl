@@ -35,6 +35,8 @@ uniform mat4 InvLookAtCamera;
 uniform int WindowWidth;
 uniform int WindowHeight;
 
+uniform int LayerCount;
+
 const float Pi = 3.14159265f;
 const float GammaCor = 2.2f;
 
@@ -213,11 +215,15 @@ void main()
 			vec3 Wi = normalize(MicroPixelWorldPos.xyz - (FragmentWorldPos.xyz));
 			if(DotClamp(Normal, Wi) > 0.0f)
 			{
-				vec2 SampleCoord = MicrobufferSize * PixelCoordInPatch + vec2(X, Y);
-				SampleCoord = SampleCoord * MegaTextureTexelSize;
+				float PixelIndex = PixelCoordInPatch.x + PatchSizeInPixels * PixelCoordInPatch.y;
+				float LayerIndex = mod(PixelIndex, LayerCount);
+				vec2 TileCoordInPatch = vec2(0.0f, 0.0f);
+				TileCoordInPatch.x = mod((PixelIndex - LayerIndex) / 8, PatchSizeInPixels);
+				TileCoordInPatch.y = (PixelIndex - TileCoordInPatch.x) / PatchSizeInPixels;
+				vec3 SampleCoord = vec3((MicrobufferSize * TileCoordInPatch + vec2(X, Y)) * MegaTextureTexelSize, 0.0f) + vec3(0.0f, 0.0f, LayerIndex);
 
 				// TODO(hugo) : temp
-				vec4 SampleColor = texture(MegaTexture, vec3(SampleCoord, 0.0f));
+				vec4 SampleColor = texture(MegaTexture, SampleCoord);
 
 				//if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)
 				{

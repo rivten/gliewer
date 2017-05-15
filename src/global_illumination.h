@@ -14,8 +14,8 @@ mega_buffer CreateMegaBuffer(render_state* State, u32 BufferWidth, u32 BufferHei
 {
 	mega_buffer Result = {};
 
-	Result.Width = BufferWidth / LAYER_COUNT;
-	Result.Height = BufferHeight / LAYER_COUNT;
+	Result.Width = BufferWidth;
+	Result.Height = BufferHeight;
 
 	glGenFramebuffers(1, &Result.ID);
 	BindFramebuffer(State, GL_FRAMEBUFFER, Result.ID);

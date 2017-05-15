@@ -109,6 +109,7 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"InvLookAtCamera",
 		"WindowWidth",
 		"WindowHeight",
+		"LayerCount",
 	},
 
 	// NOTE(hugo) : ShaderType_Skybox
@@ -194,6 +195,8 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"LightSpaceMatrix[3]",
 		"BaseTileID",
 
+		"LayerCount",
+
 		"ShadowMaps[0]",
 		"ShadowMaps[1]",
 		"ShadowMaps[2]",
@@ -248,8 +251,9 @@ shader LoadShader(u32 ShaderType)
 	glGetShaderiv(Vertex, GL_COMPILE_STATUS, &CompileSuccess);
 	if (!CompileSuccess)
 	{
+		char* FilePath = Sources[ShaderType].VertexSourceFilename;
 		glGetShaderInfoLog(Vertex, 512, 0, InfoLog);
-		SDL_Log("%s\n", InfoLog);
+		SDL_Log("FILE(%s)\n%s\n", FilePath, InfoLog);
 		InvalidCodePath;
 	}
 	Free(VertexCode);
@@ -263,8 +267,9 @@ shader LoadShader(u32 ShaderType)
 		glGetShaderiv(Geometry, GL_COMPILE_STATUS, &CompileSuccess);
 		if (!CompileSuccess)
 		{
+			char* FilePath = Sources[ShaderType].GeometrySourceFilename;
 			glGetShaderInfoLog(Geometry, 512, 0, InfoLog);
-			SDL_Log("%s\n", InfoLog);
+			SDL_Log("FILE(%s)\n%s\n", FilePath, InfoLog);
 			InvalidCodePath;
 		}
 		Free(GeometryCode);
@@ -276,8 +281,9 @@ shader LoadShader(u32 ShaderType)
 	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &CompileSuccess);
 	if (!CompileSuccess)
 	{
+		char* FilePath = Sources[ShaderType].FragmentSourceFilename;
 		glGetShaderInfoLog(Fragment, 512, 0, InfoLog);
-		SDL_Log("%s\n", InfoLog);
+		SDL_Log("FILE(%s)\n%s\n", FilePath, InfoLog);
 		InvalidCodePath;
 	}
 	Free(FragmentCode);
