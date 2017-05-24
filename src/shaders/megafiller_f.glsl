@@ -10,6 +10,8 @@ in GS_OUT
 	vec3 ViewDir;
 	vec3 LightDir[4];
 	vec3 HalfDir[4];
+
+	vec4 DEBUGColor;
 } fs_in;
 
 uniform sampler2D ShadowMaps[4];
@@ -119,4 +121,6 @@ void main()
 		Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(fs_in.VertexNormal, LightDir);
 	}
 	Color.w = 1.0f;
+
+	//Color = fs_in.DEBUGColor;
 }

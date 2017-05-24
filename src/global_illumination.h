@@ -28,30 +28,57 @@ mega_buffer CreateMegaBuffer(render_state* State, u32 BufferWidth, u32 BufferHei
 	glBindTexture(GL_TEXTURE_2D_ARRAY, Result.TextureArray.ID);
 	GL_CHECK("BindTexture");
 
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	GL_CHECK("TexParameteri");
-
 	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA16F, 
 			Result.Width, Result.Height, LAYER_COUNT,
 			0, GL_RGB, GL_FLOAT, 0);
 	GL_CHECK("TexImage3D");
 
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	GL_CHECK("TexParameteri");
+
 #if 0
 	GLint MaxColorAttachment = 0;
 	glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &MaxColorAttachment);
-	SDL_Log("%i", MaxColorAttachment);
+	SDL_Log("MaxColorAttachment: %i", MaxColorAttachment);
+
+	GLint MaxFramebufferLayer = 0;
+	glGetIntegerv(GL_MAX_FRAMEBUFFER_LAYERS, &MaxFramebufferLayer);
+	SDL_Log("Max Framebuffer Layer : %i", MaxFramebufferLayer);
 #endif
 
-	for(u32 LayerIndex = 0; LayerIndex < LAYER_COUNT; ++LayerIndex)
-	{
-		glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + LayerIndex, 
-				Result.TextureArray.ID, 0, LayerIndex);
-		DrawBuffer[LayerIndex] = GL_COLOR_ATTACHMENT0 + LayerIndex;
-		GL_CHECK("FramebufferTextureLayer");
-	}
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, Result.TextureArray.ID, 0);
+	GL_CHECK("FramebufferTexture");
 
-	glDrawBuffers(LAYER_COUNT, DrawBuffer);
+	DrawBuffer[0] = GL_COLOR_ATTACHMENT0;
+	glDrawBuffers(1, DrawBuffer);
+
+	GLenum FramebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if(FramebufferStatus != GL_FRAMEBUFFER_COMPLETE)
+	{
+		if(FramebufferStatus == GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT)
+		{
+			SDL_Log("Incomplete Attachment");
+		}
+		//else if(FramebufferStatus == GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS)
+		//{
+			//SDL_Log("Incomplete Dimensions");
+		//}
+		else if(FramebufferStatus == GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT)
+		{
+			SDL_Log("Incomplete Missing Attachment");
+		}
+		else if(FramebufferStatus == GL_FRAMEBUFFER_UNSUPPORTED)
+		{
+			SDL_Log("Unsupporter");
+		}
+		else
+		{
+			InvalidCodePath;
+		}
+	}
 
 	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 	BindFramebuffer(State, GL_FRAMEBUFFER, 0);

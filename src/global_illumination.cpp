@@ -52,55 +52,56 @@ void MegaConvolution(game_state* State,
 	// NOTE(hugo) : Lighting with the mega texture
 	// {
 	//
-	UseShader(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional]);
+	shader ConvShader = State->Shaders[ShaderType_BRDFConvolutional];
+	UseShader(State->RenderState, ConvShader);
 
-	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional],
-			State->MegaBuffer.TextureArray.ID, 0, "MegaTexture", GL_TEXTURE_2D_ARRAY);
-	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional],
-			State->GBuffer.DepthTexture.ID, 5, "DepthMap");
-	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional],
-			State->GBuffer.NormalTexture.ID, 6, "NormalMap");
-	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional],
-			State->GBuffer.AlbedoTexture.ID, 7, "AlbedoMap");
-	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional],
-			State->PreProcess.Texture.ID, 8, "DirectIlluminationMap");
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->MegaBuffer.TextureArray.ID, 4, "MegaTexture", GL_TEXTURE_2D_ARRAY);
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->GBuffer.DepthTexture.ID, 0, "DepthMap");
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->GBuffer.NormalTexture.ID, 1, "NormalMap");
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->GBuffer.AlbedoTexture.ID, 2, "AlbedoMap");
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->PreProcess.Texture.ID, 3, "DirectIlluminationMap");
 
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchSizeInPixels, "PatchSizeInPixels");
+	SetUniform(ConvShader, PatchSizeInPixels, "PatchSizeInPixels");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchX, "PatchX");
+	SetUniform(ConvShader, PatchX, "PatchX");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchY, "PatchY");
+	SetUniform(ConvShader, PatchY, "PatchY");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Width, "MicrobufferWidth");
+	SetUniform(ConvShader, State->HemicubeFramebuffer.Width, "MicrobufferWidth");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Height, "MicrobufferHeight");
+	SetUniform(ConvShader, State->HemicubeFramebuffer.Height, "MicrobufferHeight");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.P, "CameraPos");
+	SetUniform(ConvShader, Camera.P, "CameraPos");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PixelSurfaceInMeters, "PixelSurfaceInMeters");
+	SetUniform(ConvShader, PixelSurfaceInMeters, "PixelSurfaceInMeters");
 	GL_CHECK();
 
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->Alpha, "Alpha");
+	SetUniform(ConvShader, State->Alpha, "Alpha");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->CookTorranceF0, "CookTorranceF0");
+	SetUniform(ConvShader, State->CookTorranceF0, "CookTorranceF0");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], WorldUp, "WorldUp");
+	SetUniform(ConvShader, WorldUp, "WorldUp");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.Aspect, "MainCameraAspect");
+	SetUniform(ConvShader, Camera.Aspect, "MainCameraAspect");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FoV, "MainCameraFoV");
+	SetUniform(ConvShader, Camera.FoV, "MainCameraFoV");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.NearPlane, "MainCameraNearPlane");
+	SetUniform(ConvShader, Camera.NearPlane, "MainCameraNearPlane");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FarPlane, "MainCameraFarPlane");
+	SetUniform(ConvShader, Camera.FarPlane, "MainCameraFarPlane");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], InvLookAtCamera, "InvLookAtCamera");
+	SetUniform(ConvShader, InvLookAtCamera, "InvLookAtCamera");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowWidth, "WindowWidth");
+	SetUniform(ConvShader, GlobalWindowWidth, "WindowWidth");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowHeight, "WindowHeight");
+	SetUniform(ConvShader, GlobalWindowHeight, "WindowHeight");
 	GL_CHECK();
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)LAYER_COUNT, "LayerCount");
+	SetUniform(ConvShader, (u32)LAYER_COUNT, "LayerCount");
 	GL_CHECK();
 
 	rect2 ViewportRect = RectFromMinSize(PatchSizeInPixels * V2(PatchX, PatchY), V2(PatchWidth, PatchHeight));
@@ -185,34 +186,36 @@ void ComputeOnePatchOfGI(game_state* State,
 
 	mat4 NormalMatrix = Identity4();
 
+	shader FillShader = State->Shaders[ShaderType_FillMegaTexture];
 	// NOTE(hugo) : Calling the ShaderType_FillMegaTexture
-	UseShader(State->RenderState, State->Shaders[ShaderType_FillMegaTexture]);
+	UseShader(State->RenderState, FillShader);
 
-	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_FillMegaTexture],
+	SetUniformTexture(State->RenderState, FillShader,
 			State->GBuffer.DepthTexture.ID, 4, "DepthMap");
-	SetUniformTexture(State->RenderState, State->Shaders[ShaderType_FillMegaTexture],
+	SetUniformTexture(State->RenderState, FillShader,
 			State->GBuffer.NormalTexture.ID, 5, "NormalMap");
 
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchX, "PatchX");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchY, "PatchY");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchSizeInPixels, "PatchSizeInPixels");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->ObjectModelMatrix, "ObjectMatrix");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], WorldUp, "WorldUp");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.NearPlane, "CameraNearPlane");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.FarPlane, "CameraFarPlane");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.FoV, "CameraFoV");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.Aspect, "CameraAspect");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], InvLookAtCamera, "InvLookAtCamera");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], NormalMatrix, "NormalMatrix");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->LightCount, "LightCount");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->LightIntensity, "LightIntensity");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Alpha, "Alpha");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->CookTorranceF0, "CTF0");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Ks, "Ks");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Kd, "Kd");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], (u32)LAYER_COUNT, "LayerCount");
+
+	SetUniform(FillShader, PatchX, "PatchX");
+	SetUniform(FillShader, PatchY, "PatchY");
+	SetUniform(FillShader, PatchSizeInPixels, "PatchSizeInPixels");
+	SetUniform(FillShader, State->ObjectModelMatrix, "ObjectMatrix");
+	SetUniform(FillShader, WorldUp, "WorldUp");
+	SetUniform(FillShader, State->Camera.NearPlane, "CameraNearPlane");
+	SetUniform(FillShader, State->Camera.FarPlane, "CameraFarPlane");
+	SetUniform(FillShader, State->Camera.FoV, "CameraFoV");
+	SetUniform(FillShader, State->Camera.Aspect, "CameraAspect");
+	SetUniform(FillShader, InvLookAtCamera, "InvLookAtCamera");
+	SetUniform(FillShader, NormalMatrix, "NormalMatrix");
+	SetUniform(FillShader, State->LightCount, "LightCount");
+	SetUniform(FillShader, State->LightIntensity, "LightIntensity");
+	SetUniform(FillShader, State->Alpha, "Alpha");
+	SetUniform(FillShader, State->CookTorranceF0, "CTF0");
+	SetUniform(FillShader, State->Ks, "Ks");
+	SetUniform(FillShader, State->Kd, "Kd");
+	SetUniform(FillShader, (u32)LAYER_COUNT, "LayerCount");
 	mat4 ViewMatrix = LookAt(State->Camera);
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], ViewMatrix, "ViewMatrix");
+	SetUniform(FillShader, ViewMatrix, "ViewMatrix");
 	//SetUniform(State->Shaders[ShaderType_FillMegaTexture], MicrobufferSize, "MicrobufferSize");
 	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
 	{
@@ -220,11 +223,11 @@ void ComputeOnePatchOfGI(game_state* State,
 
 		char Buffer[64];
 		sprintf(Buffer, "LightPos[%i]", LightIndex);
-		SetUniform(State->Shaders[ShaderType_FillMegaTexture], Light->Pos, Buffer);
+		SetUniform(FillShader, Light->Pos, Buffer);
 
 		memset(Buffer, 0, ArrayCount(Buffer));
 		sprintf(Buffer, "LightColor[%i]", LightIndex);
-		SetUniform(State->Shaders[ShaderType_FillMegaTexture], Light->Color, Buffer);
+		SetUniform(FillShader, Light->Color, Buffer);
 
 		memset(Buffer, 0, ArrayCount(Buffer));
 		sprintf(Buffer, "LightSpaceMatrix[%i]", LightIndex);
@@ -232,12 +235,12 @@ void ComputeOnePatchOfGI(game_state* State,
 		v3 LightZAxis = Normalized(Light->Pos - Light->Target);
 		v3 LightXAxis = Cross(LightYAxis, LightZAxis);
 		mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
-		SetUniform(State->Shaders[ShaderType_FillMegaTexture], LightViewProj, Buffer);
+		SetUniform(FillShader, LightViewProj, Buffer);
 
 		memset(Buffer, 0, ArrayCount(Buffer));
 		sprintf(Buffer, "ShadowMaps[%i]", LightIndex);
 
-		SetUniformTexture(State->RenderState, State->Shaders[ShaderType_FillMegaTexture],
+		SetUniformTexture(State->RenderState, FillShader,
 				Light->DepthFramebuffer.Texture.ID, LightIndex, Buffer);
 	}
 
@@ -256,10 +259,10 @@ void ComputeOnePatchOfGI(game_state* State,
 		// TODO(hugo) : Should I do frustum culling here ?
 		if(Object->Visible)
 		{
-			SetUniform(State->Shaders[ShaderType_FillMegaTexture], 
+			SetUniform(FillShader, 
 					ToV4(Object->Material.SpecularColor), "SpecularColor");
 			Assert(!DetectErrors("SetUniform"));
-			SetUniform(State->Shaders[ShaderType_FillMegaTexture], 
+			SetUniform(FillShader, 
 					ToV4(Object->Material.DiffuseColor), "DiffuseColor");
 			Assert(!DetectErrors("SetUniform"));
 
@@ -290,7 +293,7 @@ void ComputeOnePatchOfGI(game_state* State,
 					FirstViewport[4 * ViewportIndex + 3] = ViewportSize.y;
 				}
 #endif
-				SetUniform(State->Shaders[ShaderType_FillMegaTexture],
+				SetUniform(FillShader,
 						BaseTileID, "BaseTileID");
 				GL_CHECK("SetUniform");
 
@@ -319,6 +322,7 @@ void ComputeOnePatchOfGI(game_state* State,
 	if(SaveFirstMegaTexture && (PatchX == 0) && (PatchY == 0))
 	{
 		char Filename[64];
+#if 0
 		for(u32 LayerIndex = 0; LayerIndex < LAYER_COUNT; ++LayerIndex)
 		{
 			char Buffer[64];
@@ -327,8 +331,16 @@ void ComputeOnePatchOfGI(game_state* State,
 				State->RenderState, State->MegaBuffer.ID,
 				LayerIndex, State->MegaBuffer.Width,
 				State->MegaBuffer.Height,
-				GL_RGBA, GL_UNSIGNED_BYTE);
+				GL_RGBA, GL_RGBA16F);
+			GL_CHECK();
 		}
+#else
+		ScreenshotBufferAttachment("Megatexture_0.png",
+			State->RenderState, State->MegaBuffer.ID,
+			0, State->MegaBuffer.Width,
+			State->MegaBuffer.Height,
+			GL_RGBA, GL_UNSIGNED_BYTE);
+#endif
 	}
 
 	MegaConvolution(State, Camera, PatchSizeInPixels,

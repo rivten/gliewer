@@ -58,6 +58,58 @@ static GLfloat SkyboxVertices[] = {
      1.0f, -1.0f,  1.0f
 };
 
+// --------------------------------
+//  NOTE(hugo) : Error handling
+// --------------------------------
+
+bool DetectErrors(char* Tag = "")
+{
+	bool ErrorFound = false;
+	for(GLenum Error; (Error = glGetError()) != GL_NO_ERROR;)
+	{
+		ErrorFound = true;
+		switch(Error)
+		{
+			case GL_INVALID_ENUM:
+				{
+					SDL_Log("GL_INVALID_ENUM (%s)", Tag);
+				} break;
+			case GL_INVALID_VALUE:
+				{
+					SDL_Log("GL_INVALID_VALUE (%s)", Tag);
+				} break;
+			case GL_INVALID_OPERATION:
+				{
+					SDL_Log("GL_INVALID_OPERATION (%s)", Tag);
+				} break;
+			case GL_STACK_OVERFLOW:
+				{
+					SDL_Log("GL_STACK_OVERFLOW (%s)", Tag);
+				} break;
+			case GL_STACK_UNDERFLOW:
+				{
+					SDL_Log("GL_STACK_UNDERFLOW (%s)", Tag);
+				} break;
+			case GL_OUT_OF_MEMORY:
+				{
+					SDL_Log("GL_OUT_OF_MEMORY (%s)", Tag);
+				} break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				{
+					SDL_Log("GL_INVALID_FRAMEBUFFER_OPERATION (%s)", Tag);
+				} break;
+			case GL_CONTEXT_LOST:
+				{
+					SDL_Log("GL_CONTEXT_LOST (%s)", Tag);
+				} break;
+
+			InvalidDefaultCase;
+		}
+	}
+
+	return(ErrorFound);
+}
+
 struct texture
 {
 	u32 ID;
@@ -829,8 +881,11 @@ void ReadBufferAttachement(render_state* State, u32 FramebufferID, u32 Attacheme
 		u32 X, u32 Y, u32 Width, u32 Height, GLenum Format, GLenum Type, void* Data)
 {
 	BindFramebuffer(State, GL_FRAMEBUFFER, FramebufferID);
+	GL_CHECK();
 	ReadBuffer(State, GL_COLOR_ATTACHMENT0 + AttachementIndex);
+	GL_CHECK();
 	glReadPixels(X, Y, Width, Height, Format, Type, Data);
+	GL_CHECK();
 }
 
 void ReadBufferDepth(render_state* State, u32 FramebufferID, 
@@ -867,58 +922,6 @@ bool TextureExists(render_state* RenderState, char* TextureName, u32* Location)
 	}
 
 	return(Found);
-}
-
-// --------------------------------
-//  NOTE(hugo) : Error handling
-// --------------------------------
-
-bool DetectErrors(char* Tag = "")
-{
-	bool ErrorFound = false;
-	for(GLenum Error; (Error = glGetError()) != GL_NO_ERROR;)
-	{
-		ErrorFound = true;
-		switch(Error)
-		{
-			case GL_INVALID_ENUM:
-				{
-					SDL_Log("GL_INVALID_ENUM (%s)", Tag);
-				} break;
-			case GL_INVALID_VALUE:
-				{
-					SDL_Log("GL_INVALID_VALUE (%s)", Tag);
-				} break;
-			case GL_INVALID_OPERATION:
-				{
-					SDL_Log("GL_INVALID_OPERATION (%s)", Tag);
-				} break;
-			case GL_STACK_OVERFLOW:
-				{
-					SDL_Log("GL_STACK_OVERFLOW (%s)", Tag);
-				} break;
-			case GL_STACK_UNDERFLOW:
-				{
-					SDL_Log("GL_STACK_UNDERFLOW (%s)", Tag);
-				} break;
-			case GL_OUT_OF_MEMORY:
-				{
-					SDL_Log("GL_OUT_OF_MEMORY (%s)", Tag);
-				} break;
-			case GL_INVALID_FRAMEBUFFER_OPERATION:
-				{
-					SDL_Log("GL_INVALID_FRAMEBUFFER_OPERATION (%s)", Tag);
-				} break;
-			case GL_CONTEXT_LOST:
-				{
-					SDL_Log("GL_CONTEXT_LOST (%s)", Tag);
-				} break;
-
-			InvalidDefaultCase;
-		}
-	}
-
-	return(ErrorFound);
 }
 
 u32 ColorV4ToU32(v4 Color)
@@ -977,5 +980,6 @@ void ScreenshotBufferAttachment(char* OutputFilename,
 	ReadBufferAttachement(State, FramebufferID, AttachmentID,
 			0, 0, Width, Height, Format, Type, Buffer);
 	SaveScreenshot(OutputFilename, Width, Height, Buffer);
+	GL_CHECK();
 	Free(Buffer);
 }

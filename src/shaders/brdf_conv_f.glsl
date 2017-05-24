@@ -4,11 +4,11 @@ in vec2 TextureCoordinates;
 
 layout (location = 0) out vec4 Color;
 
-uniform sampler2DArray MegaTexture;
 uniform sampler2D DepthMap;
 uniform sampler2D NormalMap;
 uniform sampler2D AlbedoMap;
 uniform sampler2D DirectIlluminationMap;
+uniform sampler2DArray MegaTexture;
 
 uniform int PatchSizeInPixels;
 
@@ -140,6 +140,12 @@ void main()
 	vec2 ScreenUV = FragCoord / ScreenSize;
 	vec2 PixelCoordInPatch = FragCoord - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
 
+	float PixelIndex = PixelCoordInPatch.x + PatchSizeInPixels * PixelCoordInPatch.y;
+	float LayerIndex = mod(PixelIndex, LayerCount);
+	vec2 TileCoordInPatch = vec2(0.0f, 0.0f);
+	TileCoordInPatch.x = mod((PixelIndex - LayerIndex) / 8, PatchSizeInPixels);
+	TileCoordInPatch.y = (PixelIndex - TileCoordInPatch.x) / PatchSizeInPixels;
+
 	// NOTE(hugo) : Unlinearize depth
 	float Depth = texture(DepthMap, ScreenUV).r;
 	float NearPlane = MainCameraNearPlane;
@@ -215,14 +221,12 @@ void main()
 			vec3 Wi = normalize(MicroPixelWorldPos.xyz - (FragmentWorldPos.xyz));
 			if(DotClamp(Normal, Wi) > 0.0f)
 			{
-				float PixelIndex = PixelCoordInPatch.x + PatchSizeInPixels * PixelCoordInPatch.y;
-				float LayerIndex = mod(PixelIndex, LayerCount);
-				vec2 TileCoordInPatch = vec2(0.0f, 0.0f);
-				TileCoordInPatch.x = mod((PixelIndex - LayerIndex) / 8, PatchSizeInPixels);
-				TileCoordInPatch.y = (PixelIndex - TileCoordInPatch.x) / PatchSizeInPixels;
-				vec3 SampleCoord = vec3((MicrobufferSize * TileCoordInPatch + vec2(X, Y)) * MegaTextureTexelSize, 0.0f) + vec3(0.0f, 0.0f, LayerIndex);
+				//float LookUpLayer = max(0, min(7, floor(LayerIndex + 0.5f)));
+				float LookUpLayer = LayerIndex * (1.0f / (float(LayerCount)));
+				//LookUpLayer = LookUpLayer * (1.0f / (float(LayerCount)));
+				vec3 SampleCoord = vec3((MicrobufferSize * TileCoordInPatch + vec2(X, Y)) * MegaTextureTexelSize, 0.0f)
+					+ vec3(0.0f, 0.0f, LookUpLayer);
 
-				// TODO(hugo) : temp
 				vec4 SampleColor = texture(MegaTexture, SampleCoord);
 
 				//if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)

@@ -49,6 +49,8 @@ out GS_OUT
 	vec3 ViewDir;
 	vec3 LightDir[4];
 	vec3 HalfDir[4];
+
+	vec4 DEBUGColor;
 } gs_out;
 
 float UnlinearizeDepth(float Depth, float NearPlane, float FarPlane)
@@ -169,6 +171,12 @@ void main()
 			gl_Position = ParaboloidPosition;
 			gl_ViewportIndex = gs_in[VertexIndex].ViewportIndex;
 			gl_Layer = LayerIndex;
+
+			gs_out.DEBUGColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+			if(LayerIndex != 0)
+			{
+				gs_out.DEBUGColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+			}
 
 			gs_out.VertexNormal = gs_in[VertexIndex].VertexNormal;
 			gs_out.FragmentPos = gs_in[VertexIndex].FragmentPos;
