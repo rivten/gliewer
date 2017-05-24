@@ -9,7 +9,8 @@ struct mega_buffer
 	texture TextureArray;
 };
 
-#define LAYER_COUNT 8
+global_variable u32 GlobalLayerCount = 8;
+
 mega_buffer CreateMegaBuffer(render_state* State, u32 BufferWidth, u32 BufferHeight)
 {
 	mega_buffer Result = {};
@@ -20,7 +21,7 @@ mega_buffer CreateMegaBuffer(render_state* State, u32 BufferWidth, u32 BufferHei
 	glGenFramebuffers(1, &Result.ID);
 	BindFramebuffer(State, GL_FRAMEBUFFER, Result.ID);
 	GL_CHECK("BindFramebuffer");
-	GLenum DrawBuffer[LAYER_COUNT] = {};
+	GLenum DrawBuffer[1] = {};
 
 	// NOTE(hugo): Generating the 3D texture
 	Result.TextureArray = CreateTexture(GL_TEXTURE_2D_ARRAY);
@@ -29,7 +30,7 @@ mega_buffer CreateMegaBuffer(render_state* State, u32 BufferWidth, u32 BufferHei
 	GL_CHECK("BindTexture");
 
 	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA16F, 
-			Result.Width, Result.Height, LAYER_COUNT,
+			Result.Width, Result.Height, GlobalLayerCount,
 			0, GL_RGB, GL_FLOAT, 0);
 	GL_CHECK("TexImage3D");
 
