@@ -184,6 +184,8 @@ struct game_state
 	basic_framebuffer IndirectIlluminationFramebuffer;
 	mega_buffer MegaBuffer;
 
+	bool MegaBufferComputed;
+	u32 MegaBufferLayerDebugDisplay;
 	bool SaveFirstMegaTexture;
 
 	// }

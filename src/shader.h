@@ -10,6 +10,7 @@ enum shader_type
 	ShaderType_FXAA,
 	ShaderType_FillGBuffer,
 	ShaderType_FillMegaTexture,
+	ShaderType_DEBUGMegaBuffer,
 
 	ShaderType_Count,
 };
@@ -41,6 +42,7 @@ static shader_source Sources[ShaderType_Count] =
 	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/fxaa_f.glsl"},
 	{"../src/shaders/fillg_v.glsl", "../src/shaders/fillg_f.glsl"},
 	{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl", "../src/shaders/megafiller_g.glsl"},
+	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/debugmega_f.glsl"},
 	//{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl"},
 };
 
@@ -217,6 +219,12 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"CTF0",
 		"Ks",
 		"Kd",
+	},
+
+	// NOTE(hugo) : ShaderType_DEBUGMegaBuffer
+	{
+		"Texture",
+		"LayerIndex",
 	},
 };
 

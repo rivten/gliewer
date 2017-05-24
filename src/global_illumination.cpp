@@ -56,8 +56,6 @@ void MegaConvolution(game_state* State,
 	UseShader(State->RenderState, ConvShader);
 
 	SetUniformTexture(State->RenderState, ConvShader,
-			State->MegaBuffer.TextureArray.ID, 4, "MegaTexture", GL_TEXTURE_2D_ARRAY);
-	SetUniformTexture(State->RenderState, ConvShader,
 			State->GBuffer.DepthTexture.ID, 0, "DepthMap");
 	SetUniformTexture(State->RenderState, ConvShader,
 			State->GBuffer.NormalTexture.ID, 1, "NormalMap");
@@ -65,6 +63,8 @@ void MegaConvolution(game_state* State,
 			State->GBuffer.AlbedoTexture.ID, 2, "AlbedoMap");
 	SetUniformTexture(State->RenderState, ConvShader,
 			State->PreProcess.Texture.ID, 3, "DirectIlluminationMap");
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->MegaBuffer.TextureArray.ID, 4, "MegaTexture", GL_TEXTURE_2D_ARRAY);
 
 	SetUniform(ConvShader, PatchSizeInPixels, "PatchSizeInPixels");
 	GL_CHECK();
@@ -414,11 +414,30 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	float MillisecondsPerPatch = Duration / float(PatchXCount * PatchYCount);
 	printf("%fms on average per patch.\n", MillisecondsPerPatch);
 
+#if 0
 	ScreenshotBufferAttachment("GI_result.png",
 		State->RenderState, State->IndirectIlluminationFramebuffer.ID,
 		0, State->IndirectIlluminationFramebuffer.Width, 
 		State->IndirectIlluminationFramebuffer.Height,
 		GL_RGBA, GL_UNSIGNED_BYTE);
+#endif
+	State->MegaBufferComputed = true;
 }
 
+void DEBUGDisplayMegabufferLayer(game_state* State, u32 LayerIndex)
+{
+	Assert(State->MegaBufferComputed);
+	shader DEBUGMegaBufferShader = State->Shaders[ShaderType_DEBUGMegaBuffer];
 
+	UseShader(State->RenderState, DEBUGMegaBufferShader);
+
+	SetUniform(DEBUGMegaBufferShader, LayerIndex, "LayerIndex");
+	SetUniformTexture(State->RenderState, DEBUGMegaBufferShader,
+			State->MegaBuffer.TextureArray.ID, 0, "Texture", GL_TEXTURE_2D_ARRAY);
+
+	BindVertexArray(State->RenderState, State->QuadVAO);
+	Disable(State->RenderState, GL_DEPTH_TEST);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	Enable(State->RenderState, GL_DEPTH_TEST);
+	BindVertexArray(State->RenderState, 0);
+}

@@ -654,6 +654,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->IndirectIlluminationFramebuffer = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		v2 MegaBufferSize = GetMegaBufferSize(State->PatchSizeInPixels, GlobalMicrobufferWidth, GlobalMicrobufferHeight, GlobalLayerCount);
 		State->MegaBuffer = CreateMegaBuffer(State->RenderState, MegaBufferSize.x, MegaBufferSize.y);
+		State->MegaBufferComputed = false;
+		State->MegaBufferLayerDebugDisplay = 0;
 
 		State->SSAOParams.SampleCount = 0;
 		State->SSAOParams.Intensity = 1.0f;
@@ -966,5 +968,40 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 					State->Camera, 
 					State->LightProjectionMatrix, State->PatchSizeInPixels,
 					State->SaveFirstMegaTexture);
+	}
+	if(State->MegaBufferComputed)
+	{
+		if(IsKeyPressed(Input, SCANCODE_KP_0))
+		{
+			DEBUGDisplayMegabufferLayer(State, 0);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_1))
+		{
+			DEBUGDisplayMegabufferLayer(State, 1);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_2))
+		{
+			DEBUGDisplayMegabufferLayer(State, 2);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_3))
+		{
+			DEBUGDisplayMegabufferLayer(State, 3);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_4))
+		{
+			DEBUGDisplayMegabufferLayer(State, 4);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_5))
+		{
+			DEBUGDisplayMegabufferLayer(State, 5);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_6))
+		{
+			DEBUGDisplayMegabufferLayer(State, 6);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_7))
+		{
+			DEBUGDisplayMegabufferLayer(State, 7);
+		}
 	}
 }
