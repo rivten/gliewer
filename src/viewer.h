@@ -183,6 +183,7 @@ struct game_state
 	// {
 	basic_framebuffer IndirectIlluminationFramebuffer;
 	mega_buffer MegaBuffer;
+	mega_buffer DEBUGBuffer;
 
 	bool MegaBufferComputed;
 	u32 MegaBufferLayerDebugDisplay;

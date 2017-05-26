@@ -424,6 +424,27 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 	State->MegaBufferComputed = true;
 }
 
+void DEBUGComputeDummyLayeredFramebuffer(game_state* State)
+{
+	shader DEBUGFillShader = State->Shaders[ShaderType_DEBUGLayerFiller];
+	UseShader(State->RenderState, DEBUGFillShader);
+
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->DEBUGBuffer.ID);
+	Assert(!DetectErrors("BindFramebuffer"));
+	ClearColorAndDepth(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
+
+	BindVertexArray(State->RenderState, State->QuadVAO);
+	Disable(State->RenderState, GL_DEPTH_TEST);
+
+	glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GlobalLayerCount);
+
+	Enable(State->RenderState, GL_DEPTH_TEST);
+	BindVertexArray(State->RenderState, 0);
+
+	State->MegaBufferComputed = true;
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+}
+
 void DEBUGDisplayMegabufferLayer(game_state* State, u32 LayerIndex)
 {
 	Assert(State->MegaBufferComputed);
@@ -433,7 +454,8 @@ void DEBUGDisplayMegabufferLayer(game_state* State, u32 LayerIndex)
 
 	SetUniform(DEBUGMegaBufferShader, LayerIndex, "LayerIndex");
 	SetUniformTexture(State->RenderState, DEBUGMegaBufferShader,
-			State->MegaBuffer.TextureArray.ID, 0, "Texture", GL_TEXTURE_2D_ARRAY);
+			//State->MegaBuffer.TextureArray.ID, 0, "Texture", GL_TEXTURE_2D_ARRAY);
+			State->DEBUGBuffer.TextureArray.ID, 0, "Texture", GL_TEXTURE_2D_ARRAY);
 
 	BindVertexArray(State->RenderState, State->QuadVAO);
 	Disable(State->RenderState, GL_DEPTH_TEST);

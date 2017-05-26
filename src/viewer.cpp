@@ -657,6 +657,8 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->MegaBufferComputed = false;
 		State->MegaBufferLayerDebugDisplay = 0;
 
+		State->DEBUGBuffer = CreateMegaBuffer(State->RenderState, 100, 100);
+
 		State->SSAOParams.SampleCount = 0;
 		State->SSAOParams.Intensity = 1.0f;
 		State->SSAOParams.Scale = 1.0f;
@@ -964,10 +966,14 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	HandleGUI(State);
 	if(IsKeyPressed(Input, SCANCODE_RETURN))
 	{
+#if 0
 			ComputeGlobalIlluminationWithPatch(State, 
 					State->Camera, 
 					State->LightProjectionMatrix, State->PatchSizeInPixels,
 					State->SaveFirstMegaTexture);
+#else
+			DEBUGComputeDummyLayeredFramebuffer(State);
+#endif
 	}
 	if(State->MegaBufferComputed)
 	{
