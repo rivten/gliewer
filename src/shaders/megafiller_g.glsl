@@ -4,12 +4,12 @@
 
 layout(triangles) in;
 
-layout(triangle_strip, max_vertices = 19) out;
+// TODO(hugo) : Make that number go up !!
+layout(triangle_strip, max_vertices = 46) out;
 
 uniform mat4 ObjectMatrix;
 uniform vec3 WorldUp;
 
-uniform int LightCount;
 uniform int LayerCount;
 
 uniform sampler2D DepthMap;
@@ -33,21 +33,21 @@ in VS_OUT
 	int ViewportIndex;
 
 	vec3 VertexNormal;
-	vec4 FragmentPosInLightSpace[4];
+	vec4 FragmentPosInLightSpace;
 	vec3 ViewDir;
 	vec3 FragmentPos;
-	vec3 LightDir[4];
-	vec3 HalfDir[4];
+	vec3 LightDir;
+	vec3 HalfDir;
 } gs_in[];
 
 out GS_OUT
 {
 	vec3 VertexNormal;
-	vec4 FragmentPosInLightSpace[4];
+	vec4 FragmentPosInLightSpace;
 	vec3 FragmentPos;
 	vec3 ViewDir;
-	vec3 LightDir[4];
-	vec3 HalfDir[4];
+	vec3 LightDir;
+	vec3 HalfDir;
 } gs_out;
 
 float UnlinearizeDepth(float Depth, float NearPlane, float FarPlane)
@@ -173,13 +173,11 @@ void main()
 			gs_out.VertexNormal = gs_in[VertexIndex].VertexNormal;
 			gs_out.FragmentPos = gs_in[VertexIndex].FragmentPos;
 			gs_out.ViewDir = gs_in[VertexIndex].ViewDir;
-			for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
-			{
-				gs_out.FragmentPosInLightSpace[LightIndex] =
-					gs_in[VertexIndex].FragmentPosInLightSpace[LightIndex];
-				gs_out.LightDir[LightIndex] = gs_in[VertexIndex].LightDir[LightIndex];
-				gs_out.HalfDir[LightIndex] = gs_in[VertexIndex].HalfDir[LightIndex];
-			}
+
+			gs_out.FragmentPosInLightSpace =
+				gs_in[VertexIndex].FragmentPosInLightSpace;
+			gs_out.LightDir = gs_in[VertexIndex].LightDir;
+			gs_out.HalfDir = gs_in[VertexIndex].HalfDir;
 			EmitVertex();
 		}
 		EndPrimitive();

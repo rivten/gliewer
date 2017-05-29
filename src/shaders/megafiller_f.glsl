@@ -5,16 +5,15 @@ layout (location = 0) out vec4 Color;
 in GS_OUT
 {
 	vec3 VertexNormal;
-	vec4 FragmentPosInLightSpace[4];
+	vec4 FragmentPosInLightSpace;
 	vec3 FragmentPos;
 	vec3 ViewDir;
-	vec3 LightDir[4];
-	vec3 HalfDir[4];
+	vec3 LightDir;
+	vec3 HalfDir;
 } fs_in;
 
-uniform sampler2D ShadowMaps[4];
-uniform vec4 LightColor[4];
-uniform int LightCount;
+uniform sampler2D ShadowMap;
+uniform vec4 LightColor;
 uniform mat4 ViewMatrix;
 uniform float LightIntensity;
 
@@ -106,17 +105,16 @@ void main()
 	vec3 ViewDir = fs_in.ViewDir;
 
 	Color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	for(int LightIndex = 0; LightIndex < LightCount; ++LightIndex)
-	{
-		vec3 LightDir = fs_in.LightDir[LightIndex];
-		vec3 HalfDir = fs_in.HalfDir[LightIndex];
+
+		vec3 LightDir = fs_in.LightDir;
+		vec3 HalfDir = fs_in.HalfDir;
 
 		float ShadowMappingBias = max(0.01f * (1.0f - dot(fs_in.VertexNormal, LightDir)), 0.005f);
-		float Shadow = ShadowFactor(fs_in.FragmentPosInLightSpace[LightIndex], ShadowMaps[LightIndex], ShadowMappingBias);
+		float Shadow = ShadowFactor(fs_in.FragmentPosInLightSpace, ShadowMap, ShadowMappingBias);
 		vec4 BRDFLambert = DiffuseColor / Pi;
 		vec4 BRDFSpec = SpecularColor * GGXBRDF(fs_in.VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
-		vec4 Li = LightIntensity * LightColor[LightIndex];
+		vec4 Li = LightIntensity * LightColor;
 		Color += (1.0f - Shadow) * (Ks * BRDFLambert + Kd * BRDFSpec) * Li * DotClamp(fs_in.VertexNormal, LightDir);
-	}
+
 	Color.w = 1.0f;
 }

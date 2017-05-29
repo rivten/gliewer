@@ -966,7 +966,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	HandleGUI(State);
 	if(IsKeyPressed(Input, SCANCODE_RETURN))
 	{
-#if 0
+#if 1
 			ComputeGlobalIlluminationWithPatch(State, 
 					State->Camera, 
 					State->LightProjectionMatrix, State->PatchSizeInPixels,

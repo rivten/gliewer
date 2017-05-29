@@ -196,7 +196,6 @@ void ComputeOnePatchOfGI(game_state* State,
 	SetUniformTexture(State->RenderState, FillShader,
 			State->GBuffer.NormalTexture.ID, 5, "NormalMap");
 
-
 	SetUniform(FillShader, PatchX, "PatchX");
 	SetUniform(FillShader, PatchY, "PatchY");
 	SetUniform(FillShader, PatchSizeInPixels, "PatchSizeInPixels");
@@ -208,7 +207,6 @@ void ComputeOnePatchOfGI(game_state* State,
 	SetUniform(FillShader, State->Camera.Aspect, "CameraAspect");
 	SetUniform(FillShader, InvLookAtCamera, "InvLookAtCamera");
 	SetUniform(FillShader, NormalMatrix, "NormalMatrix");
-	SetUniform(FillShader, State->LightCount, "LightCount");
 	SetUniform(FillShader, State->LightIntensity, "LightIntensity");
 	SetUniform(FillShader, State->Alpha, "Alpha");
 	SetUniform(FillShader, State->CookTorranceF0, "CTF0");
@@ -218,32 +216,30 @@ void ComputeOnePatchOfGI(game_state* State,
 	mat4 ViewMatrix = LookAt(State->Camera);
 	SetUniform(FillShader, ViewMatrix, "ViewMatrix");
 	//SetUniform(State->Shaders[ShaderType_FillMegaTexture], MicrobufferSize, "MicrobufferSize");
-	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
-	{
-		light* Light = State->Lights + LightIndex;
+	Assert(State->LightCount == 1);
+	u32 LightIndex = 0;
+	light* Light = State->Lights + LightIndex;
+	SetUniform(FillShader, Light->Pos, "LightPos");
+	SetUniform(FillShader, Light->Color, "LightColor");
 
-		char Buffer[64];
-		sprintf(Buffer, "LightPos[%i]", LightIndex);
-		SetUniform(FillShader, Light->Pos, Buffer);
+	v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
+	v3 LightZAxis = Normalized(Light->Pos - Light->Target);
+	v3 LightXAxis = Cross(LightYAxis, LightZAxis);
+	mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
+	SetUniform(FillShader, LightViewProj, "LightSpaceMatrix");
 
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "LightColor[%i]", LightIndex);
-		SetUniform(FillShader, Light->Color, Buffer);
+	SetUniformTexture(State->RenderState, FillShader,
+			Light->DepthFramebuffer.Texture.ID, LightIndex, "ShadowMap");
 
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "LightSpaceMatrix[%i]", LightIndex);
-		v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
-		v3 LightZAxis = Normalized(Light->Pos - Light->Target);
-		v3 LightXAxis = Cross(LightYAxis, LightZAxis);
-		mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
-		SetUniform(FillShader, LightViewProj, Buffer);
-
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "ShadowMaps[%i]", LightIndex);
-
-		SetUniformTexture(State->RenderState, FillShader,
-				Light->DepthFramebuffer.Texture.ID, LightIndex, Buffer);
-	}
+#if 0
+	s32 MaxGeometryOutputVertices = 0;
+	s32 MaxGeometryOutputComponents = 0;
+	s32 MaxGeometryTotalOutputComponents = 0;
+	glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &MaxGeometryOutputVertices);
+	glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS, &MaxGeometryOutputComponents);
+	glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, &MaxGeometryTotalOutputComponents);
+	SDL_Log("MaxGeometryOutputVertices = %i -- MaxGeometryOutputComponent = %i -- MaxGeometryTotalOutputComponents = %i", MaxGeometryOutputVertices, MaxGeometryOutputComponents, MaxGeometryTotalOutputComponents);
+#endif
 
 	rect2 MegaViewport = RectFromMinSize(V2(0.0f, 0.0f), 
 			V2(State->MegaBuffer.Width, State->MegaBuffer.Height));
@@ -271,6 +267,7 @@ void ComputeOnePatchOfGI(game_state* State,
 			u32 InstanceDrawnCount = 0;
 			while(InstanceDrawnCount < InstanceCount)
 			{
+				Assert(InstanceDrawnCount % GlobalLayerCount == 0);
 				u32 DrawLeft = InstanceCount - InstanceDrawnCount;
 				u32 DrawCount = Minu(MaxInstanceDrawn, DrawLeft);
 
@@ -281,7 +278,9 @@ void ComputeOnePatchOfGI(game_state* State,
 #else
 				u32 BaseTileID = InstanceDrawnCount / GlobalLayerCount;
 				float* FirstViewport = AllocateArray(float, 4 * DrawCount);
-				for(u32 ViewportIndex = 0; ViewportIndex < DrawCount; ++ViewportIndex)
+				Assert(DrawCount % GlobalLayerCount == 0);
+				u32 ViewportCount = DrawCount / GlobalLayerCount;
+				for(u32 ViewportIndex = 0; ViewportIndex < ViewportCount; ++ViewportIndex)
 				{
 					u32 TileID = (InstanceDrawnCount / GlobalLayerCount) + ViewportIndex;
 					u32 TileX = TileID % TileCountX;
@@ -298,14 +297,16 @@ void ComputeOnePatchOfGI(game_state* State,
 						BaseTileID, "BaseTileID");
 				GL_CHECK("SetUniform");
 
-				glViewportArrayv(0, DrawCount, FirstViewport);
+				glViewportArrayv(0, ViewportCount, FirstViewport);
 				GL_CHECK("ViewportArrayv");
-				DrawTriangleObjectInstances(State->RenderState, Object, DrawCount);
+				Assert(DrawCount % GlobalLayerCount == 0);
+				u32 Instance = DrawCount / GlobalLayerCount;
+				DrawTriangleObjectInstances(State->RenderState, Object, Instance);
 				Assert(!DetectErrors("Draw"));
 
 				Free(FirstViewport);
 
-				InstanceDrawnCount += DrawCount * GlobalLayerCount;
+				InstanceDrawnCount += DrawCount;
 			}
 		}
 	}
@@ -446,8 +447,8 @@ void DEBUGComputeOnePatchOfGI(game_state* State,
 	Assert(PatchSizeInPixels == 32);
 	Assert(GlobalLayerCount == 8);
 	u32 TileCountX = 16;
-	u32 PatchX = 0;
-	u32 PatchY = 0;
+	u32 PatchX = 4;
+	u32 PatchY = 4;
 	//
 	// NOTE(hugo) : Filling the megatexture
 	//
@@ -496,7 +497,6 @@ void DEBUGComputeOnePatchOfGI(game_state* State,
 	SetUniform(FillShader, State->Camera.Aspect, "CameraAspect");
 	SetUniform(FillShader, InvLookAtCamera, "InvLookAtCamera");
 	SetUniform(FillShader, NormalMatrix, "NormalMatrix");
-	SetUniform(FillShader, State->LightCount, "LightCount");
 	SetUniform(FillShader, State->LightIntensity, "LightIntensity");
 	SetUniform(FillShader, State->Alpha, "Alpha");
 	SetUniform(FillShader, State->CookTorranceF0, "CTF0");
@@ -505,32 +505,23 @@ void DEBUGComputeOnePatchOfGI(game_state* State,
 	SetUniform(FillShader, GlobalLayerCount, "LayerCount");
 	mat4 ViewMatrix = LookAt(State->Camera);
 	SetUniform(FillShader, ViewMatrix, "ViewMatrix");
-	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
-	{
-		light* Light = State->Lights + LightIndex;
 
-		char Buffer[64];
-		sprintf(Buffer, "LightPos[%i]", LightIndex);
-		SetUniform(FillShader, Light->Pos, Buffer);
+	Assert(State->LightCount == 1);
+	u32 LightIndex = 0;
+	light* Light = State->Lights + LightIndex;
 
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "LightColor[%i]", LightIndex);
-		SetUniform(FillShader, Light->Color, Buffer);
+	SetUniform(FillShader, Light->Pos, "LightPos");
 
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "LightSpaceMatrix[%i]", LightIndex);
-		v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
-		v3 LightZAxis = Normalized(Light->Pos - Light->Target);
-		v3 LightXAxis = Cross(LightYAxis, LightZAxis);
-		mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
-		SetUniform(FillShader, LightViewProj, Buffer);
+	SetUniform(FillShader, Light->Color, "LightColor");
 
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "ShadowMaps[%i]", LightIndex);
+	v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
+	v3 LightZAxis = Normalized(Light->Pos - Light->Target);
+	v3 LightXAxis = Cross(LightYAxis, LightZAxis);
+	mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
+	SetUniform(FillShader, LightViewProj, "LightSpaceMatrix");
 
-		SetUniformTexture(State->RenderState, FillShader,
-				Light->DepthFramebuffer.Texture.ID, LightIndex, Buffer);
-	}
+	SetUniformTexture(State->RenderState, FillShader,
+			Light->DepthFramebuffer.Texture.ID, LightIndex, "ShadowMap");
 
 #if 0
 	s32 MaxGeometryOutputVertices = 0;
