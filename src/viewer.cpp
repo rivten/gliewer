@@ -972,7 +972,9 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 					State->LightProjectionMatrix, State->PatchSizeInPixels,
 					State->SaveFirstMegaTexture);
 #else
-			DEBUGComputeDummyLayeredFramebuffer(State);
+			//DEBUGComputeDummyLayeredFramebuffer(State);
+			DEBUGComputeOnePatchOfGI(State, State->Camera, State->LightProjectionMatrix,
+					State->PatchSizeInPixels, State->SaveFirstMegaTexture);
 #endif
 	}
 	if(State->MegaBufferComputed)

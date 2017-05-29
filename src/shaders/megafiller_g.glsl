@@ -4,7 +4,7 @@
 
 layout(triangles) in;
 
-layout(triangle_strip, max_vertices = 3) out;
+layout(triangle_strip, max_vertices = 19) out;
 
 uniform mat4 ObjectMatrix;
 uniform vec3 WorldUp;
@@ -32,7 +32,6 @@ in VS_OUT
 {
 	int ViewportIndex;
 
-	vec3 Position;
 	vec3 VertexNormal;
 	vec4 FragmentPosInLightSpace[4];
 	vec3 ViewDir;
@@ -49,8 +48,6 @@ out GS_OUT
 	vec3 ViewDir;
 	vec3 LightDir[4];
 	vec3 HalfDir[4];
-
-	vec4 DEBUGColor;
 } gs_out;
 
 float UnlinearizeDepth(float Depth, float NearPlane, float FarPlane)
@@ -102,6 +99,7 @@ mat4 GetLookAt(vec3 Eye, vec3 Target, vec3 Up)
 void main()
 {
 	int InLength = gl_in.length();
+	int BaseInstanceID = LayerCount * (gs_in[0].ViewportIndex + BaseTileID);
 	for(int LayerIndex = 0; LayerIndex < LayerCount; ++LayerIndex)
 	{
 		//
@@ -113,9 +111,9 @@ void main()
 		// We should use PatchWidth and PatchHeight here
 		// TODO(hugo) : This computation is already done in
 		// the CPU. Just pass the result as uniform
-		int RealInstanceID = LayerIndex + LayerCount * gs_in[0].ViewportIndex + BaseTileID;
+		int RealInstanceID = LayerIndex + BaseInstanceID;
 		float X = mod(RealInstanceID, PatchSizeInPixels);
-		float Y = floor(float(RealInstanceID) / float(PatchSizeInPixels));
+		float Y = floor(float(RealInstanceID - X) / float(PatchSizeInPixels));
 		vec2 PixelCoordInPatch = vec2(X, Y);
 
 		vec2 PixelCoordInWindow = PixelCoordInPatch + 
@@ -155,7 +153,7 @@ void main()
 			// {
 			//
 
-			vec4 ViewPosition = MicroView * ObjectMatrix * vec4(gs_in[VertexIndex].Position, 1.0f);
+			vec4 ViewPosition = MicroView * ObjectMatrix * gl_in[VertexIndex].gl_Position;
 			ViewPosition = normalize(ViewPosition);
 			float Z = -ViewPosition.z;
 			float ZPlusOne = Z + 1.0f;
@@ -172,12 +170,6 @@ void main()
 			gl_ViewportIndex = gs_in[VertexIndex].ViewportIndex;
 			gl_Layer = LayerIndex;
 
-			gs_out.DEBUGColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-			if(LayerIndex != 0)
-			{
-				gs_out.DEBUGColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);
-			}
-
 			gs_out.VertexNormal = gs_in[VertexIndex].VertexNormal;
 			gs_out.FragmentPos = gs_in[VertexIndex].FragmentPos;
 			gs_out.ViewDir = gs_in[VertexIndex].ViewDir;
@@ -190,7 +182,6 @@ void main()
 			}
 			EmitVertex();
 		}
-
 		EndPrimitive();
 	}
 }

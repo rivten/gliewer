@@ -18,7 +18,6 @@ out VS_OUT
 {
 	int ViewportIndex;
 
-	vec3 Position;
 	vec3 VertexNormal;
 	vec4 FragmentPosInLightSpace[4];
 	vec3 ViewDir;
@@ -31,7 +30,7 @@ void main()
 {
 	vs_out.ViewportIndex = gl_InstanceID;
 
-	vs_out.Position = Position;
+	gl_Position = vec4(Position, 1.0f);
 
 	vs_out.VertexNormal = normalize((NormalMatrix * vec4(Normal, 1.0f)).xyz);
 	vec4 FragmentPosInWorldSpace = ObjectMatrix * vec4(Position, 1.0f);
