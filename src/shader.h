@@ -113,6 +113,7 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"WindowWidth",
 		"WindowHeight",
 		"LayerCount",
+		"PatchXCount",
 	},
 
 	// NOTE(hugo) : ShaderType_Skybox

@@ -47,7 +47,8 @@ void MegaConvolution(game_state* State,
 		u32 PatchX, u32 PatchY,
 		u32 PatchWidth, u32 PatchHeight,
 		mat4 InvLookAtCamera,
-		v3 WorldUp)
+		v3 WorldUp,
+		u32 PatchXCount)
 {
 	//
 	// NOTE(hugo) : Lighting with the mega texture
@@ -103,6 +104,8 @@ void MegaConvolution(game_state* State,
 	SetUniform(ConvShader, GlobalWindowHeight, "WindowHeight");
 	GL_CHECK();
 	SetUniform(ConvShader, GlobalLayerCount, "LayerCount");
+	GL_CHECK();
+	SetUniform(ConvShader, PatchXCount, "PatchXCount");
 	GL_CHECK();
 
 	rect2 ViewportRect = RectFromMinSize(PatchSizeInPixels * V2(PatchX, PatchY), V2(PatchWidth, PatchHeight));
@@ -349,7 +352,7 @@ void ComputeOnePatchOfGI(game_state* State,
 			PixelSurfaceInMeters,
 			PatchX, PatchY,
 			PatchWidth, PatchHeight,
-			InvLookAtCamera, WorldUp);
+			InvLookAtCamera, WorldUp, PatchXCount);
 
 #if 1
 	if(PatchX == 0)

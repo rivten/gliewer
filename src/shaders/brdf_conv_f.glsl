@@ -14,6 +14,7 @@ uniform int PatchSizeInPixels;
 
 uniform int PatchX;
 uniform int PatchY;
+uniform int PatchXCount;
 
 uniform int MicrobufferWidth;
 uniform int MicrobufferHeight;
@@ -138,13 +139,15 @@ void main()
 	vec2 ScreenSize = vec2(WindowWidth, WindowHeight);
 	vec2 FragCoord = gl_FragCoord.xy - vec2(0.5f, 0.5f);
 	vec2 ScreenUV = FragCoord / ScreenSize;
-	vec2 PixelCoordInPatch = FragCoord - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
+	vec2 PatchOrigin = PatchSizeInPixels * vec2(PatchX, PatchY);
+	vec2 PixelCoordInPatch = FragCoord - PatchOrigin;
 
 	float PixelIndex = PixelCoordInPatch.x + PatchSizeInPixels * PixelCoordInPatch.y;
 	float LayerIndex = mod(PixelIndex, LayerCount);
 	vec2 TileCoordInPatch = vec2(0.0f, 0.0f);
-	TileCoordInPatch.x = mod((PixelIndex - LayerIndex) / 8, PatchSizeInPixels);
-	TileCoordInPatch.y = (PixelIndex - TileCoordInPatch.x) / PatchSizeInPixels;
+	float ProjectedTileID = float(PixelIndex - LayerIndex) / float(LayerCount);
+	TileCoordInPatch.x = mod(ProjectedTileID, PatchXCount);
+	TileCoordInPatch.y = (ProjectedTileID - TileCoordInPatch.x) / PatchXCount;
 
 	// NOTE(hugo) : Unlinearize depth
 	float Depth = texture(DepthMap, ScreenUV).r;
@@ -221,11 +224,8 @@ void main()
 			vec3 Wi = normalize(MicroPixelWorldPos.xyz - (FragmentWorldPos.xyz));
 			if(DotClamp(Normal, Wi) > 0.0f)
 			{
-				//float LookUpLayer = max(0, min(7, floor(LayerIndex + 0.5f)));
-				float LookUpLayer = LayerIndex * (1.0f / (float(LayerCount)));
-				//LookUpLayer = LookUpLayer * (1.0f / (float(LayerCount)));
-				vec3 SampleCoord = vec3((MicrobufferSize * TileCoordInPatch + vec2(X, Y)) * MegaTextureTexelSize, 0.0f)
-					+ vec3(0.0f, 0.0f, LookUpLayer);
+				vec2 SampleCoordXY = (MicrobufferSize * TileCoordInPatch + vec2(X, Y)) * MegaTextureTexelSize;
+				vec3 SampleCoord = vec3(SampleCoordXY, LayerIndex);
 
 				vec4 SampleColor = texture(MegaTexture, SampleCoord);
 
