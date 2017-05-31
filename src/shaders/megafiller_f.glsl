@@ -5,14 +5,14 @@ layout (location = 0) out vec4 Color;
 in GS_OUT
 {
 	vec3 VertexNormal;
-	vec4 FragmentPosInLightSpace;
+	//vec4 FragmentPosInLightSpace;
+	float Shadow;
 	vec3 FragmentPos;
 	vec3 ViewDir;
 	vec3 LightDir;
 	vec3 HalfDir;
 } fs_in;
 
-uniform sampler2D ShadowMap;
 uniform vec4 LightColor;
 uniform mat4 ViewMatrix;
 uniform float LightIntensity;
@@ -31,34 +31,6 @@ const float Pi = 3.14159265f;
 float DotClamp(vec3 A, vec3 B)
 {
 	float Result = max(0.0f, dot(A, B));
-	return(Result);
-}
-
-// ---------------------------------------
-// NOTE(hugo) : Shadow Map Computation
-// ---------------------------------------
-float ShadowFactor(vec4 FragmentPositionInLightSpace, sampler2D ShadowMap, float Bias)
-{
-	vec3 ProjectedCoordinates = FragmentPositionInLightSpace.xyz / FragmentPositionInLightSpace.w;
-	ProjectedCoordinates = 0.5f * ProjectedCoordinates + 0.5f;
-	float FragmentDepth = ProjectedCoordinates.z;
-
-	float Result = 0.0f;
-	vec2 TexelSize = 1.0f / textureSize(ShadowMap, 0);
-
-	int PCFSize = 3;
-	int K = PCFSize / 2;
-
-	for(int X = -K; X <= K; ++X)
-	{
-		for(int Y = -K; Y <= K; ++Y)
-		{
-			float PCFDepthValue = texture(ShadowMap, ProjectedCoordinates.xy + vec2(X, Y) * TexelSize).r;
-			Result += ((FragmentDepth - Bias) > PCFDepthValue) ? 1.0f : 0.0f;
-		}
-	}
-	Result /= float(PCFSize * PCFSize);
-
 	return(Result);
 }
 
@@ -110,7 +82,7 @@ void main()
 		vec3 HalfDir = fs_in.HalfDir;
 
 		float ShadowMappingBias = max(0.01f * (1.0f - dot(fs_in.VertexNormal, LightDir)), 0.005f);
-		float Shadow = ShadowFactor(fs_in.FragmentPosInLightSpace, ShadowMap, ShadowMappingBias);
+		float Shadow = fs_in.Shadow;
 		vec4 BRDFLambert = DiffuseColor / Pi;
 		vec4 BRDFSpec = SpecularColor * GGXBRDF(fs_in.VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);
 		vec4 Li = LightIntensity * LightColor;

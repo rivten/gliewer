@@ -1,7 +1,7 @@
 #pragma once
 
-static u32 GlobalMicrobufferWidth = 64;
-static u32 GlobalMicrobufferHeight = 64;
+static u32 GlobalMicrobufferWidth = 32;
+static u32 GlobalMicrobufferHeight = GlobalMicrobufferWidth;
 
 static u32 MaxViewportCount = 16;
 static u32 MaxInstanceDrawn = MaxViewportCount * GlobalLayerCount;
@@ -355,7 +355,7 @@ void ComputeOnePatchOfGI(game_state* State,
 			InvLookAtCamera, WorldUp, PatchXCount);
 
 #if 1
-	if(PatchX == 0)
+	//if(PatchX == 0)
 	{
 		SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);

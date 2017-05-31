@@ -5,7 +5,7 @@
 layout(triangles) in;
 
 // TODO(hugo) : Make that number go up !!
-layout(triangle_strip, max_vertices = 46) out;
+layout(triangle_strip, max_vertices = 53) out;
 
 uniform mat4 ObjectMatrix;
 uniform vec3 WorldUp;
@@ -33,9 +33,9 @@ in VS_OUT
 	int ViewportIndex;
 
 	vec3 VertexNormal;
-	vec4 FragmentPosInLightSpace;
-	vec3 ViewDir;
+	float Shadow;
 	vec3 FragmentPos;
+	vec3 ViewDir;
 	vec3 LightDir;
 	vec3 HalfDir;
 } gs_in[];
@@ -43,7 +43,7 @@ in VS_OUT
 out GS_OUT
 {
 	vec3 VertexNormal;
-	vec4 FragmentPosInLightSpace;
+	float Shadow;
 	vec3 FragmentPos;
 	vec3 ViewDir;
 	vec3 LightDir;
@@ -174,8 +174,9 @@ void main()
 			gs_out.FragmentPos = gs_in[VertexIndex].FragmentPos;
 			gs_out.ViewDir = gs_in[VertexIndex].ViewDir;
 
-			gs_out.FragmentPosInLightSpace =
-				gs_in[VertexIndex].FragmentPosInLightSpace;
+			//gs_out.FragmentPosInLightSpace =
+				//gs_in[VertexIndex].FragmentPosInLightSpace;
+			gs_out.Shadow = gs_in[VertexIndex].Shadow;
 			gs_out.LightDir = gs_in[VertexIndex].LightDir;
 			gs_out.HalfDir = gs_in[VertexIndex].HalfDir;
 			EmitVertex();
