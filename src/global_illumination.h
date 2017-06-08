@@ -9,7 +9,8 @@ struct mega_buffer
 	texture TextureArray;
 };
 
-global_variable u32 GlobalLayerCount = 8;
+global_variable u32 GlobalLayerCount = 16;
+//global_variable u32 GlobalLayerCount = 8;
 
 mega_buffer CreateMegaBuffer(render_state* State, u32 BufferWidth, u32 BufferHeight)
 {

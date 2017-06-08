@@ -81,7 +81,6 @@ void main()
 		vec3 LightDir = fs_in.LightDir;
 		vec3 HalfDir = fs_in.HalfDir;
 
-		float ShadowMappingBias = max(0.01f * (1.0f - dot(fs_in.VertexNormal, LightDir)), 0.005f);
 		float Shadow = fs_in.Shadow;
 		vec4 BRDFLambert = DiffuseColor / Pi;
 		vec4 BRDFSpec = SpecularColor * GGXBRDF(fs_in.VertexNormal, LightDir, HalfDir, ViewDir, Alpha, CTF0);

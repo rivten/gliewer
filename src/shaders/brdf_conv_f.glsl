@@ -14,7 +14,7 @@ uniform int PatchSizeInPixels;
 
 uniform int PatchX;
 uniform int PatchY;
-uniform int PatchXCount;
+uniform int TileXCount;
 
 uniform int MicrobufferWidth;
 uniform int MicrobufferHeight;
@@ -146,8 +146,8 @@ void main()
 	float LayerIndex = mod(PixelIndex, LayerCount);
 	vec2 TileCoordInPatch = vec2(0.0f, 0.0f);
 	float ProjectedTileID = float(PixelIndex - LayerIndex) / float(LayerCount);
-	TileCoordInPatch.x = mod(ProjectedTileID, PatchXCount);
-	TileCoordInPatch.y = (ProjectedTileID - TileCoordInPatch.x) / PatchXCount;
+	TileCoordInPatch.x = mod(ProjectedTileID, TileXCount);
+	TileCoordInPatch.y = (ProjectedTileID - TileCoordInPatch.x) / TileXCount;
 
 	// NOTE(hugo) : Unlinearize depth
 	float Depth = texture(DepthMap, ScreenUV).r;
