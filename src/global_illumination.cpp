@@ -350,7 +350,7 @@ void ComputeOnePatchOfGI(game_state* State,
 			InvLookAtCamera, WorldUp, TileXCount);
 
 #if 1
-	//if(PatchX == 0)
+	if(!GlobalRealTimeGI && PatchX == 0)
 	{
 		SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
@@ -408,11 +408,17 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 					SaveFirstMegaTexture);
 		}
 	}
+	SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+	RenderTextureOnQuadScreen(State, State->IndirectIlluminationFramebuffer.Texture);
+	Assert(!DetectErrors("GI2"));
 	u32 EndTicks = SDL_GetTicks();
+#if 0
 	float Duration = float(EndTicks - BeginTicks);
 	printf("%fms to compute the frame.\n", Duration);
 	float MillisecondsPerPatch = Duration / float(PatchXCount * PatchYCount);
 	printf("%fms on average per patch.\n", MillisecondsPerPatch);
+#endif
 
 #if 0
 	ScreenshotBufferAttachment("GI_result.png",

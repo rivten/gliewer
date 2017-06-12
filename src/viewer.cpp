@@ -4,6 +4,8 @@ static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
 
+static bool GlobalRealTimeGI = false;
+
 GLuint LoadCubemap(game_state* State, const char** Filenames)
 {
 	GLuint Texture;
@@ -963,7 +965,7 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	
 	State->PreviousViewProj = State->CameraProj * LookAt(State->Camera);
 
-	HandleGUI(State);
+	//HandleGUI(State);
 	if(IsKeyPressed(Input, SCANCODE_RETURN))
 	{
 #if 1
@@ -1011,5 +1013,12 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		{
 			DEBUGDisplayMegabufferLayer(State, 7);
 		}
+	}
+	if(GlobalRealTimeGI)
+	{
+		ComputeGlobalIlluminationWithPatch(State, 
+				State->Camera, 
+				State->LightProjectionMatrix, State->PatchSizeInPixels,
+				State->SaveFirstMegaTexture);
 	}
 }
