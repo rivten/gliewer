@@ -4,16 +4,17 @@ in vec2 TextureCoordinates;
 
 layout (location = 0) out vec4 Color;
 
-uniform sampler2D MegaTexture;
 uniform sampler2D DepthMap;
 uniform sampler2D NormalMap;
 uniform sampler2D AlbedoMap;
 uniform sampler2D DirectIlluminationMap;
+uniform sampler2DArray MegaTexture;
 
 uniform int PatchSizeInPixels;
 
 uniform int PatchX;
 uniform int PatchY;
+uniform int TileXCount;
 
 uniform int MicrobufferWidth;
 uniform int MicrobufferHeight;
@@ -34,6 +35,8 @@ uniform mat4 InvLookAtCamera;
 
 uniform int WindowWidth;
 uniform int WindowHeight;
+
+uniform int LayerCount;
 
 const float Pi = 3.14159265f;
 const float GammaCor = 2.2f;
@@ -136,7 +139,15 @@ void main()
 	vec2 ScreenSize = vec2(WindowWidth, WindowHeight);
 	vec2 FragCoord = gl_FragCoord.xy - vec2(0.5f, 0.5f);
 	vec2 ScreenUV = FragCoord / ScreenSize;
-	vec2 PixelCoordInPatch = FragCoord - vec2(PatchX * PatchSizeInPixels, PatchY * PatchSizeInPixels);
+	vec2 PatchOrigin = PatchSizeInPixels * vec2(PatchX, PatchY);
+	vec2 PixelCoordInPatch = FragCoord - PatchOrigin;
+
+	float PixelIndex = PixelCoordInPatch.x + PatchSizeInPixels * PixelCoordInPatch.y;
+	float LayerIndex = mod(PixelIndex, LayerCount);
+	vec2 TileCoordInPatch = vec2(0.0f, 0.0f);
+	float ProjectedTileID = float(PixelIndex - LayerIndex) / float(LayerCount);
+	TileCoordInPatch.x = mod(ProjectedTileID, TileXCount);
+	TileCoordInPatch.y = (ProjectedTileID - TileCoordInPatch.x) / TileXCount;
 
 	// NOTE(hugo) : Unlinearize depth
 	float Depth = texture(DepthMap, ScreenUV).r;
@@ -162,7 +173,7 @@ void main()
 
 	vec4 Albedo = texture(AlbedoMap, ScreenUV);
 
-	vec2 MegaTextureTexelSize = 1.0f / textureSize(MegaTexture, 0);
+	vec2 MegaTextureTexelSize = 1.0f / textureSize(MegaTexture, 0).xy;
 
 	Color = texture(DirectIlluminationMap, ScreenUV);
 	
@@ -213,9 +224,11 @@ void main()
 			vec3 Wi = normalize(MicroPixelWorldPos.xyz - (FragmentWorldPos.xyz));
 			if(DotClamp(Normal, Wi) > 0.0f)
 			{
-				vec2 SampleCoord = MicrobufferSize * PixelCoordInPatch + vec2(X, Y);
-				SampleCoord = SampleCoord * MegaTextureTexelSize;
+				vec2 SampleCoordXY = (MicrobufferSize * TileCoordInPatch + vec2(X, Y)) * MegaTextureTexelSize;
+				vec3 SampleCoord = vec3(SampleCoordXY, LayerIndex);
+
 				vec4 SampleColor = texture(MegaTexture, SampleCoord);
+
 				//if(LengthSqr(vec4(SampleColor.xyz, 0.0f)) > 0.0f)
 				{
 					vec3 H = normalize(0.5f * (Wi + Wo));

@@ -1,9 +1,35 @@
-static u32 GlobalMicrobufferWidth = 64;
-static u32 GlobalMicrobufferHeight = 64;
+#pragma once
 
-static u32 MaxInstanceDrawn = 16;
+static u32 GlobalMicrobufferWidth = 32;
+static u32 GlobalMicrobufferHeight = GlobalMicrobufferWidth;
 
-#define GL_CHECK Assert(!DetectErrors(""))
+static u32 MaxViewportCount = 16;
+static u32 MaxInstanceDrawn = MaxViewportCount * GlobalLayerCount;
+
+v2 GetMegaBufferSize(u32 PatchSizeInPixels,
+		u32 MicrobufferWidth, u32 MicrobufferHeight,
+		u32 LayerCount)
+{
+	v2 TileCount = {};
+
+	Assert(PatchSizeInPixels == 32);
+	Assert(LayerCount == 16);
+	TileCount.x = 8;
+	TileCount.y = 8;
+	v2 Result = Hadamard(V2(MicrobufferWidth, MicrobufferHeight), TileCount);
+
+	return(Result);
+}
+
+void SetUniformTexture(render_state* RenderState, shader Shader,
+		u32 BufferID, u32 UniformID, char* UniformName,
+		u32 Target = GL_TEXTURE_2D)
+{
+	ActiveTexture(RenderState, GL_TEXTURE0 + UniformID);
+	SetUniform(Shader, UniformID, UniformName);
+	BindTexture(RenderState, Target, BufferID);
+	GL_CHECK("BindTexture");
+}
 
 void MegaConvolution(game_state* State,
 		camera Camera,
@@ -12,86 +38,81 @@ void MegaConvolution(game_state* State,
 		u32 PatchX, u32 PatchY,
 		u32 PatchWidth, u32 PatchHeight,
 		mat4 InvLookAtCamera,
-		v3 WorldUp)
+		v3 WorldUp,
+		u32 TileXCount)
 {
 	//
 	// NOTE(hugo) : Lighting with the mega texture
 	// {
 	//
-	UseShader(State->RenderState, State->Shaders[ShaderType_BRDFConvolutional]);
+	shader ConvShader = State->Shaders[ShaderType_BRDFConvolutional];
+	UseShader(State->RenderState, ConvShader);
 
-	ActiveTexture(State->RenderState, GL_TEXTURE0);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)0, "MegaTexture");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->MegaBuffer.Texture.ID);
-	
-	ActiveTexture(State->RenderState, GL_TEXTURE5);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)5, "DepthMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);	
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->GBuffer.DepthTexture.ID, 0, "DepthMap");
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->GBuffer.NormalTexture.ID, 1, "NormalMap");
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->GBuffer.AlbedoTexture.ID, 2, "AlbedoMap");
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->PreProcess.Texture.ID, 3, "DirectIlluminationMap");
+	SetUniformTexture(State->RenderState, ConvShader,
+			State->MegaBuffer.TextureArray.ID, 4, "MegaTexture", GL_TEXTURE_2D_ARRAY);
 
-	ActiveTexture(State->RenderState, GL_TEXTURE6);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)6, "NormalMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
+	SetUniform(ConvShader, PatchSizeInPixels, "PatchSizeInPixels");
+	GL_CHECK();
+	SetUniform(ConvShader, PatchX, "PatchX");
+	GL_CHECK();
+	SetUniform(ConvShader, PatchY, "PatchY");
+	GL_CHECK();
+	SetUniform(ConvShader, State->HemicubeFramebuffer.Width, "MicrobufferWidth");
+	GL_CHECK();
+	SetUniform(ConvShader, State->HemicubeFramebuffer.Height, "MicrobufferHeight");
+	GL_CHECK();
+	SetUniform(ConvShader, Camera.P, "CameraPos");
+	GL_CHECK();
+	SetUniform(ConvShader, PixelSurfaceInMeters, "PixelSurfaceInMeters");
+	GL_CHECK();
 
-	ActiveTexture(State->RenderState, GL_TEXTURE7);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)7, "AlbedoMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.AlbedoTexture.ID);
-
-	ActiveTexture(State->RenderState, GL_TEXTURE8);
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], (u32)8, "DirectIlluminationMap");
-	// TODO(hugo) : maybe PreFXAA framebuffer ??
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->PreProcess.Texture.ID);
-	GL_CHECK;
-
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchSizeInPixels, "PatchSizeInPixels");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchX, "PatchX");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PatchY, "PatchY");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Width, "MicrobufferWidth");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->HemicubeFramebuffer.Height, "MicrobufferHeight");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.P, "CameraPos");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], PixelSurfaceInMeters, "PixelSurfaceInMeters");
-	GL_CHECK;
-
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->Alpha, "Alpha");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], State->CookTorranceF0, "CookTorranceF0");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], WorldUp, "WorldUp");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.Aspect, "MainCameraAspect");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FoV, "MainCameraFoV");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.NearPlane, "MainCameraNearPlane");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], Camera.FarPlane, "MainCameraFarPlane");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], InvLookAtCamera, "InvLookAtCamera");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowWidth, "WindowWidth");
-	GL_CHECK;
-	SetUniform(State->Shaders[ShaderType_BRDFConvolutional], GlobalWindowHeight, "WindowHeight");
-	GL_CHECK;
+	SetUniform(ConvShader, State->Alpha, "Alpha");
+	GL_CHECK();
+	SetUniform(ConvShader, State->CookTorranceF0, "CookTorranceF0");
+	GL_CHECK();
+	SetUniform(ConvShader, WorldUp, "WorldUp");
+	GL_CHECK();
+	SetUniform(ConvShader, Camera.Aspect, "MainCameraAspect");
+	GL_CHECK();
+	SetUniform(ConvShader, Camera.FoV, "MainCameraFoV");
+	GL_CHECK();
+	SetUniform(ConvShader, Camera.NearPlane, "MainCameraNearPlane");
+	GL_CHECK();
+	SetUniform(ConvShader, Camera.FarPlane, "MainCameraFarPlane");
+	GL_CHECK();
+	SetUniform(ConvShader, InvLookAtCamera, "InvLookAtCamera");
+	GL_CHECK();
+	SetUniform(ConvShader, GlobalWindowWidth, "WindowWidth");
+	GL_CHECK();
+	SetUniform(ConvShader, GlobalWindowHeight, "WindowHeight");
+	GL_CHECK();
+	SetUniform(ConvShader, GlobalLayerCount, "LayerCount");
+	GL_CHECK();
+	SetUniform(ConvShader, TileXCount, "TileXCount");
+	GL_CHECK();
 
 	rect2 ViewportRect = RectFromMinSize(PatchSizeInPixels * V2(PatchX, PatchY), V2(PatchWidth, PatchHeight));
 	SetViewport(State->RenderState, ViewportRect);
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);
-	GL_CHECK;
+	GL_CHECK("BindFramebuffer");
 	BindVertexArray(State->RenderState, State->QuadVAO);
-	GL_CHECK;
+	GL_CHECK("BindVertexArray");
 	Disable(State->RenderState, GL_DEPTH_TEST);
-	GL_CHECK;
+	GL_CHECK("DisableDepthTest");
 	glDrawArrays(GL_TRIANGLES, 0, 6);
-	GL_CHECK;
+	GL_CHECK("DrawArrays");
 	Enable(State->RenderState, GL_DEPTH_TEST);
-	GL_CHECK;
+	GL_CHECK("EnableDepthTest");
 	BindVertexArray(State->RenderState, 0);
-	GL_CHECK;
+	GL_CHECK("BindVertexArray");
 
 	//
 	// }
@@ -109,6 +130,8 @@ void ComputeOnePatchOfGI(game_state* State,
 		float PixelSurfaceInMeters,
 		bool SaveFirstMegaTexture)
 {
+	Assert(PatchSizeInPixels == 32);
+
 	//
 	// NOTE(hugo) : Filling the megatexture
 	//
@@ -157,63 +180,59 @@ void ComputeOnePatchOfGI(game_state* State,
 
 	mat4 NormalMatrix = Identity4();
 
+	shader FillShader = State->Shaders[ShaderType_FillMegaTexture];
 	// NOTE(hugo) : Calling the ShaderType_FillMegaTexture
-	UseShader(State->RenderState, State->Shaders[ShaderType_FillMegaTexture]);
+	UseShader(State->RenderState, FillShader);
 
-	ActiveTexture(State->RenderState, GL_TEXTURE4);
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], (u32)4, "DepthMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.DepthTexture.ID);
+	SetUniformTexture(State->RenderState, FillShader,
+			State->GBuffer.DepthTexture.ID, 4, "DepthMap");
+	SetUniformTexture(State->RenderState, FillShader,
+			State->GBuffer.NormalTexture.ID, 5, "NormalMap");
 
-	ActiveTexture(State->RenderState, GL_TEXTURE5);
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], (u32)5, "NormalMap");
-	BindTexture(State->RenderState, GL_TEXTURE_2D, State->GBuffer.NormalTexture.ID);
-
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchX, "PatchX");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchY, "PatchY");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], PatchSizeInPixels, "PatchSizeInPixels");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->ObjectModelMatrix, "ObjectMatrix");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], WorldUp, "WorldUp");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.NearPlane, "CameraNearPlane");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.FarPlane, "CameraFarPlane");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.FoV, "CameraFoV");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Camera.Aspect, "CameraAspect");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], InvLookAtCamera, "InvLookAtCamera");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], NormalMatrix, "NormalMatrix");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->LightCount, "LightCount");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->LightIntensity, "LightIntensity");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Alpha, "Alpha");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->CookTorranceF0, "CTF0");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Ks, "Ks");
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], State->Kd, "Kd");
+	SetUniform(FillShader, PatchX, "PatchX");
+	SetUniform(FillShader, PatchY, "PatchY");
+	SetUniform(FillShader, PatchSizeInPixels, "PatchSizeInPixels");
+	SetUniform(FillShader, State->ObjectModelMatrix, "ObjectMatrix");
+	SetUniform(FillShader, WorldUp, "WorldUp");
+	SetUniform(FillShader, State->Camera.NearPlane, "CameraNearPlane");
+	SetUniform(FillShader, State->Camera.FarPlane, "CameraFarPlane");
+	SetUniform(FillShader, State->Camera.FoV, "CameraFoV");
+	SetUniform(FillShader, State->Camera.Aspect, "CameraAspect");
+	SetUniform(FillShader, InvLookAtCamera, "InvLookAtCamera");
+	SetUniform(FillShader, NormalMatrix, "NormalMatrix");
+	SetUniform(FillShader, State->LightIntensity, "LightIntensity");
+	SetUniform(FillShader, State->Alpha, "Alpha");
+	SetUniform(FillShader, State->CookTorranceF0, "CTF0");
+	SetUniform(FillShader, State->Ks, "Ks");
+	SetUniform(FillShader, State->Kd, "Kd");
+	SetUniform(FillShader, GlobalLayerCount, "LayerCount");
 	mat4 ViewMatrix = LookAt(State->Camera);
-	SetUniform(State->Shaders[ShaderType_FillMegaTexture], ViewMatrix, "ViewMatrix");
+	SetUniform(FillShader, ViewMatrix, "ViewMatrix");
 	//SetUniform(State->Shaders[ShaderType_FillMegaTexture], MicrobufferSize, "MicrobufferSize");
-	for(u32 LightIndex = 0; LightIndex < State->LightCount; ++LightIndex)
-	{
-		light* Light = State->Lights + LightIndex;
+	Assert(State->LightCount == 1);
+	u32 LightIndex = 0;
+	light* Light = State->Lights + LightIndex;
+	SetUniform(FillShader, Light->Pos, "LightPos");
+	SetUniform(FillShader, Light->Color, "LightColor");
 
-		char Buffer[64];
-		sprintf(Buffer, "LightPos[%i]", LightIndex);
-		SetUniform(State->Shaders[ShaderType_FillMegaTexture], Light->Pos, Buffer);
+	v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
+	v3 LightZAxis = Normalized(Light->Pos - Light->Target);
+	v3 LightXAxis = Cross(LightYAxis, LightZAxis);
+	mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
+	SetUniform(FillShader, LightViewProj, "LightSpaceMatrix");
 
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "LightColor[%i]", LightIndex);
-		SetUniform(State->Shaders[ShaderType_FillMegaTexture], Light->Color, Buffer);
+	SetUniformTexture(State->RenderState, FillShader,
+			Light->DepthFramebuffer.Texture.ID, LightIndex, "ShadowMap");
 
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "LightSpaceMatrix[%i]", LightIndex);
-		v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
-		v3 LightZAxis = Normalized(Light->Pos - Light->Target);
-		v3 LightXAxis = Cross(LightYAxis, LightZAxis);
-		mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
-		SetUniform(State->Shaders[ShaderType_FillMegaTexture], LightViewProj, Buffer);
-
-		memset(Buffer, 0, ArrayCount(Buffer));
-		sprintf(Buffer, "ShadowMaps[%i]", LightIndex);
-		ActiveTexture(State->RenderState, GL_TEXTURE0 + LightIndex);
-		SetUniform(State->Shaders[ShaderType_FillMegaTexture], LightIndex, Buffer);
-		BindTexture(State->RenderState, GL_TEXTURE_2D, Light->DepthFramebuffer.Texture.ID);
-	}
+#if 0
+	s32 MaxGeometryOutputVertices = 0;
+	s32 MaxGeometryOutputComponents = 0;
+	s32 MaxGeometryTotalOutputComponents = 0;
+	glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &MaxGeometryOutputVertices);
+	glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS, &MaxGeometryOutputComponents);
+	glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, &MaxGeometryTotalOutputComponents);
+	SDL_Log("MaxGeometryOutputVertices = %i -- MaxGeometryOutputComponent = %i -- MaxGeometryTotalOutputComponents = %i", MaxGeometryOutputVertices, MaxGeometryOutputComponents, MaxGeometryTotalOutputComponents);
+#endif
 
 	rect2 MegaViewport = RectFromMinSize(V2(0.0f, 0.0f), 
 			V2(State->MegaBuffer.Width, State->MegaBuffer.Height));
@@ -224,16 +243,20 @@ void ComputeOnePatchOfGI(game_state* State,
 	ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
 	Assert(!DetectErrors("BindFramebuffer"));
 	//ClearColorAndDepth(State->RenderState, V4(1.0f, 0.0f, 0.5f, 1.0f));
+
+	Assert(State->MegaBuffer.Width % GlobalMicrobufferWidth == 0);
+	u32 TileXCount = u32(State->MegaBuffer.Width / GlobalMicrobufferWidth);
+
 	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
 	{
 		object* Object = State->Objects + ObjectIndex;
 		// TODO(hugo) : Should I do frustum culling here ?
 		if(Object->Visible)
 		{
-			SetUniform(State->Shaders[ShaderType_FillMegaTexture], 
+			SetUniform(FillShader, 
 					ToV4(Object->Material.SpecularColor), "SpecularColor");
 			Assert(!DetectErrors("SetUniform"));
-			SetUniform(State->Shaders[ShaderType_FillMegaTexture], 
+			SetUniform(FillShader, 
 					ToV4(Object->Material.DiffuseColor), "DiffuseColor");
 			Assert(!DetectErrors("SetUniform"));
 
@@ -241,20 +264,25 @@ void ComputeOnePatchOfGI(game_state* State,
 			u32 InstanceDrawnCount = 0;
 			while(InstanceDrawnCount < InstanceCount)
 			{
-				u32 DrawCount = Minu(MaxInstanceDrawn, InstanceCount - InstanceDrawnCount);
+				Assert(InstanceDrawnCount % GlobalLayerCount == 0);
+				u32 DrawLeft = InstanceCount - InstanceDrawnCount;
+				u32 DrawCount = Minu(MaxInstanceDrawn, DrawLeft);
 
 #if 0
 				// TODO(hugo) : Here I recompute the viewports for each object.
 				// Maybe I could, for each viewport sets, draw all the objects... ?
 				float* FirstViewport = Viewports + 4 * InstanceDrawnCount;
 #else
-				u32 BaseTileID = InstanceDrawnCount;
+
+				u32 BaseTileID = InstanceDrawnCount / GlobalLayerCount;
 				float* FirstViewport = AllocateArray(float, 4 * DrawCount);
-				for(u32 ViewportIndex = 0; ViewportIndex < DrawCount; ++ViewportIndex)
+				Assert(DrawCount % GlobalLayerCount == 0);
+				u32 ViewportCount = DrawCount / GlobalLayerCount;
+				for(u32 ViewportIndex = 0; ViewportIndex < ViewportCount; ++ViewportIndex)
 				{
-					u32 TileID = InstanceDrawnCount + ViewportIndex;
-					u32 TileX = TileID % PatchWidth;
-					u32 TileY = (TileID - TileX) / PatchWidth;
+					u32 TileID = (InstanceDrawnCount / GlobalLayerCount) + ViewportIndex;
+					u32 TileX = TileID % TileXCount;
+					u32 TileY = (TileID - TileX) / TileXCount;
 
 					v2 ViewportMin = Hadamard(ViewportSize, V2(TileX, TileY));
 					FirstViewport[4 * ViewportIndex + 0] = ViewportMin.x;
@@ -263,13 +291,15 @@ void ComputeOnePatchOfGI(game_state* State,
 					FirstViewport[4 * ViewportIndex + 3] = ViewportSize.y;
 				}
 #endif
-				SetUniform(State->Shaders[ShaderType_FillMegaTexture],
+				SetUniform(FillShader,
 						BaseTileID, "BaseTileID");
-				GL_CHECK;
+				GL_CHECK("SetUniform");
 
-				glViewportArrayv(0, DrawCount, FirstViewport);
-				GL_CHECK;
-				DrawTriangleObjectInstances(State->RenderState, Object, DrawCount);
+				glViewportArrayv(0, ViewportCount, FirstViewport);
+				GL_CHECK("ViewportArrayv");
+				Assert(DrawCount % GlobalLayerCount == 0);
+				u32 Instance = DrawCount / GlobalLayerCount;
+				DrawTriangleObjectInstances(State->RenderState, Object, Instance);
 				Assert(!DetectErrors("Draw"));
 
 				Free(FirstViewport);
@@ -292,21 +322,35 @@ void ComputeOnePatchOfGI(game_state* State,
 	if(SaveFirstMegaTexture && (PatchX == 0) && (PatchY == 0))
 	{
 		char Filename[64];
-		ScreenshotBufferAttachment("Megatexture",
+#if 0
+		for(u32 LayerIndex = 0; LayerIndex < LAYER_COUNT; ++LayerIndex)
+		{
+			char Buffer[64];
+			sprintf(Buffer, "Megatexture_%i.png", LayerIndex);
+			ScreenshotBufferAttachment(Buffer,
+				State->RenderState, State->MegaBuffer.ID,
+				LayerIndex, State->MegaBuffer.Width,
+				State->MegaBuffer.Height,
+				GL_RGBA, GL_RGBA16F);
+			GL_CHECK();
+		}
+#else
+		ScreenshotBufferAttachment("Megatexture_0.png",
 			State->RenderState, State->MegaBuffer.ID,
-			0, State->MegaBuffer.Width, 
+			0, State->MegaBuffer.Width,
 			State->MegaBuffer.Height,
 			GL_RGBA, GL_UNSIGNED_BYTE);
+#endif
 	}
 
 	MegaConvolution(State, Camera, PatchSizeInPixels,
 			PixelSurfaceInMeters,
 			PatchX, PatchY,
 			PatchWidth, PatchHeight,
-			InvLookAtCamera, WorldUp);
+			InvLookAtCamera, WorldUp, TileXCount);
 
 #if 1
-	if(PatchX == 0)
+	if(!GlobalRealTimeGI && PatchX == 0)
 	{
 		SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
 		BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
@@ -330,7 +374,9 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 			(State->HemicubeFramebuffer.Height != GlobalMicrobufferHeight))
 	{
 		UpdateHemicubeScreenFramebuffer(State->RenderState, &State->HemicubeFramebuffer, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
-		UpdateBasicFramebuffer(State->RenderState, &State->MegaBuffer, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalMicrobufferHeight * State->PatchSizeInPixels);
+
+		v2 MegaBufferSize = GetMegaBufferSize(State->PatchSizeInPixels, GlobalMicrobufferWidth, GlobalMicrobufferHeight, GlobalLayerCount);
+		UpdateMegaBuffer(State->RenderState, &State->MegaBuffer, MegaBufferSize.x, MegaBufferSize.y);
 	}
 
 	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->IndirectIlluminationFramebuffer.ID);
@@ -362,17 +408,239 @@ void ComputeGlobalIlluminationWithPatch(game_state* State,
 					SaveFirstMegaTexture);
 		}
 	}
+	SetViewport(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+	RenderTextureOnQuadScreen(State, State->IndirectIlluminationFramebuffer.Texture);
+	Assert(!DetectErrors("GI2"));
 	u32 EndTicks = SDL_GetTicks();
+#if 0
 	float Duration = float(EndTicks - BeginTicks);
 	printf("%fms to compute the frame.\n", Duration);
 	float MillisecondsPerPatch = Duration / float(PatchXCount * PatchYCount);
 	printf("%fms on average per patch.\n", MillisecondsPerPatch);
+#endif
 
+#if 0
 	ScreenshotBufferAttachment("GI_result.png",
 		State->RenderState, State->IndirectIlluminationFramebuffer.ID,
 		0, State->IndirectIlluminationFramebuffer.Width, 
 		State->IndirectIlluminationFramebuffer.Height,
 		GL_RGBA, GL_UNSIGNED_BYTE);
+#endif
+	State->MegaBufferComputed = true;
 }
 
+void DEBUGComputeOnePatchOfGI(game_state* State, 
+		camera Camera, 
+		mat4 LightProjectionMatrix,
+		u32 PatchSizeInPixels,
+		bool SaveFirstMegaTexture = false)
+{
+	u32 PatchXCount = Ceil(GlobalWindowWidth / (float)PatchSizeInPixels);
+	u32 PatchYCount = Ceil(GlobalWindowHeight / (float)PatchSizeInPixels);
 
+	// NOTE(hugo) : This works because all microbuffers have the same width (but different heights)
+	// TODO(hugo) : This changes in the paraboloid setup
+	float MicrobufferWidthInMeters = 2.0f;
+	float PixelsToMeters = MicrobufferWidthInMeters / float(State->HemicubeFramebuffer.Width);
+	float PixelSurfaceInMeters = PixelsToMeters * PixelsToMeters;
+
+	mat4 InvLookAtCamera = Inverse(LookAt(Camera));
+	v2 MicrobufferSize = V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
+
+	Assert(PatchSizeInPixels == 32);
+	Assert(GlobalLayerCount == 8);
+	u32 TileCountX = 16;
+	u32 PatchX = 4;
+	u32 PatchY = 4;
+	//
+	// NOTE(hugo) : Filling the megatexture
+	//
+	// {
+
+	u32 PatchWidth = PatchSizeInPixels;
+	u32 PatchHeight = PatchSizeInPixels;
+	// NOTE(hugo) : Only the last patches can have a different size
+	if(PatchX == PatchXCount - 1)
+	{
+		PatchWidth = GlobalWindowWidth - (PatchXCount - 1) * PatchSizeInPixels;
+	}
+	if(PatchY == PatchYCount - 1)
+	{
+		PatchHeight = GlobalWindowHeight - (PatchYCount - 1) * PatchSizeInPixels;
+	}
+	Assert(PatchWidth <= PatchSizeInPixels);
+	Assert(PatchHeight <= PatchSizeInPixels);
+
+	u32 InstanceCount = PatchWidth * PatchHeight;
+
+	// NOTE(hugo) : Compute Viewport Array
+	// There is as many viewports as there are pixels in the patch
+	v2 ViewportSize = V2(GlobalMicrobufferWidth, GlobalMicrobufferHeight);
+	v3 WorldUp = V3(0.0f, 1.0f, 0.0f);
+
+	mat4 NormalMatrix = Identity4();
+
+	shader FillShader = State->Shaders[ShaderType_FillMegaTexture];
+	// NOTE(hugo) : Calling the ShaderType_FillMegaTexture
+	UseShader(State->RenderState, FillShader);
+
+	SetUniformTexture(State->RenderState, FillShader,
+			State->GBuffer.DepthTexture.ID, 4, "DepthMap");
+	SetUniformTexture(State->RenderState, FillShader,
+			State->GBuffer.NormalTexture.ID, 5, "NormalMap");
+
+	SetUniform(FillShader, PatchX, "PatchX");
+	SetUniform(FillShader, PatchY, "PatchY");
+	SetUniform(FillShader, PatchSizeInPixels, "PatchSizeInPixels");
+	SetUniform(FillShader, State->ObjectModelMatrix, "ObjectMatrix");
+	SetUniform(FillShader, WorldUp, "WorldUp");
+	SetUniform(FillShader, State->Camera.NearPlane, "CameraNearPlane");
+	SetUniform(FillShader, State->Camera.FarPlane, "CameraFarPlane");
+	SetUniform(FillShader, State->Camera.FoV, "CameraFoV");
+	SetUniform(FillShader, State->Camera.Aspect, "CameraAspect");
+	SetUniform(FillShader, InvLookAtCamera, "InvLookAtCamera");
+	SetUniform(FillShader, NormalMatrix, "NormalMatrix");
+	SetUniform(FillShader, State->LightIntensity, "LightIntensity");
+	SetUniform(FillShader, State->Alpha, "Alpha");
+	SetUniform(FillShader, State->CookTorranceF0, "CTF0");
+	SetUniform(FillShader, State->Ks, "Ks");
+	SetUniform(FillShader, State->Kd, "Kd");
+	SetUniform(FillShader, GlobalLayerCount, "LayerCount");
+	mat4 ViewMatrix = LookAt(State->Camera);
+	SetUniform(FillShader, ViewMatrix, "ViewMatrix");
+
+	Assert(State->LightCount == 1);
+	u32 LightIndex = 0;
+	light* Light = State->Lights + LightIndex;
+
+	SetUniform(FillShader, Light->Pos, "LightPos");
+
+	SetUniform(FillShader, Light->Color, "LightColor");
+
+	v3 LightYAxis = V3(0.0f, 1.0f, 0.0f);
+	v3 LightZAxis = Normalized(Light->Pos - Light->Target);
+	v3 LightXAxis = Cross(LightYAxis, LightZAxis);
+	mat4 LightViewProj = State->LightProjectionMatrix * LookAt(Light->Pos, LightXAxis, LightZAxis);
+	SetUniform(FillShader, LightViewProj, "LightSpaceMatrix");
+
+	SetUniformTexture(State->RenderState, FillShader,
+			Light->DepthFramebuffer.Texture.ID, LightIndex, "ShadowMap");
+
+#if 0
+	s32 MaxGeometryOutputVertices = 0;
+	s32 MaxGeometryOutputComponents = 0;
+	s32 MaxGeometryTotalOutputComponents = 0;
+	glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &MaxGeometryOutputVertices);
+	glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS, &MaxGeometryOutputComponents);
+	glGetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, &MaxGeometryTotalOutputComponents);
+	SDL_Log("MaxGeometryOutputVertices = %i -- MaxGeometryOutputComponent = %i -- MaxGeometryTotalOutputComponents = %i", MaxGeometryOutputVertices, MaxGeometryOutputComponents, MaxGeometryTotalOutputComponents);
+#endif
+
+	rect2 MegaViewport = RectFromMinSize(V2(0.0f, 0.0f), 
+			V2(State->MegaBuffer.Width, State->MegaBuffer.Height));
+	SetViewport(State->RenderState, MegaViewport);
+	Assert(!DetectErrors("SetViewport"));
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->MegaBuffer.ID);
+	ClearColor(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
+	Assert(!DetectErrors("BindFramebuffer"));
+	for(u32 ObjectIndex = 0; ObjectIndex < State->ObjectCount; ++ObjectIndex)
+	{
+		object* Object = State->Objects + ObjectIndex;
+		// TODO(hugo) : Should I do frustum culling here ?
+		if(Object->Visible)
+		{
+			SetUniform(FillShader, 
+					ToV4(Object->Material.SpecularColor), "SpecularColor");
+			Assert(!DetectErrors("SetUniform"));
+			SetUniform(FillShader, 
+					ToV4(Object->Material.DiffuseColor), "DiffuseColor");
+			Assert(!DetectErrors("SetUniform"));
+
+			// NOTE(hugo) : Split the draw call by patch of sixteen
+			u32 InstanceDrawnCount = 0;
+			while(InstanceDrawnCount < InstanceCount)
+			{
+				Assert(InstanceDrawnCount % GlobalLayerCount == 0);
+				u32 DrawLeft = InstanceCount - InstanceDrawnCount;
+				u32 DrawCount = Minu(MaxInstanceDrawn, DrawLeft);
+
+				u32 BaseTileID = InstanceDrawnCount / GlobalLayerCount;
+				float* FirstViewport = AllocateArray(float, 4 * DrawCount);
+				Assert(DrawCount % GlobalLayerCount == 0);
+				u32 ViewportCount = DrawCount / GlobalLayerCount;
+				for(u32 ViewportIndex = 0; ViewportIndex < ViewportCount; ++ViewportIndex)
+				{
+					u32 TileID = BaseTileID + ViewportIndex;
+					u32 TileX = TileID % TileCountX;
+					u32 TileY = (TileID - TileX) / TileCountX;
+
+					v2 ViewportMin = Hadamard(ViewportSize, V2(TileX, TileY));
+					FirstViewport[4 * ViewportIndex + 0] = ViewportMin.x;
+					FirstViewport[4 * ViewportIndex + 1] = ViewportMin.y;
+					FirstViewport[4 * ViewportIndex + 2] = ViewportSize.x;
+					FirstViewport[4 * ViewportIndex + 3] = ViewportSize.y;
+				}
+				SetUniform(FillShader,
+						BaseTileID, "BaseTileID");
+				GL_CHECK("SetUniform");
+
+				glViewportArrayv(0, ViewportCount, FirstViewport);
+				GL_CHECK("ViewportArrayv");
+				Assert(DrawCount % GlobalLayerCount == 0);
+				u32 Instance = DrawCount / GlobalLayerCount;
+				DrawTriangleObjectInstances(State->RenderState, Object, Instance);
+				Assert(!DetectErrors("Draw"));
+
+				Free(FirstViewport);
+
+				InstanceDrawnCount += DrawCount;
+			}
+		}
+	}
+	// 
+	// }
+	//
+	State->MegaBufferComputed = true;
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+}
+
+void DEBUGComputeDummyLayeredFramebuffer(game_state* State)
+{
+	shader DEBUGFillShader = State->Shaders[ShaderType_DEBUGLayerFiller];
+	UseShader(State->RenderState, DEBUGFillShader);
+
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, State->DEBUGBuffer.ID);
+	Assert(!DetectErrors("BindFramebuffer"));
+	ClearColorAndDepth(State->RenderState, V4(0.0f, 0.0f, 0.0f, 1.0f));
+
+	BindVertexArray(State->RenderState, State->QuadVAO);
+	Disable(State->RenderState, GL_DEPTH_TEST);
+
+	glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GlobalLayerCount);
+
+	Enable(State->RenderState, GL_DEPTH_TEST);
+	BindVertexArray(State->RenderState, 0);
+
+	State->MegaBufferComputed = true;
+	BindFramebuffer(State->RenderState, GL_FRAMEBUFFER, 0);
+}
+
+void DEBUGDisplayMegabufferLayer(game_state* State, u32 LayerIndex)
+{
+	Assert(State->MegaBufferComputed);
+	shader DEBUGMegaBufferShader = State->Shaders[ShaderType_DEBUGMegaBuffer];
+
+	UseShader(State->RenderState, DEBUGMegaBufferShader);
+
+	SetUniform(DEBUGMegaBufferShader, LayerIndex, "LayerIndex");
+	SetUniformTexture(State->RenderState, DEBUGMegaBufferShader,
+			State->MegaBuffer.TextureArray.ID, 0, "Texture", GL_TEXTURE_2D_ARRAY);
+			//State->DEBUGBuffer.TextureArray.ID, 0, "Texture", GL_TEXTURE_2D_ARRAY);
+
+	BindVertexArray(State->RenderState, State->QuadVAO);
+	Disable(State->RenderState, GL_DEPTH_TEST);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
+	Enable(State->RenderState, GL_DEPTH_TEST);
+	BindVertexArray(State->RenderState, 0);
+}

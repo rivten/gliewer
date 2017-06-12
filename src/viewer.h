@@ -182,8 +182,11 @@ struct game_state
 	// NOTE(hugo): Global illumination
 	// {
 	basic_framebuffer IndirectIlluminationFramebuffer;
-	basic_framebuffer MegaBuffer;
+	mega_buffer MegaBuffer;
+	mega_buffer DEBUGBuffer;
 
+	bool MegaBufferComputed;
+	u32 MegaBufferLayerDebugDisplay;
 	bool SaveFirstMegaTexture;
 
 	// }
@@ -203,6 +206,4 @@ struct game_state
 	render_state* RenderState;
 	rect3 FrustumBoundingBox;
 };
-
-#include "viewer.cpp"
 

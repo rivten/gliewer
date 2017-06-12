@@ -4,6 +4,8 @@ static int GlobalShadowWidth = 2 * 1024;
 static int GlobalShadowHeight = 2 * 1024;
 static int GlobalTeapotInstanceCount = 10;
 
+static bool GlobalRealTimeGI = false;
+
 GLuint LoadCubemap(game_state* State, const char** Filenames)
 {
 	GLuint Texture;
@@ -652,7 +654,12 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 		State->PreFXAA = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight, true);
 		State->HemicubeFramebuffer = CreateHemicubeScreenFramebuffer(State->RenderState, GlobalMicrobufferWidth, GlobalMicrobufferHeight);
 		State->IndirectIlluminationFramebuffer = CreateBasicFramebuffer(State->RenderState, GlobalWindowWidth, GlobalWindowHeight);
-		State->MegaBuffer = CreateBasicFramebuffer(State->RenderState, GlobalMicrobufferWidth * State->PatchSizeInPixels, GlobalMicrobufferHeight * State->PatchSizeInPixels, true);
+		v2 MegaBufferSize = GetMegaBufferSize(State->PatchSizeInPixels, GlobalMicrobufferWidth, GlobalMicrobufferHeight, GlobalLayerCount);
+		State->MegaBuffer = CreateMegaBuffer(State->RenderState, MegaBufferSize.x, MegaBufferSize.y);
+		State->MegaBufferComputed = false;
+		State->MegaBufferLayerDebugDisplay = 0;
+
+		State->DEBUGBuffer = CreateMegaBuffer(State->RenderState, 100, 100);
 
 		State->SSAOParams.SampleCount = 0;
 		State->SSAOParams.Intensity = 1.0f;
@@ -958,12 +965,60 @@ void GameUpdateAndRender(game_memory* Memory, game_input* Input, render_state* R
 	
 	State->PreviousViewProj = State->CameraProj * LookAt(State->Camera);
 
-	HandleGUI(State);
+	//HandleGUI(State);
 	if(IsKeyPressed(Input, SCANCODE_RETURN))
 	{
+#if 1
 			ComputeGlobalIlluminationWithPatch(State, 
 					State->Camera, 
 					State->LightProjectionMatrix, State->PatchSizeInPixels,
 					State->SaveFirstMegaTexture);
+#else
+			//DEBUGComputeDummyLayeredFramebuffer(State);
+			DEBUGComputeOnePatchOfGI(State, State->Camera, State->LightProjectionMatrix,
+					State->PatchSizeInPixels, State->SaveFirstMegaTexture);
+#endif
+	}
+	if(State->MegaBufferComputed)
+	{
+		if(IsKeyPressed(Input, SCANCODE_KP_0))
+		{
+			DEBUGDisplayMegabufferLayer(State, 0);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_1))
+		{
+			DEBUGDisplayMegabufferLayer(State, 1);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_2))
+		{
+			DEBUGDisplayMegabufferLayer(State, 2);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_3))
+		{
+			DEBUGDisplayMegabufferLayer(State, 3);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_4))
+		{
+			DEBUGDisplayMegabufferLayer(State, 4);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_5))
+		{
+			DEBUGDisplayMegabufferLayer(State, 5);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_6))
+		{
+			DEBUGDisplayMegabufferLayer(State, 6);
+		}
+		else if(IsKeyPressed(Input, SCANCODE_KP_7))
+		{
+			DEBUGDisplayMegabufferLayer(State, 7);
+		}
+	}
+	if(GlobalRealTimeGI)
+	{
+		ComputeGlobalIlluminationWithPatch(State, 
+				State->Camera, 
+				State->LightProjectionMatrix, State->PatchSizeInPixels,
+				State->SaveFirstMegaTexture);
 	}
 }

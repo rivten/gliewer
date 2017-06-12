@@ -17,7 +17,8 @@
 
 global_variable bool GlobalRunning = false;
 global_variable u32 GlobalWindowWidth = 2 * 256;
-global_variable u32 GlobalWindowHeight = 2 * 256;
+//global_variable u32 GlobalWindowWidth = 128;
+global_variable u32 GlobalWindowHeight = GlobalWindowWidth;
 global_variable SDL_Window* GlobalWindow = 0;
 
 const u32 FrameTrackingCount = 128;
@@ -32,7 +33,9 @@ global_variable u32 DEBUGRenderStateChangeCurrentCounter = 0;
 #include "gl_layer.h"
 #include "mesh.h"
 
+#include "global_illumination.h"
 #include "viewer.h"
+#include "viewer.cpp"
 
 struct platform_work_queue;
 #define PLATFORM_WORK_QUEUE_CALLBACK(name) void name(platform_work_queue* Queue, void* Data)

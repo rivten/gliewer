@@ -10,6 +10,8 @@ enum shader_type
 	ShaderType_FXAA,
 	ShaderType_FillGBuffer,
 	ShaderType_FillMegaTexture,
+	ShaderType_DEBUGMegaBuffer,
+	ShaderType_DEBUGLayerFiller,
 
 	ShaderType_Count,
 };
@@ -41,7 +43,8 @@ static shader_source Sources[ShaderType_Count] =
 	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/fxaa_f.glsl"},
 	{"../src/shaders/fillg_v.glsl", "../src/shaders/fillg_f.glsl"},
 	{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl", "../src/shaders/megafiller_g.glsl"},
-	//{"../src/shaders/megafiller_v.glsl", "../src/shaders/megafiller_f.glsl"},
+	{"../src/shaders/depth_debug_quad_v.glsl", "../src/shaders/debugmega_f.glsl"},
+	{"../src/shaders/debug_fill_layer_v.glsl", "../src/shaders/debug_fill_layer_f.glsl", "../src/shaders/debug_fill_layer_g.glsl"},
 };
 
 static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] = 
@@ -109,6 +112,8 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"InvLookAtCamera",
 		"WindowWidth",
 		"WindowHeight",
+		"LayerCount",
+		"TileXCount",
 	},
 
 	// NOTE(hugo) : ShaderType_Skybox
@@ -187,25 +192,14 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"CameraAspect",
 		"InvLookAtCamera",
 		"NormalMatrix",
-		"LightCount",
-		"LightSpaceMatrix[0]",
-		"LightSpaceMatrix[1]",
-		"LightSpaceMatrix[2]",
-		"LightSpaceMatrix[3]",
+		"LightSpaceMatrix",
 		"BaseTileID",
 
-		"ShadowMaps[0]",
-		"ShadowMaps[1]",
-		"ShadowMaps[2]",
-		"ShadowMaps[3]",
-		"LightPos[0]",
-		"LightPos[1]",
-		"LightPos[2]",
-		"LightPos[3]",
-		"LightColor[0]",
-		"LightColor[1]",
-		"LightColor[2]",
-		"LightColor[3]",
+		"LayerCount",
+
+		"ShadowMap",
+		"LightPos",
+		"LightColor",
 		"ViewMatrix",
 		"LightIntensity",
 		"DiffuseColor",
@@ -214,6 +208,16 @@ static char* Uniforms[ShaderType_Count][MAX_UNIFORM_COUNT] =
 		"CTF0",
 		"Ks",
 		"Kd",
+	},
+
+	// NOTE(hugo) : ShaderType_DEBUGMegaBuffer
+	{
+		"Texture",
+		"LayerIndex",
+	},
+
+	// NOTE(hugo) : ShaderType_DEBUGLayerFiller
+	{
 	},
 };
 
@@ -248,8 +252,9 @@ shader LoadShader(u32 ShaderType)
 	glGetShaderiv(Vertex, GL_COMPILE_STATUS, &CompileSuccess);
 	if (!CompileSuccess)
 	{
+		char* FilePath = Sources[ShaderType].VertexSourceFilename;
 		glGetShaderInfoLog(Vertex, 512, 0, InfoLog);
-		SDL_Log("%s\n", InfoLog);
+		SDL_Log("FILE(%s)\n%s\n", FilePath, InfoLog);
 		InvalidCodePath;
 	}
 	Free(VertexCode);
@@ -263,8 +268,9 @@ shader LoadShader(u32 ShaderType)
 		glGetShaderiv(Geometry, GL_COMPILE_STATUS, &CompileSuccess);
 		if (!CompileSuccess)
 		{
+			char* FilePath = Sources[ShaderType].GeometrySourceFilename;
 			glGetShaderInfoLog(Geometry, 512, 0, InfoLog);
-			SDL_Log("%s\n", InfoLog);
+			SDL_Log("FILE(%s)\n%s\n", FilePath, InfoLog);
 			InvalidCodePath;
 		}
 		Free(GeometryCode);
@@ -276,8 +282,9 @@ shader LoadShader(u32 ShaderType)
 	glGetShaderiv(Fragment, GL_COMPILE_STATUS, &CompileSuccess);
 	if (!CompileSuccess)
 	{
+		char* FilePath = Sources[ShaderType].FragmentSourceFilename;
 		glGetShaderInfoLog(Fragment, 512, 0, InfoLog);
-		SDL_Log("%s\n", InfoLog);
+		SDL_Log("FILE(%s)\n%s\n", FilePath, InfoLog);
 		InvalidCodePath;
 	}
 	Free(FragmentCode);

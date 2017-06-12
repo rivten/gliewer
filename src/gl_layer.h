@@ -1,5 +1,7 @@
 #pragma once
 
+#define GL_CHECK(Str) Assert(!DetectErrors(Str))
+
 static GLfloat QuadVertices[] = { 
 	// Positions   // TexCoords
 	-1.0f,  1.0f,  0.0f, 1.0f,
@@ -56,6 +58,58 @@ static GLfloat SkyboxVertices[] = {
      1.0f, -1.0f,  1.0f
 };
 
+// --------------------------------
+//  NOTE(hugo) : Error handling
+// --------------------------------
+
+bool DetectErrors(char* Tag = "")
+{
+	bool ErrorFound = false;
+	for(GLenum Error; (Error = glGetError()) != GL_NO_ERROR;)
+	{
+		ErrorFound = true;
+		switch(Error)
+		{
+			case GL_INVALID_ENUM:
+				{
+					SDL_Log("GL_INVALID_ENUM (%s)", Tag);
+				} break;
+			case GL_INVALID_VALUE:
+				{
+					SDL_Log("GL_INVALID_VALUE (%s)", Tag);
+				} break;
+			case GL_INVALID_OPERATION:
+				{
+					SDL_Log("GL_INVALID_OPERATION (%s)", Tag);
+				} break;
+			case GL_STACK_OVERFLOW:
+				{
+					SDL_Log("GL_STACK_OVERFLOW (%s)", Tag);
+				} break;
+			case GL_STACK_UNDERFLOW:
+				{
+					SDL_Log("GL_STACK_UNDERFLOW (%s)", Tag);
+				} break;
+			case GL_OUT_OF_MEMORY:
+				{
+					SDL_Log("GL_OUT_OF_MEMORY (%s)", Tag);
+				} break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				{
+					SDL_Log("GL_INVALID_FRAMEBUFFER_OPERATION (%s)", Tag);
+				} break;
+			case GL_CONTEXT_LOST:
+				{
+					SDL_Log("GL_CONTEXT_LOST (%s)", Tag);
+				} break;
+
+			InvalidDefaultCase;
+		}
+	}
+
+	return(ErrorFound);
+}
+
 struct texture
 {
 	u32 ID;
@@ -69,6 +123,7 @@ struct render_state
 	u32 ShaderID;
 	u32 Texture2ID;
 	u32 TextureCubeMapID;
+	u32 Texture2ArrayID;
 	GLenum ActiveTexture;
 
 	u32 VertexArrayID;
@@ -208,6 +263,15 @@ void BindTexture(render_state* State, GLenum TextureTarget, u32 TextureID)
 				{
 					State->Texture2ID = TextureID;
 					glBindTexture(TextureTarget, State->Texture2ID);
+					++DEBUGGLCurrentFrameStateChangeCount;
+				}
+			} break;
+		case GL_TEXTURE_2D_ARRAY:
+			{
+				if(State->Texture2ArrayID != TextureID)
+				{
+					State->Texture2ArrayID = TextureID;
+					glBindTexture(TextureTarget, State->Texture2ArrayID);
 					++DEBUGGLCurrentFrameStateChangeCount;
 				}
 			} break;
@@ -621,54 +685,6 @@ depth_framebuffer CreateDepthFramebuffer(render_state* State, int BufferWidth, i
 	return(Result);
 }
 
-#if 0
-struct screen_normal_framebuffer
-{
-	u32 ID;
-	u32 ScreenTexture;
-	u32 NormalTexture;
-	u32 RBO;
-};
-
-screen_normal_framebuffer CreateScreenNormalFramebuffer(int BufferWidth, int BufferHeight)
-{
-	screen_normal_framebuffer Result = {};
-	glGenFramebuffers(1, &Result.ID);
-
-	glGenTextures(1, &Result.ScreenTexture);
-	glGenTextures(1, &Result.NormalTexture);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, Result.ID);
-
-	glBindTexture(GL_TEXTURE_2D, Result.ScreenTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, BufferWidth, BufferHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.ScreenTexture, 0);
-
-	glBindTexture(GL_TEXTURE_2D, Result.NormalTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, BufferWidth, BufferHeight, 0, GL_RGB, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, Result.NormalTexture, 0);
-
-	glGenRenderbuffers(1, &Result.RBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, Result.RBO);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, BufferWidth, BufferHeight);
-
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, Result.RBO);
-
-	GLuint Attachements[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-	glDrawBuffers(2, Attachements);
-
-	Assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	return(Result);
-}
-#endif
-
 struct basic_framebuffer
 {
 	u32 Width;
@@ -704,17 +720,6 @@ basic_framebuffer CreateBasicFramebuffer(render_state* State,
 
 	LoadImageToTexture(State, &Result.Texture, Params);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Result.Texture.ID, 0);
-
-#if 0
-	glBindTexture(GL_TEXTURE_2D, Result.DepthTexture.ID);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, BufferWidth, BufferHeight, 0, 
-			GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, Result.DepthTexture.ID, 0);
-#endif
 
 	GLuint Attachements[1] = {GL_COLOR_ATTACHMENT0};
 	glDrawBuffers(1, Attachements);
@@ -809,8 +814,6 @@ void UpdateGeometryFramebuffer(render_state* State, geometry_framebuffer* Frameb
 	DeleteTexture(&Framebuffer->AlbedoTexture);
 	DeleteTexture(&Framebuffer->DepthTexture);
 
-	//glDeleteRenderbuffers(1, &Framebuffer->RBO);
-
 	*Framebuffer = CreateGeometryFramebuffer(State, Width, Height);
 }
 
@@ -853,12 +856,6 @@ hemicube_framebuffer CreateHemicubeScreenFramebuffer(render_state* State, int Bu
 	{
 		u32 Width = BufferWidth;
 		u32 Height = BufferHeight;
-#if 0
-		if(FramebufferIndex > 0)
-		{
-			Height /= 2;
-		}
-#endif
 		Result.MicroBuffers[FramebufferIndex] = CreateGeometryFramebuffer(State, Width, Height);
 	}
 
@@ -884,8 +881,11 @@ void ReadBufferAttachement(render_state* State, u32 FramebufferID, u32 Attacheme
 		u32 X, u32 Y, u32 Width, u32 Height, GLenum Format, GLenum Type, void* Data)
 {
 	BindFramebuffer(State, GL_FRAMEBUFFER, FramebufferID);
+	GL_CHECK();
 	ReadBuffer(State, GL_COLOR_ATTACHMENT0 + AttachementIndex);
+	GL_CHECK();
 	glReadPixels(X, Y, Width, Height, Format, Type, Data);
+	GL_CHECK();
 }
 
 void ReadBufferDepth(render_state* State, u32 FramebufferID, 
@@ -922,58 +922,6 @@ bool TextureExists(render_state* RenderState, char* TextureName, u32* Location)
 	}
 
 	return(Found);
-}
-
-// --------------------------------
-//  NOTE(hugo) : Error handling
-// --------------------------------
-
-bool DetectErrors(char* Tag)
-{
-	bool ErrorFound = false;
-	for(GLenum Error; (Error = glGetError()) != GL_NO_ERROR;)
-	{
-		ErrorFound = true;
-		switch(Error)
-		{
-			case GL_INVALID_ENUM:
-				{
-					SDL_Log("GL_INVALID_ENUM (%s)", Tag);
-				} break;
-			case GL_INVALID_VALUE:
-				{
-					SDL_Log("GL_INVALID_VALUE (%s)", Tag);
-				} break;
-			case GL_INVALID_OPERATION:
-				{
-					SDL_Log("GL_INVALID_OPERATION (%s)", Tag);
-				} break;
-			case GL_STACK_OVERFLOW:
-				{
-					SDL_Log("GL_STACK_OVERFLOW (%s)", Tag);
-				} break;
-			case GL_STACK_UNDERFLOW:
-				{
-					SDL_Log("GL_STACK_UNDERFLOW (%s)", Tag);
-				} break;
-			case GL_OUT_OF_MEMORY:
-				{
-					SDL_Log("GL_OUT_OF_MEMORY (%s)", Tag);
-				} break;
-			case GL_INVALID_FRAMEBUFFER_OPERATION:
-				{
-					SDL_Log("GL_INVALID_FRAMEBUFFER_OPERATION (%s)", Tag);
-				} break;
-			case GL_CONTEXT_LOST:
-				{
-					SDL_Log("GL_CONTEXT_LOST (%s)", Tag);
-				} break;
-
-			InvalidDefaultCase;
-		}
-	}
-
-	return(ErrorFound);
 }
 
 u32 ColorV4ToU32(v4 Color)
@@ -1032,5 +980,6 @@ void ScreenshotBufferAttachment(char* OutputFilename,
 	ReadBufferAttachement(State, FramebufferID, AttachmentID,
 			0, 0, Width, Height, Format, Type, Buffer);
 	SaveScreenshot(OutputFilename, Width, Height, Buffer);
+	GL_CHECK();
 	Free(Buffer);
 }
